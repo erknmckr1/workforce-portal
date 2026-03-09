@@ -4,6 +4,7 @@ import { useAuthStore } from "./store/authStore";
 import apiClient from "./lib/api";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
+import MainLayout from "./components/layout/MainLayout";
 import "./App.css";
 
 import { Toaster } from "@/components/ui/sonner";
@@ -50,19 +51,28 @@ function App() {
 
   return (
     <BrowserRouter>
-      <Toaster position="bottom-right" richColors />
+      <Toaster position="top-center" richColors />
       <Routes>
-        {/* Giriş yapmamışsa Login'e, yapmışsa Dashboard'a yönlendir */}
+        {/* Giriş yapmamışsa Login'e yönlendir */}
         <Route
           path="/login"
           element={!isAuthenticated ? <Login /> : <Navigate to="/" />}
         />
 
-        {/* Protected (Korumalı) Rota */}
+        {/* Korumalı Rotalar (Layout ile birlikte) */}
         <Route
           path="/"
-          element={isAuthenticated ? <Dashboard /> : <Navigate to="/login" />}
-        />
+          element={isAuthenticated ? <MainLayout /> : <Navigate to="/login" />}
+        >
+          {/* Dashboard ana sayfa olarak kalsın */}
+          <Route index element={<Dashboard />} />
+
+          {/* Diğer Alt Rotalar Buraya Gelecek */}
+          <Route path="leaves" element={<div className="p-4 border-2 border-dashed rounded-3xl">İzin Yönetimi Sayfası Yakında...</div>} />
+          <Route path="management" element={<div className="p-4 border-2 border-dashed rounded-3xl">Personel Yönetimi Sayfası Yakında...</div>} />
+          <Route path="reports" element={<div className="p-4 border-2 border-dashed rounded-3xl">Raporlar Sayfası Yakında...</div>} />
+          <Route path="settings" element={<div className="p-4 border-2 border-dashed rounded-3xl">Ayarlar Sayfası Yakında...</div>} />
+        </Route>
       </Routes>
     </BrowserRouter>
   );

@@ -1,0 +1,183 @@
+import { useLocation, Link } from "react-router-dom";
+import {
+  LayoutDashboard,
+  CalendarDays,
+  Users,
+  Settings,
+  LogOut,
+  ChevronLeft,
+  Briefcase,
+  FileText
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { useAuthStore } from "@/store/authStore";
+import apiClient from "@/lib/api";
+import { toast } from "sonner";
+
+const menuItems = [
+  {
+    title: "Panel",
+    icon: LayoutDashboard,
+    path: "/",
+    roles: ["Admin", "Müdür", "Şef", "Personel", "İK"]
+  },
+  {
+    title: "İzinlerim",
+    icon: CalendarDays,
+    path: "/leaves",
+    roles: ["Admin", "Müdür", "Şef", "Personel", "İK"]
+  },
+  {
+    title: "Personel Yönetimi",
+    icon: Users,
+    path: "/management",
+    roles: ["Admin", "Müdür", "İK", "Personel"]
+  },
+  {
+    title: "Raporlar",
+    icon: FileText,
+    path: "/reports",
+    roles: ["Admin", "Müdür", "İK", "Personel"]
+  },
+  {
+    title: "Ayarlar",
+    icon: Settings,
+    path: "/settings",
+    roles: ["Admin", "Personel"]
+  },
+];
+
+interface SidebarProps {
+  isOpen: boolean;
+  onToggle: () => void;
+  collapsed: boolean;
+  onCollapse: (val: boolean) => void;
+}
+
+export default function Sidebar({ isOpen, onToggle, collapsed, onCollapse }: SidebarProps) {
+  const location = useLocation();
+  const { user, logout } = useAuthStore();
+
+  const handleLogout = async () => {
+    try {
+      await apiClient.post("/auth/logout");
+      logout();
+      toast.success("Güvenli çıkış yapıldı.");
+    } catch (error) {
+      console.log(error)
+      toast.error("Çıkış yapılırken bir hata oluştu.");
+    }
+  };
+
+  return (
+    <>
+      {/* Mobile Overlay */}
+      <div
+        className={cn(
+          "fixed inset-0 bg-background/80 backdrop-blur-sm z-40 lg:hidden transition-opacity duration-300",
+          isOpen ? "opacity-100" : "opacity-0 pointer-events-none"
+        )}
+        onClick={onToggle}
+      />
+
+      <aside
+        className={cn(
+          "fixed inset-y-0 left-0 z-50 flex flex-col h-screen bg-card border-r border-border transition-all duration-300 ease-in-out lg:relative",
+          collapsed ? "w-[80px]" : "w-[280px]",
+          isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+        )}
+      >
+        {/* Logo Alanı */}
+        <div className="flex items-center justify-between h-20 px-6 border-b border-border/50 overflow-hidden">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center shrink-0 shadow-lg shadow-primary/20">
+              <Briefcase className="text-primary-foreground" size={20} />
+            </div>
+            <div className={cn(
+              "flex flex-col transition-opacity duration-300",
+              collapsed ? "lg:opacity-0" : "opacity-100"
+            )}>
+              <span className="font-black text-lg tracking-tighter text-foreground leading-none">
+                Midas
+              </span>
+              <span className="text-[10px] font-bold tracking-[0.2em] uppercase text-muted-foreground mt-1">
+                Workforce
+              </span>
+            </div>
+          </div>
+
+          {/* Mobile Close Button */}
+          <button
+            onClick={onToggle}
+            className="p-2 rounded-xl hover:bg-muted lg:hidden"
+          >
+            <ChevronLeft size={20} />
+          </button>
+        </div>
+
+        {/* Menü Öğeleri */}
+        <nav className="flex-1 overflow-y-auto py-6 px-4 space-y-2 custom-scrollbar">
+          {menuItems
+            .filter(item => item.roles.includes(user?.role || ""))
+            .map((item) => {
+              const isActive = location.pathname === item.path;
+              const Icon = item.icon;
+
+              return (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  onClick={() => { if (window.innerWidth < 1024) onToggle(); }}
+                  className={cn(
+                    "flex items-center gap-4 px-4 h-12 rounded-xl transition-all group relative overflow-hidden",
+                    isActive
+                      ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  )}
+                >
+                  <Icon size={20} className={cn("shrink-0", isActive ? "scale-110" : "group-hover:scale-110 transition-transform")} />
+                  <span className={cn(
+                    "font-bold text-sm tracking-tight transition-all",
+                    collapsed ? "lg:opacity-0 lg:w-0" : "opacity-100 w-auto"
+                  )}>
+                    {item.title}
+                  </span>
+
+                  {isActive && (
+                    <div className="absolute left-0 w-1 h-6 bg-primary-foreground rounded-r-full" />
+                  )}
+                </Link>
+              );
+            })}
+        </nav>
+
+        {/* Alt Kısım: Çıkış */}
+        <div className="p-4 border-t border-border/50">
+          <button
+            onClick={handleLogout}
+            className={cn(
+              "flex items-center gap-4 px-4 h-12 w-full rounded-xl transition-all text-muted-foreground hover:bg-destructive/10 hover:text-destructive active:scale-95",
+              collapsed ? "lg:justify-center" : ""
+            )}
+          >
+            <LogOut size={20} className="shrink-0" />
+            <span className={cn(
+              "font-bold text-sm tracking-tight",
+              collapsed ? "lg:hidden" : "block"
+            )}>
+              Oturumu Kapat
+            </span>
+          </button>
+        </div>
+
+        {/* Daraltma Butonu (Desktop Only) */}
+        <button
+          onClick={() => onCollapse(!collapsed)}
+          className="absolute -right-3 top-10 w-6 h-6 rounded-full bg-background border border-border hidden lg:flex items-center justify-center hover:bg-primary hover:text-primary-foreground transition-colors shadow-sm z-50"
+        >
+          <ChevronLeft size={14} className={cn("transition-transform", collapsed ? "rotate-180" : "rotate-0")} />
+        </button>
+      </aside>
+    </>
+  );
+}
