@@ -2,7 +2,8 @@ import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import dotenv from "dotenv";
-import sequelize from "./config/database";
+import { sequelize } from "./models";
+import authRoutes from "./routes/authRoutes";
 
 dotenv.config();
 
@@ -15,7 +16,11 @@ app.use(cookieParser());
 
 const corsOptions = {
     origin: [
-        "http://localhost:5173", // Vite dev server
+        "http://localhost:5173",
+        "http://localhost:5174",
+        "http://localhost:5175",
+        "http://localhost:5176",
+        "http://localhost:5177",
     ],
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
@@ -23,10 +28,11 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
-// Test route
-app.get("/api/health", (_req, res) => {
-    res.json({ status: "ok", message: "Workforce Portal API is running" });
-});
+
+
+
+// Auth Routes
+app.use("/api/auth", authRoutes);
 
 // DB bağlantısı ve sunucu başlatma
 const startServer = async () => {
@@ -34,7 +40,7 @@ const startServer = async () => {
         await sequelize.authenticate();
         console.log("MSSQL veritabanına bağlantı başarılı.");
 
-        await sequelize.sync({ alter: false });
+        await sequelize.sync(); // MSSQL default deðiþtirirken hata atýyor, alter true kaldýrýldý
         console.log("Tüm modeller senkronize edildi.");
 
         app.listen(port, () => {

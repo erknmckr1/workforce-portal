@@ -1,3 +1,0 @@
-// Sequelize model dosyaları bu klasörde tanımlanacak
-// Örnek: User.ts, LeaveRecord.ts, Role.ts
-export {};
