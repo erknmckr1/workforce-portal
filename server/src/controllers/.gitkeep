@@ -1,0 +1,3 @@
+// Controller dosyaları bu klasörde tanımlanacak
+// Controller: Route'tan gelen isteği alır, Service'e yönlendirir, cevabı döner
+export {};

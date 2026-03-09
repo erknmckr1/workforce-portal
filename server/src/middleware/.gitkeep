@@ -1,0 +1,3 @@
+// Middleware dosyaları bu klasörde tanımlanacak
+// Örnek: authMiddleware.ts (JWT doğrulama + yetki kontrolü)
+export {};

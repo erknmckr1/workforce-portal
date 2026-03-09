@@ -1,0 +1,3 @@
+// Service dosyaları bu klasörde tanımlanacak
+// Service: İş mantığı burada yazılır (DB işlemleri, hesaplamalar)
+export {};
