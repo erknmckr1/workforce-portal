@@ -1,0 +1,157 @@
+import { Request, Response } from "express";
+import { Operator, Role, Section, Department, JobTitle } from "../models";
+import bcrypt from "bcryptjs";
+import { Op } from "sequelize";
+
+// Tüm aktif personeli getir (is_active = 1)
+export const getAllPersonnel = async (req: Request, res: Response): Promise<Response> => {
+    try {
+        const personnel = await Operator.findAll({
+            where: { is_active: 1 },
+            include: [
+                { model: Role, attributes: ["id", "name"] },
+                { model: Section, attributes: ["id", "name"] },
+                { model: Department, attributes: ["id", "name"] },
+                { model: JobTitle, attributes: ["id", "name"] }
+            ],
+            attributes: { exclude: ["op_password"] },
+            order: [["name", "ASC"]]
+        });
+
+        return res.status(200).json(personnel);
+    } catch (error) {
+        console.error("GetAllPersonnel Hatası:", error);
+        return res.status(500).json({ message: "Personel listesi çekilirken hata oluştu." });
+    }
+};
+
+// Yeni personel oluştur
+export const createPersonnel = async (req: Request, res: Response): Promise<Response> => {
+    try {
+        const { 
+            id_dec, id_hex, name, surname, nick_name, short_name, 
+            password, email, gender, address, role_id, 
+            section, department, title, leave_balance, route, stop_name,
+            auth1, auth2
+        } = req.body;
+
+        // Gerekli alan kontrolü
+        if (!id_dec || !id_hex || !name || !surname || !role_id) {
+            return res.status(400).json({ message: "Zorunlu alanlar eksik (ID, İsim, Soyisim, Rol)." });
+        }
+
+        // Mevcut kullanıcı kontrolü
+        const existing = await Operator.findOne({ where: { [Op.or]: [{ id_dec }, { id_hex }] } });
+        if (existing) {
+            return res.status(400).json({ message: "Bu ID (Dec veya Hex) zaten kullanımda." });
+        }
+
+        // Şifre hash'leme
+        const hashedPassword = password ? await bcrypt.hash(password, 10) : await bcrypt.hash("123456", 10);
+
+        const newOperator = await Operator.create({
+            id_dec,
+            id_hex,
+            name,
+            surname,
+            nick_name: nick_name || null,
+            short_name: short_name || null,
+            op_password: hashedPassword,
+            email: email || null,
+            gender: gender || null,
+            address: address || null,
+            role_id,
+            section: section || null,
+            department: department || null,
+            title: title || null,
+            auth1: auth1 || null,
+            auth2: auth2 || null,
+            leave_balance: leave_balance || 0,
+            route: route || null,
+            stop_name: stop_name || null,
+            is_active: 1
+        });
+
+        return res.status(201).json({ message: "Personel başarıyla oluşturuldu.", id: newOperator.id_dec });
+    } catch (error) {
+        console.error("CreatePersonnel Hatası:", error);
+        return res.status(500).json({ message: "Personel oluşturulurken hata oluştu." });
+    }
+};
+
+// Personel güncelle
+export const updatePersonnel = async (req: Request, res: Response): Promise<Response> => {
+    try {
+        const { id_dec } = req.params;
+        const updateData = { ...req.body };
+
+        const operator = await Operator.findByPk(id_dec as string);
+        if (!operator) {
+            return res.status(404).json({ message: "Personel bulunamadı." });
+        }
+
+        // Şifre güncellemesi kontrolü ve sanal (virtual) alanları temizleme
+        if (updateData.password) {
+            updateData.op_password = await bcrypt.hash(updateData.password, 10);
+        }
+        // password kolonu DB'de yok, op_password var. Error vermemesi için uçur:
+        delete updateData.password;
+        
+        // Güvenlik ve çakışma riski için kritik verilerin (Birincil Anahtar) güncellenmesini engelle
+        delete updateData.id_dec;
+        delete updateData.id_hex;
+
+        // SQL Server (Tedious) hatalarını (özellikle Foreign Key) engellemek için boş stringleri null'a çeviriyoruz
+        for (const key in updateData) {
+            if (updateData[key] === "") {
+                updateData[key] = null;
+            }
+        }
+
+        await operator.update(updateData);
+
+        return res.status(200).json({ message: "Personel bilgileri güncellendi." });
+    } catch (error) {
+        console.error("UpdatePersonnel Hatası:", error);
+        return res.status(500).json({ message: "Güncelleme sırasında hata oluştu." });
+    }
+};
+
+// Soft delete (is_active = 2)
+export const deletePersonnel = async (req: Request, res: Response): Promise<Response> => {
+    try {
+        const { id_dec } = req.params;
+
+        const operator = await Operator.findByPk(id_dec as string);
+        if (!operator) {
+            return res.status(404).json({ message: "Personel bulunamadı." });
+        }
+
+        await operator.update({ is_active: 0 });
+
+        return res.status(200).json({ message: "Personel pasif duruma getirildi (Soft-Delete)." });
+    } catch (error) {
+        console.error("DeletePersonnel Hatası:", error);
+        return res.status(500).json({ message: "Silme işlemi sırasında hata oluştu." });
+    }
+};
+
+// Yardımcı lookupları getir
+export const getPersonnelLookups = async (req: Request, res: Response): Promise<Response> => {
+    try {
+        const roles = await Role.findAll();
+        const sections = await Section.findAll({ where: { is_active: true } });
+        const departments = await Department.findAll({ where: { is_active: true } });
+        const titles = await JobTitle.findAll({ where: { is_active: true } });
+
+        return res.status(200).json({
+            roles,
+            sections,
+            departments,
+            titles
+        });
+    } catch (error) {
+        console.error("GetLookups Hatası:", error);
+        return res.status(500).json({ message: "Lookup verileri çekilirken hata oluştu." });
+    }
+};

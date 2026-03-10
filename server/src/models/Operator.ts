@@ -1,7 +1,28 @@
 import { DataTypes, Model } from "sequelize";
 import sequelize from "../config/database";
 
-export class Operator extends Model {}
+export class Operator extends Model {
+    public id_dec!: string;
+    public id_hex!: string;
+    public name!: string;
+    public surname!: string;
+    public nick_name?: string;
+    public short_name?: string;
+    public op_password?: string;
+    public email?: string;
+    public gender?: string;
+    public address?: string;
+    public role_id!: number;
+    public section?: number;
+    public department?: number;
+    public title?: number;
+    public auth1?: string;
+    public auth2?: string;
+    public leave_balance!: number;
+    public route?: string;
+    public stop_name?: string;
+    public is_active!: number;
+}
 
 Operator.init(
     {
@@ -24,7 +45,7 @@ Operator.init(
         leave_balance: { type: DataTypes.DECIMAL(5, 2), defaultValue: 0 },
         route: { type: DataTypes.STRING(255), allowNull: true },
         stop_name: { type: DataTypes.STRING(255), allowNull: true },
-        is_active: { type: DataTypes.BOOLEAN, defaultValue: true },
+        is_active: { type: DataTypes.INTEGER, defaultValue: 1 },
     },
     { 
         sequelize, 

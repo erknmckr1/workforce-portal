@@ -4,6 +4,7 @@ import cookieParser from "cookie-parser";
 import dotenv from "dotenv";
 import { sequelize } from "./models";
 import authRoutes from "./routes/authRoutes";
+import personnelRoutes from "./routes/personnelRoutes";
 
 dotenv.config();
 
@@ -28,11 +29,9 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
-
-
-
-// Auth Routes
+// Routes
 app.use("/api/auth", authRoutes);
+app.use("/api/personnel", personnelRoutes);
 
 // DB bağlantısı ve sunucu başlatma
 const startServer = async () => {

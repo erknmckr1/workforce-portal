@@ -4,10 +4,22 @@ import { useAuthStore } from "./store/authStore";
 import apiClient from "./lib/api";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
+import PersonnelManagement from "./pages/PersonnelManagement";
 import MainLayout from "./components/layout/MainLayout";
 import "./App.css";
 
-import { Toaster } from "@/components/ui/sonner";
+import { Toaster } from "@/components/ui/sonner"; 
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5, // 5 minutes standard stale time
+      retry: 1,
+    },
+  },
+});
 
 function App() {
   const { isAuthenticated, isLoading, login, logout, setCheckingAuth } = useAuthStore();
@@ -50,31 +62,34 @@ function App() {
   }
 
   return (
-    <BrowserRouter>
-      <Toaster position="top-center" richColors />
-      <Routes>
-        {/* Giriş yapmamışsa Login'e yönlendir */}
-        <Route
-          path="/login"
-          element={!isAuthenticated ? <Login /> : <Navigate to="/" />}
-        />
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <Toaster position="top-center" richColors />
+        <Routes>
+          {/* Giriş yapmamışsa Login'e yönlendir */}
+          <Route
+            path="/login"
+            element={!isAuthenticated ? <Login /> : <Navigate to="/" />}
+          />
 
-        {/* Korumalı Rotalar (Layout ile birlikte) */}
-        <Route
-          path="/"
-          element={isAuthenticated ? <MainLayout /> : <Navigate to="/login" />}
-        >
-          {/* Dashboard ana sayfa olarak kalsın */}
-          <Route index element={<Dashboard />} />
+          {/* Korumalı Rotalar (Layout ile birlikte) */}
+          <Route
+            path="/"
+            element={isAuthenticated ? <MainLayout /> : <Navigate to="/login" />}
+          >
+            {/* Dashboard ana sayfa olarak kalsın */}
+            <Route index element={<Dashboard />} />
 
-          {/* Diğer Alt Rotalar Buraya Gelecek */}
-          <Route path="leaves" element={<div className="p-4 border-2 border-dashed rounded-3xl">İzin Yönetimi Sayfası Yakında...</div>} />
-          <Route path="management" element={<div className="p-4 border-2 border-dashed rounded-3xl">Personel Yönetimi Sayfası Yakında...</div>} />
-          <Route path="reports" element={<div className="p-4 border-2 border-dashed rounded-3xl">Raporlar Sayfası Yakında...</div>} />
-          <Route path="settings" element={<div className="p-4 border-2 border-dashed rounded-3xl">Ayarlar Sayfası Yakında...</div>} />
-        </Route>
-      </Routes>
-    </BrowserRouter>
+            {/* Diğer Alt Rotalar Buraya Gelecek */}
+            <Route path="leaves" element={<div className="p-4 border-2 border-dashed rounded-3xl">İzin Yönetimi Sayfası Yakında...</div>} />
+            <Route path="management" element={<PersonnelManagement />} />
+            <Route path="reports" element={<div className="p-4 border-2 border-dashed rounded-3xl">Raporlar Sayfası Yakında...</div>} />
+            <Route path="settings" element={<div className="p-4 border-2 border-dashed rounded-3xl">Ayarlar Sayfası Yakında...</div>} />
+          </Route>
+        </Routes>
+      </BrowserRouter>
+      <ReactQueryDevtools initialIsOpen={false} />
+    </QueryClientProvider>
   );
 }
 

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { yupResolver } from "@hookform/resolvers/yup";
-import * as yup from "yup";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
 import apiClient from "../lib/api";
 import { useAuthStore } from "../store/authStore";
 
@@ -19,16 +19,15 @@ import {
 import { User, Lock, ArrowRight, ShieldCheck, Zap } from "lucide-react";
 import { AxiosError } from "axios";
 import type { ControllerRenderProps } from "react-hook-form";
+import { toast } from "sonner";
 
-// Sadece ID ve Şifre
-const schema = yup.object().shape({
-  username: yup.string().required("Kullanıcı ID zorunludur."),
-  password: yup.string().required("Şifre zorunludur."),
+// Zod Schema Definition
+const loginSchema = z.object({
+  username: z.string().min(1, "Kullanıcı ID zorunludur."),
+  password: z.string().min(1, "Şifre zorunludur."),
 });
 
-type FormData = yup.InferType<typeof schema>;
-
-import { toast } from "sonner";
+type FormData = z.infer<typeof loginSchema>;
 
 export default function Login() {
   const loginAction = useAuthStore((state) => state.login);
@@ -36,7 +35,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
 
   const form = useForm<FormData>({
-    resolver: yupResolver(schema),
+    resolver: zodResolver(loginSchema),
     defaultValues: {
       username: "",
       password: "",
@@ -101,7 +100,7 @@ export default function Login() {
                             <User size={18} />
                           </div>
                           <Input
-                            placeholder="Sicil No örn: 1001"
+                            placeholder="ID No örn: 1001"
                             {...field}
                             className="h-13 pl-11 rounded-2xl border-input bg-background focus:ring-2 focus:ring-primary/20 transition-all text-base"
                           />
@@ -224,5 +223,3 @@ export default function Login() {
     </div>
   );
 }
-
-

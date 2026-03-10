@@ -10,9 +10,9 @@ export default function MainLayout() {
   return (
     <div className="flex h-screen w-full bg-background overflow-hidden">
       {/* Sol Menü: Sidebar */}
-      <Sidebar 
-        isOpen={isMobileOpen} 
-        onToggle={() => setIsMobileOpen(!isMobileOpen)} 
+      <Sidebar
+        isOpen={isMobileOpen}
+        onToggle={() => setIsMobileOpen(!isMobileOpen)}
         collapsed={isCollapsed}
         onCollapse={setIsCollapsed}
       />
@@ -24,7 +24,7 @@ export default function MainLayout() {
 
         {/* Dinamik Sayfa İçeriği */}
         <main className="flex-1 overflow-y-auto bg-muted/20 custom-scrollbar">
-          <div className="p-4 md:p-8 max-w-7xl mx-auto w-full">
+          <div className="p-4 md:p-8 w-full mx-auto ">
             <Outlet />
           </div>
         </main>
