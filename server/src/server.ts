@@ -39,7 +39,7 @@ const startServer = async () => {
         await sequelize.authenticate();
         console.log("MSSQL veritabanına bağlantı başarılı.");
 
-        await sequelize.sync(); // MSSQL default deðiþtirirken hata atýyor, alter true kaldýrýldý
+        await sequelize.sync(); 
         console.log("Tüm modeller senkronize edildi.");
 
         app.listen(port, () => {

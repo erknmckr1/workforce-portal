@@ -6,6 +6,8 @@ import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import PersonnelManagement from "./pages/PersonnelManagement";
 import MainLayout from "./components/layout/MainLayout";
+import SettingsIndex from "./pages/settings/SettingsIndex";
+import Approvals from "./pages/settings/Approvals";
 import "./App.css";
 
 import { Toaster } from "@/components/ui/sonner"; 
@@ -80,11 +82,15 @@ function App() {
             {/* Dashboard ana sayfa olarak kalsın */}
             <Route index element={<Dashboard />} />
 
-            {/* Diğer Alt Rotalar Buraya Gelecek */}
+            {/* Diğer Alt Rotalar */}
             <Route path="leaves" element={<div className="p-4 border-2 border-dashed rounded-3xl">İzin Yönetimi Sayfası Yakında...</div>} />
             <Route path="management" element={<PersonnelManagement />} />
             <Route path="reports" element={<div className="p-4 border-2 border-dashed rounded-3xl">Raporlar Sayfası Yakında...</div>} />
-            <Route path="settings" element={<div className="p-4 border-2 border-dashed rounded-3xl">Ayarlar Sayfası Yakında...</div>} />
+            
+            {/* Sistem Ayarları Düz Routing */}
+            <Route path="settings" element={<Navigate to="/settings/general" replace />} />
+            <Route path="settings/general" element={<SettingsIndex />} />
+            <Route path="settings/approvals" element={<Approvals />} />
           </Route>
         </Routes>
       </BrowserRouter>

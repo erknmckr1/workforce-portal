@@ -155,3 +155,71 @@ export const getPersonnelLookups = async (req: Request, res: Response): Promise<
         return res.status(500).json({ message: "Lookup verileri çekilirken hata oluştu." });
     }
 };
+
+// Bölüm Yöneticisini (manager_id) Güncelle (2. Onaycı)
+export const updateSectionManager = async (req: Request, res: Response): Promise<Response> => {
+    try {
+        const { id } = req.params;
+        const { manager_id } = req.body;
+        
+        const section = await Section.findByPk(id as string);
+        if (!section) return res.status(404).json({ message: "Bölüm (Section) bulunamadı." });
+        
+        await section.update({ manager_id: manager_id || null });
+        
+        // Operatör tablosunu güncelle (auth2)
+        await Operator.update(
+            { auth2: manager_id || null },
+            { where: { section: id, is_active: 1 } }
+        );
+        
+        return res.status(200).json({ message: "Bölüm yöneticisi atandı ve bağlı personeller güncellendi." });
+    } catch(err) {
+        console.error("UpdateSectionManager Hatası:", err);
+        return res.status(500).json({ message: "Bölüm yöneticisi atanırken hata oluştu" });
+    }
+};
+
+// Birim Sorumlusunu (supervisor_id) Güncelle (1. Onaycı)
+export const updateDepartmentSupervisor = async (req: Request, res: Response): Promise<Response> => {
+    try {
+        const { id } = req.params;
+        const { supervisor_id } = req.body;
+        
+        const dept = await Department.findByPk(id as string);
+        if (!dept) return res.status(404).json({ message: "Birim (Department) bulunamadı." });
+        
+        await dept.update({ supervisor_id: supervisor_id || null });
+        
+        // Operatör tablosunu güncelle (auth1)
+        await Operator.update(
+            { auth1: supervisor_id || null },
+            { where: { department: id, is_active: 1 } }
+        );
+        
+        return res.status(200).json({ message: "Birim sorumlusu atandı ve bağlı personeller güncellendi." });
+    } catch(err) {
+        console.error("UpdateDepartmentSupervisor Hatası:", err);
+        return res.status(500).json({ message: "Birim sorumlusu atanırken hata oluştu" });
+    }
+};
+
+// Tüm Onaycı Yetkilerini Yeniden Senkronize Et
+export const syncAllApprovals = async (req: Request, res: Response): Promise<Response> => {
+    try {
+        const sections = await Section.findAll();
+        for (const sec of sections) {
+            await Operator.update({ auth2: sec.manager_id || null }, { where: { section: sec.id, is_active: 1 } });
+        }
+        
+        const depts = await Department.findAll();
+        for (const dept of depts) {
+            await Operator.update({ auth1: dept.supervisor_id || null }, { where: { department: dept.id, is_active: 1 } });
+        }
+        
+        return res.status(200).json({ message: "Tüm sistem yetki hiyerarşisi personellere başarıyla senkronize edildi." });
+    } catch(err) {
+        console.error("SyncAllApprovals Hatası:", err);
+        return res.status(500).json({ message: "Senkronizasyon işlemi sırasında hata oluştu" });
+    }
+};

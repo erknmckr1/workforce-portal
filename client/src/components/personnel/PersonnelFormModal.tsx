@@ -69,6 +69,35 @@ const ErrorDisplay = memo(({ message }: { message?: string }) => {
 });
 ErrorDisplay.displayName = "ErrorDisplay";
 
+const LazyLookupSelect = memo(({ value, onChange, items, placeholder, hasError }: {
+  value: string | undefined,
+  onChange: (val: string) => void,
+  items: { id: number | string, name: string }[],
+  placeholder: string,
+  hasError?: boolean
+}) => {
+  const [open, setOpen] = useState(false);
+  const selectedItem = value ? items.find(i => String(i.id) === value) : null;
+
+  return (
+    <Select value={value} onValueChange={onChange} onOpenChange={setOpen}>
+      <SelectTrigger className={cn("w-full h-14 px-6 rounded-2xl bg-muted/40 border-none text-sm font-bold shadow-none p-0 flex items-center [&>span]:w-full [&>span]:text-left pl-6 focus:ring-0", hasError && "ring-2 ring-destructive")}>
+        <SelectValue placeholder={placeholder}>
+          {selectedItem ? selectedItem.name : null}
+        </SelectValue>
+      </SelectTrigger>
+      <SelectContent className="rounded-2xl border-none shadow-xl max-h-[300px]">
+        {open && items.map(item => (
+          <SelectItem key={item.id} value={String(item.id)} className="font-bold py-3 cursor-pointer">
+            {item.name}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+});
+LazyLookupSelect.displayName = "LazyLookupSelect";
+
 interface PersonnelFormModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -214,15 +243,11 @@ export function PersonnelFormModal({
     if (e.key === 'Enter') {
       const target = e.target as HTMLElement;
 
-      // Buton veya Textarea içerisindeysek Enter doğal işlevini yapsın (Geri dön, Devam et vb)
       if (target.tagName === 'BUTTON' || target.tagName === 'TEXTAREA') {
         return;
       }
 
-      // Tam bu noktada, e.preventDefault() diyerek formun veya inputların 'otomatik buton tıklatma / submit etme' huyunu öldürüyoruz.
       e.preventDefault();
-
-      // Eğer enter basılan kutu DEC Kart NO ise işi burada yakalıyoruz:
       if (target.tagName === 'INPUT' && target.getAttribute('name') === 'id_dec') {
         const val = (target as HTMLInputElement).value;
         if (val) {
@@ -359,16 +384,13 @@ export function PersonnelFormModal({
                     control={control}
                     name="role_id"
                     render={({ field }) => (
-                      <Select onValueChange={(val) => field.onChange(val)} value={field.value ? String(field.value) : undefined}>
-                        <SelectTrigger className={cn("w-full h-14 px-6 rounded-2xl bg-muted/40 border-none text-sm font-bold shadow-none p-0 flex items-center [&>span]:w-full [&>span]:text-left pl-6 focus:ring-0", errors.role_id && "ring-2 ring-destructive")}>
-                          <SelectValue placeholder="Seçiniz..." />
-                        </SelectTrigger>
-                        <SelectContent className="rounded-2xl border-none shadow-xl max-h-[300px]">
-                          {lookups.roles.map(r => (
-                            <SelectItem key={r.id} value={String(r.id)} className="font-bold py-3 cursor-pointer">{r.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <LazyLookupSelect
+                        value={field.value ? String(field.value) : undefined}
+                        onChange={field.onChange}
+                        items={lookups.roles}
+                        placeholder="Seçiniz..."
+                        hasError={!!errors.role_id}
+                      />
                     )}
                   />
                   <ErrorDisplay message={errors.role_id?.message} />
@@ -379,16 +401,60 @@ export function PersonnelFormModal({
                     control={control}
                     name="section"
                     render={({ field }) => (
-                      <Select onValueChange={(val) => field.onChange(val)} value={field.value ? String(field.value) : undefined}>
-                        <SelectTrigger className="w-full h-14 px-6 rounded-2xl bg-muted/40 border-none text-sm font-bold shadow-none p-0 flex items-center [&>span]:w-full [&>span]:text-left pl-6 focus:ring-0">
-                          <SelectValue placeholder="Seçiniz..." />
-                        </SelectTrigger>
-                        <SelectContent className="rounded-2xl border-none shadow-xl max-h-[300px]">
-                          {lookups.sections.map(s => (
-                            <SelectItem key={s.id} value={String(s.id)} className="font-bold py-3 cursor-pointer">{s.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <LazyLookupSelect
+                        value={field.value ? String(field.value) : undefined}
+                        onChange={(val) => {
+                          field.onChange(val);
+                          // Bölüm seçildiğinde otomatik olarak 2. Onaycı (Manager) alanını doldur:
+                          const selectedSection = lookups.sections.find(s => String(s.id) === val);
+                          if (selectedSection && selectedSection.manager_id) {
+                            setValue("auth2", selectedSection.manager_id, { shouldValidate: true, shouldDirty: true });
+                          } else {
+                            setValue("auth2", ""); // O bölümün yöneticisi yoksa boşalt
+                          }
+                        }}
+                        items={lookups.sections}
+                        placeholder="Seçiniz..."
+                      />
+                    )}
+                  />
+                </div>
+                <div className="space-y-3">
+                  <label className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground ml-1 text-left">Birim (Part)</label>
+                  <Controller
+                    control={control}
+                    name="department"
+                    render={({ field }) => (
+                      <LazyLookupSelect
+                        value={field.value ? String(field.value) : undefined}
+                        onChange={(val) => {
+                          field.onChange(val);
+                          // Birim seçildiğinde otomatik olarak 1. Onaycı (Supervisor) alanını doldur:
+                          const selectedDepartment = lookups.departments.find(d => String(d.id) === val);
+                          if (selectedDepartment && selectedDepartment.supervisor_id) {
+                            setValue("auth1", selectedDepartment.supervisor_id, { shouldValidate: true, shouldDirty: true });
+                          } else {
+                            setValue("auth1", ""); // O birimin şefi yoksa boşalt
+                          }
+                        }}
+                        items={lookups.departments}
+                        placeholder="Seçiniz..."
+                      />
+                    )}
+                  />
+                </div>
+                <div className="space-y-3">
+                  <label className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground ml-1 text-left">Ünvan / Görev (Title)</label>
+                  <Controller
+                    control={control}
+                    name="title"
+                    render={({ field }) => (
+                      <LazyLookupSelect
+                        value={field.value ? String(field.value) : undefined}
+                        onChange={field.onChange}
+                        items={lookups.titles}
+                        placeholder="Seçiniz..."
+                      />
                     )}
                   />
                 </div>
@@ -433,8 +499,8 @@ export function PersonnelFormModal({
                 <div className="space-y-3 lg:col-span-3">
                   <label className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground ml-1 text-left">İzin Onaycıları (Hiyerarşi)</label>
                   <div className="grid grid-cols-2 gap-4">
-                    <Input placeholder="1. Onaycı (ID No / İsim)" className="rounded-2xl h-14 bg-muted/40 border-none font-bold" {...register("auth1")} />
-                    <Input placeholder="2. Onaycı (ID No / İsim)" className="rounded-2xl h-14 bg-muted/40 border-none font-bold" {...register("auth2")} />
+                    <Input disabled placeholder="1. Onaycı (ID No / İsim)" className="rounded-2xl h-14 bg-muted/40 border-none font-bold" {...register("auth1")} />
+                    <Input disabled placeholder="2. Onaycı (ID No / İsim)" className="rounded-2xl h-14 bg-muted/40 border-none font-bold" {...register("auth2")} />
                   </div>
                 </div>
                 <div className="md:col-span-2 lg:col-span-3 space-y-3">

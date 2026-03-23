@@ -1,23 +1,36 @@
 import { DataTypes, Model } from "sequelize";
 import sequelize from "../config/database";
 
-export class Section extends Model {}
+export class Section extends Model {
+    public id!: number;
+    public name!: string;
+    public is_active!: boolean;
+    public manager_id?: string;
+}
 Section.init(
     {
         id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
         name: { type: DataTypes.STRING(100), allowNull: false },
         is_active: { type: DataTypes.BOOLEAN },
+        manager_id: { type: DataTypes.STRING(255), allowNull: true },
     },
     { sequelize, modelName: "Section", tableName: "sections", timestamps: false }
 );
 
-export class Department extends Model {}
+export class Department extends Model {
+    public id!: number;
+    public section_id?: number;
+    public name!: string;
+    public is_active!: boolean;
+    public supervisor_id?: string;
+}
 Department.init(
     {
         id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
         section_id: { type: DataTypes.INTEGER, allowNull: true },
         name: { type: DataTypes.STRING(100), allowNull: false },
         is_active: { type: DataTypes.BOOLEAN },
+        supervisor_id: { type: DataTypes.STRING(255), allowNull: true },
     },
     { sequelize, modelName: "Department", tableName: "departments", timestamps: false }
 );

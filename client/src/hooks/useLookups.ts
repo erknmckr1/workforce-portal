@@ -6,10 +6,18 @@ export interface LookupItem {
   name: string;
 }
 
+export interface LookupSection extends LookupItem {
+  manager_id?: string | null;
+}
+
+export interface LookupDepartment extends LookupItem {
+  supervisor_id?: string | null;
+}
+
 export interface Lookups {
   roles: LookupItem[];
-  sections: LookupItem[];
-  departments: LookupItem[];
+  sections: LookupSection[];
+  departments: LookupDepartment[];
   titles: LookupItem[];
 }
 

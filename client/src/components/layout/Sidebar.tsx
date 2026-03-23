@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useLocation, Link } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -6,6 +7,7 @@ import {
   Settings,
   LogOut,
   ChevronLeft,
+  ChevronDown,
   Briefcase,
   FileText
 } from "lucide-react";
@@ -42,8 +44,11 @@ const menuItems = [
   {
     title: "Ayarlar",
     icon: Settings,
-    path: "/settings",
-    roles: ["Admin", "Personel"]
+    roles: ["Admin", "Personel"],
+    children: [
+      { title: "Genel Ayarlar", path: "/settings/general" },
+      { title: "Onay Hiyerarşisi", path: "/settings/approvals" }
+    ]
   },
 ];
 
@@ -57,6 +62,9 @@ interface SidebarProps {
 export default function Sidebar({ isOpen, onToggle, collapsed, onCollapse }: SidebarProps) {
   const location = useLocation();
   const { user, logout } = useAuthStore();
+  const [expandedMenu, setExpandedMenu] = useState<string | null>(
+    location.pathname.startsWith("/settings") ? "Ayarlar" : null
+  );
 
   const handleLogout = async () => {
     try {
@@ -69,6 +77,7 @@ export default function Sidebar({ isOpen, onToggle, collapsed, onCollapse }: Sid
     }
   };
 
+  console.log(expandedMenu)
   return (
     <>
       {/* Mobile Overlay */}
@@ -120,33 +129,91 @@ export default function Sidebar({ isOpen, onToggle, collapsed, onCollapse }: Sid
           {menuItems
             .filter(item => item.roles.includes(user?.role || ""))
             .map((item) => {
-              const isActive = location.pathname === item.path;
+              const hasChildren = !!item.children;
+              const isActive = hasChildren
+                ? item.children!.some(child => location.pathname === child.path)
+                : location.pathname === item.path;
+              const isExpanded = expandedMenu === item.title;
               const Icon = item.icon;
 
               return (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  onClick={() => { if (window.innerWidth < 1024) onToggle(); }}
-                  className={cn(
-                    "flex items-center gap-4 px-4 h-12 rounded-xl transition-all group relative overflow-hidden",
-                    isActive
-                      ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                  )}
-                >
-                  <Icon size={20} className={cn("shrink-0", isActive ? "scale-110" : "group-hover:scale-110 transition-transform")} />
-                  <span className={cn(
-                    "font-bold text-sm tracking-tight transition-all",
-                    collapsed ? "lg:opacity-0 lg:w-0" : "opacity-100 w-auto"
-                  )}>
-                    {item.title}
-                  </span>
+                <div key={item.title} className="flex flex-col space-y-1">
+                  {hasChildren ? (
+                    <button
+                      onClick={() => {
+                        if (collapsed) onCollapse(false);
+                        setExpandedMenu(isExpanded ? null : item.title);
+                      }}
+                      className={cn(
+                        "flex items-center gap-4 px-4 h-12 w-full rounded-xl transition-all group relative overflow-hidden",
+                        isActive && !isExpanded
+                          ? "bg-primary/10 text-primary"
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                      )}
+                    >
+                      <Icon size={20} className={cn("shrink-0 transition-transform", isActive ? "text-primary" : "group-hover:scale-110")} />
+                      <span className={cn(
+                        "font-bold text-sm tracking-tight transition-all text-left flex-1",
+                        collapsed ? "lg:opacity-0 lg:w-0" : "opacity-100 w-auto"
+                      )}>
+                        {item.title}
+                      </span>
+                      {!collapsed && (
+                        <ChevronDown size={16} className={cn("transition-transform text-muted-foreground group-hover:text-foreground", isExpanded ? "rotate-180" : "rotate-0")} />
+                      )}
+                    </button>
+                  ) : (
+                    <Link
+                      to={item.path!}
+                      onClick={() => { if (window.innerWidth < 1024) onToggle(); }}
+                      className={cn(
+                        "flex items-center gap-4 px-4 h-12 rounded-xl transition-all group relative overflow-hidden",
+                        isActive
+                          ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20"
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                      )}
+                    >
+                      <Icon size={20} className={cn("shrink-0", isActive ? "scale-110" : "group-hover:scale-110 transition-transform")} />
+                      <span className={cn(
+                        "font-bold text-sm tracking-tight transition-all",
+                        collapsed ? "lg:opacity-0 lg:w-0" : "opacity-100 w-auto"
+                      )}>
+                        {item.title}
+                      </span>
 
-                  {isActive && (
-                    <div className="absolute left-0 w-1 h-6 bg-primary-foreground rounded-r-full" />
+                      {isActive && (
+                        <div className="absolute left-0 w-1 h-6 bg-primary-foreground rounded-r-full" />
+                      )}
+                    </Link>
                   )}
-                </Link>
+
+                  {/* Alt Menü Render'ı */}
+                  {hasChildren && isExpanded && !collapsed && (
+                    <div className="flex flex-col space-y-1 pl-12 pr-2 animate-in slide-in-from-top-2 duration-200">
+                      {item.children!.map(child => {
+                        const isChildActive = location.pathname === child.path;
+                        return (
+                          <Link
+                            key={child.path}
+                            to={child.path}
+                            onClick={() => { if (window.innerWidth < 1024) onToggle(); }}
+                            className={cn(
+                              "flex items-center h-10 px-4 rounded-xl text-sm font-bold transition-all relative overflow-hidden",
+                              isChildActive
+                                ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
+                                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                            )}
+                          >
+                            <span>{child.title}</span>
+                            {isChildActive && (
+                              <div className="absolute left-0 w-1 h-4 bg-primary-foreground rounded-r-full" />
+                            )}
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               );
             })}
         </nav>

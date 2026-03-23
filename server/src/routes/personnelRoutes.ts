@@ -4,7 +4,10 @@ import {
     createPersonnel, 
     updatePersonnel, 
     deletePersonnel,
-    getPersonnelLookups
+    getPersonnelLookups,
+    updateSectionManager,
+    updateDepartmentSupervisor,
+    syncAllApprovals
 } from "../controllers/personnelController";
 
 const router = Router();
@@ -17,6 +20,11 @@ router.get("/", getAllPersonnel);
 
 // Yeni personel kaydet
 router.post("/", createPersonnel);
+
+// Hiyerarşi (Approvals) işlemleri
+router.post("/sync-approvals", syncAllApprovals);
+router.put("/section-manager/:id", updateSectionManager);
+router.put("/department-supervisor/:id", updateDepartmentSupervisor);
 
 // Personel bilgilerini güncelle
 router.put("/:id_dec", updatePersonnel);
