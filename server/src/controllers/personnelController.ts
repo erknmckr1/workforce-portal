@@ -12,7 +12,9 @@ export const getAllPersonnel = async (req: Request, res: Response): Promise<Resp
                 { model: Role, attributes: ["id", "name"] },
                 { model: Section, attributes: ["id", "name"] },
                 { model: Department, attributes: ["id", "name"] },
-                { model: JobTitle, attributes: ["id", "name"] }
+                { model: JobTitle, attributes: ["id", "name"] },
+                { model: Operator, as: "Auth1", attributes: ["name", "surname"] },
+                { model: Operator, as: "Auth2", attributes: ["name", "surname"] }
             ],
             attributes: { exclude: ["op_password"] },
             order: [["name", "ASC"]]

@@ -98,6 +98,28 @@ export const createLeave = async (req: Request, res: Response): Promise<Response
             return res.status(400).json({ message: "Seçili personelin 1. onaycısı (Birim Şefi) atanmamış. Lütfen önce onay hiyerarşisini düzenleyin." });
         }
 
+        // ÇAKIŞMA KONTROLÜ (Overlap Check) - Aynı personelin çakışan aktif/bekleyen izni var mı?
+        const overlappingLeave = await LeaveRecord.findOne({
+            where: {
+                user_id,
+                leave_status_id: { [Op.notIn]: [4, 5] },
+                [Op.or]: [
+                    {
+                        start_date: { [Op.lte]: end_date },
+                        end_date: { [Op.gte]: start_date }
+                    }
+                ]
+            },
+            transaction
+        });
+
+        if (overlappingLeave) {
+            await transaction.rollback();
+            return res.status(400).json({ 
+                message: "Bu tarih aralığında zaten devam eden veya onay bekleyen bir izin talebiniz mevcut." 
+            });
+        }
+
         // 2. İlk durumu belirle (Genelde PENDING_AUTH1 id=1)
         const initialStatus = 1;
 
@@ -355,6 +377,29 @@ export const updateLeave = async (req: Request, res: Response): Promise<Response
         if (currentStatus !== 1 && currentStatus !== 2) {
             await transaction.rollback();
             return res.status(400).json({ message: "Onaylanmış veya sonuçlanmış izin talepleri düzenlenemez." });
+        }
+
+        // GÜNCELLEME İÇİN ÇAKIŞMA KONTROLÜ
+        const overlappingLeave = await LeaveRecord.findOne({
+            where: {
+                id: { [Op.ne]: id }, // Kendisi hariç
+                user_id: leave.getDataValue('user_id'),
+                leave_status_id: { [Op.notIn]: [4, 5] },
+                [Op.or]: [
+                    {
+                        start_date: { [Op.lte]: updateData.end_date || leave.getDataValue('end_date') },
+                        end_date: { [Op.gte]: updateData.start_date || leave.getDataValue('start_date') }
+                    }
+                ]
+            },
+            transaction
+        });
+
+        if (overlappingLeave) {
+            await transaction.rollback();
+            return res.status(400).json({ 
+                message: "Güncellenen tarih aralığı başka bir aktif/bekleyen talebinizle çakışmaktadır." 
+            });
         }
 
         // 3. Güncellemeyi yap

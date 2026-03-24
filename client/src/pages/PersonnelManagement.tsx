@@ -6,7 +6,8 @@ import {
   Trash2,
   UserPlus,
   Mail,
-  Building2
+  Building2,
+  Eye
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -15,12 +16,15 @@ import { Button } from "@/components/ui/button";
 import { useLookups } from "@/hooks/useLookups";
 import { usePersonnel, type Personnel } from "@/hooks/usePersonnel";
 import { PersonnelFormModal } from "@/components/personnel/PersonnelFormModal";
+import { PersonnelDetailModal } from "@/components/personnel/PersonnelDetailModal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 export default function PersonnelManagement() {
   const [searchTerm, setSearchTerm] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [editingPersonnel, setEditingPersonnel] = useState<Personnel | null>(null);
+  const [detailPersonnel, setDetailPersonnel] = useState<Personnel | null>(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
   const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean; id: string | null }>({ isOpen: false, id: null });
 
   const { data: lookups = { roles: [], sections: [], departments: [], titles: [] } } = useLookups();
@@ -209,6 +213,16 @@ export default function PersonnelManagement() {
                   <td className="px-8 py-5 text-right">
                     <div className="flex items-center justify-end gap-3">
                       <button
+                        onClick={() => {
+                          setDetailPersonnel(p);
+                          setShowDetailModal(true);
+                        }}
+                        className="w-10 h-10 rounded-xl bg-muted/50 text-muted-foreground hover:bg-info hover:text-info-foreground transition-all active:scale-90 flex items-center justify-center shadow-sm cursor-pointer"
+                        title="Görüntüle"
+                      >
+                        <Eye size={18} />
+                      </button>
+                      <button
                         onClick={() => handleEdit(p)}
                         className="w-10 h-10 rounded-xl bg-muted/50 text-muted-foreground hover:bg-primary hover:text-primary-foreground transition-all active:scale-90 flex items-center justify-center shadow-sm cursor-pointer"
                         title="Düzenle"
@@ -239,6 +253,13 @@ export default function PersonnelManagement() {
         lookups={lookups}
         onSubmit={handleFormSubmit}
         isPending={createMutation.isPending || updateMutation.isPending}
+      />
+
+      {/* PERSONNEL DETAIL MODAL */}
+      <PersonnelDetailModal
+        open={showDetailModal}
+        onOpenChange={setShowDetailModal}
+        personnel={detailPersonnel}
       />
 
       {/* CONFIRM DELETE MODAL */}

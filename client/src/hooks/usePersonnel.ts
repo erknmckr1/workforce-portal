@@ -30,6 +30,8 @@ export interface Personnel {
   Section?: LookupItem;
   Department?: LookupItem;
   JobTitle?: LookupItem;
+  Auth1?: { name: string; surname: string };
+  Auth2?: { name: string; surname: string };
 }
 // useQuery veri okuma, useMutation yaz, güncelle, sil
 export const usePersonnel = () => {
