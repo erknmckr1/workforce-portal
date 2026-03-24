@@ -161,20 +161,64 @@ export const createLeave = async (req: Request, res: Response): Promise<Response
 };
 
 // İzinleri Listele (Filtreleme ile)
-export const getLeaves = async (req: Request, res: Response): Promise<Response> => {
+export const getLeaves = async (req: Request, res: Response): Promise<any> => {
     try {
-        const { user_id, status_id, start_date, end_date, approver_id } = req.query;
+        const { status_id, approver_id, start_date, end_date } = req.query;
+        // BİLET KONTROLÜNDEN GEÇEN SİTE KULLANICISININ KİMLİĞİ BURADA
+        const loggedUser = (req as any).user; 
+        const roleId = loggedUser.role_id;
+        const userId = loggedUser.id_dec;
+
         let where: any = {};
 
-        if (approver_id) {
+        // ZIRH #2 : VERİ SÜZGEÇLERİ (Matrix Kuralları)
+        
+        // 1. Senaryo (Admin-7 ve İK-4) => Sınırsız Erişim. API'ye client parametresiyle "Ali'yi" gönderirse Ali'yi arar.
+        if (roleId === 7 || roleId === 4) {
+            const queryUserId = req.query.user_id as string;
+            if (queryUserId) where.user_id = queryUserId;
+            if (status_id) where.leave_status_id = status_id;
+            
+            if (approver_id) {
+                where = { ...where, [Op.or]: [
+                        { auth1_user_id: approver_id, leave_status_id: 1 },
+                        { auth2_user_id: approver_id, leave_status_id: 2 }
+                    ]
+                };
+            }
+        } 
+        // 2. Senaryo (Müdür-3) => Kendi izinleri "VEYA" 2. Onaycısı o olduğu ve onayda bekleyen izinler
+        else if (roleId === 3) {
             where = {
                 [Op.or]: [
-                    { auth1_user_id: approver_id, leave_status_id: 1 },
-                    { auth2_user_id: approver_id, leave_status_id: 2 }
+                    { user_id: userId },            // Kendi izni
+                    { auth2_user_id: userId }       // Onun imzasına gelenler
                 ]
             };
-        } else {
-            if (user_id) where.user_id = user_id;
+            if (status_id) where.leave_status_id = status_id;
+        } 
+        // 3. Senaryo (Şef-2) => Kendi izinleri "VEYA" 1. Onaycısı o olduğu izinler
+        else if (roleId === 2) {
+            where = {
+                [Op.or]: [
+                    { user_id: userId },            // Kendi izni
+                    { auth1_user_id: userId }       // Şefin masasına düşenler
+                ]
+            };
+            if (status_id) where.leave_status_id = status_id;
+        }
+        // 4. Senaryo (Güvenlik-6) => Kendi izinleri "VEYA" Zaten 2 onayı da bitmiş durumu `3=Onaylandı` olan ve "Çıkış Yapmayı" bekleyen tüm izinler
+        else if (roleId === 6) {
+           where = {
+                [Op.or]: [
+                    { user_id: userId },             // Kendi izni (Onay/Red farketmez hepsini görmeli menüsü var çünkü)
+                    { leave_status_id: 3 }           // Güvenlik kapısı modülünde görmek zorunda olduğu tam onaylı kişiler
+                ]
+            };
+        }
+        // 5. Senaryo (Personel-1, Revir-5 vb) => SADECE VE SADECE kendilerinin oluşturduğu veya sahip olduğu izinler
+        else {
+            where.user_id = userId;
             if (status_id) where.leave_status_id = status_id;
         }
 

@@ -9,9 +9,13 @@ import {
     updateLeave,
     confirmExit
 } from "../controllers/leaveController";
+import { requireAuth } from "../middlewares/authMiddleware";
 
 const router = Router();
 
+// ZIRH #1 : Buraya API üzerinden gelen herkesin token'ı denetlenir. 
+// "Giriş yapmamış" hiç kimse aşağıdaki metodlara ulaşamaz!
+router.use(requireAuth);
 // Yardımcı verileri (reasons, statuses, duration types) getir
 router.get("/lookups", getLeaveLookups);
 
