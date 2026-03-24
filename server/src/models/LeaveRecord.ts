@@ -1,7 +1,10 @@
 import { DataTypes, Model } from "sequelize";
 import sequelize from "../config/database";
 
-export class LeaveRecord extends Model {}
+export class LeaveRecord extends Model {
+    public id!: number;
+    public user_id!: string;
+}
 
 LeaveRecord.init(
     {

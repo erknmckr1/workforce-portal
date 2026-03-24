@@ -5,11 +5,12 @@ import dotenv from "dotenv";
 import { sequelize } from "./models";
 import authRoutes from "./routes/authRoutes";
 import personnelRoutes from "./routes/personnelRoutes";
+import leaveRoutes from "./routes/leaveRoutes";
 
 dotenv.config();
 
 const app = express();
-const port = process.env.PORT || 3003;
+const port = process.env.PORT || 3003; 
 
 // Middleware
 app.use(express.json());
@@ -32,6 +33,7 @@ app.use(cors(corsOptions));
 // Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/personnel", personnelRoutes);
+app.use("/api/leave", leaveRoutes);
 
 // DB bağlantısı ve sunucu başlatma
 const startServer = async () => {

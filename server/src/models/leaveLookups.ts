@@ -1,7 +1,11 @@
 import { DataTypes, Model } from "sequelize";
 import sequelize from "../config/database";
 
-export class LeaveStatus extends Model {}
+export class LeaveStatus extends Model {
+    public id!: number;
+    public code!: string;
+    public label!: string;
+}
 LeaveStatus.init(
     {
         id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
@@ -11,7 +15,12 @@ LeaveStatus.init(
     { sequelize, modelName: "LeaveStatus", tableName: "leave_statuses", timestamps: false }
 );
 
-export class LeaveReason extends Model {}
+export class LeaveReason extends Model {
+    public id!: number;
+    public code!: string;
+    public label!: string;
+    public is_active!: boolean;
+}
 LeaveReason.init(
     {
         id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
@@ -23,7 +32,12 @@ LeaveReason.init(
     { sequelize, modelName: "LeaveReason", tableName: "leave_reasons", timestamps: false }
 );
 
-export class LeaveDurationType extends Model {}
+export class LeaveDurationType extends Model {
+    public id!: number;
+    public code!: string;
+    public label!: string;
+    public deduction_factor!: number;
+}
 LeaveDurationType.init(
     {
         id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
