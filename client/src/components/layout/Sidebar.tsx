@@ -10,7 +10,8 @@ import {
   ChevronDown,
   Briefcase,
   FileText,
-  ClipboardCheck
+  ClipboardCheck,
+  ShieldCheck
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/authStore";
@@ -41,6 +42,12 @@ const menuItems = [
     icon: Users,
     path: "/management",
     roles: ["Admin", "Müdür", "İK", "Personel"]
+  },
+  {
+    title: "Güvenlik Paneli",
+    icon: ShieldCheck,
+    path: "/security",
+    roles: ["Admin", "İK"]
   },
   {
     title: "Raporlar",

@@ -28,6 +28,8 @@ LeaveRecord.init(
         auth2_responded_at: { type: DataTypes.DATE, allowNull: true },
         cancelled_at: { type: DataTypes.DATE, allowNull: true },
         cancelled_by: { type: DataTypes.STRING(255), allowNull: true },
+        exit_confirmed_at: { type: DataTypes.DATE, allowNull: true },
+        exit_confirmed_by: { type: DataTypes.STRING(255), allowNull: true },
     },
     { 
         sequelize, 

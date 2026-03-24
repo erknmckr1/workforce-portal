@@ -38,9 +38,7 @@ app.use("/api/leave", leaveRoutes);
 // DB bağlantısı ve sunucu başlatma
 const startServer = async () => {
     try {
-        await sequelize.authenticate();
         console.log("MSSQL veritabanına bağlantı başarılı.");
-
         await sequelize.sync(); 
         console.log("Tüm modeller senkronize edildi.");
 

@@ -1,11 +1,12 @@
 import { Request, Response } from "express";
-import { Op } from "sequelize";
+import { Op, fn } from "sequelize";
 import {
     LeaveRecord,
     LeaveStatus,
     LeaveReason,
     LeaveDurationType,
     Operator,
+    Section,
     LeaveActivityLog
 } from "../models";
 import sequelize from "../config/database";
@@ -180,7 +181,12 @@ export const getLeaves = async (req: Request, res: Response): Promise<Response> 
         const leaves = await LeaveRecord.findAll({
             where,
             include: [
-                { model: Operator, as: "User", attributes: ["name", "surname", "id_dec"] },
+                { 
+                    model: Operator, 
+                    as: "User", 
+                    attributes: ["name", "surname", "id_dec"],
+                    include: [{ model: Section, attributes: ["name"] }] 
+                },
                 { model: LeaveReason, attributes: ["label"] },
                 { model: LeaveStatus, attributes: ["label", "code"] },
                 { model: LeaveDurationType, attributes: ["label"] },
@@ -419,5 +425,39 @@ export const updateLeave = async (req: Request, res: Response): Promise<Response
         await transaction.rollback();
         console.error("UpdateLeave Error:", error);
         return res.status(500).json({ message: "İzin güncellenirken hata oluştu." });
+    }
+};
+
+// Güvenlik: Personel Çıkış Onayı
+export const confirmExit = async (req: Request, res: Response): Promise<Response> => {
+    const { id } = req.params;
+    const { confirmed_by } = req.body;
+
+    try {
+        const leave = await LeaveRecord.findByPk(Number(id));
+        if (!leave) return res.status(404).json({ message: "İzin talebi bulunamadı." });
+
+        // Sadece onaylanmış izinler çıkış yapabilir
+        if (leave.getDataValue('leave_status_id') !== 3) {
+            return res.status(400).json({ message: "Sadece onaylanmış izin taleplerinin çıkışı onaylanabilir." });
+        }
+
+        await leave.update({
+            exit_confirmed_at: fn('GETDATE'),
+            exit_confirmed_by: confirmed_by
+        });
+
+        await LeaveActivityLog.create({
+            leave_record_id: leave.getDataValue('id'),
+            performed_by: confirmed_by,
+            action: "EXIT_CONFIRMED",
+            new_status_id: 3,
+            details: "Bekçi tarafından çıkış onaylandı."
+        });
+
+        return res.status(200).json({ message: "Çıkış onaylandı.", data: leave });
+    } catch (error: any) {
+        console.error("ConfirmExit Error:", error);
+        return res.status(500).json({ message: `Çıkış onayı başarısız: ${error.message || 'Bilinmeyen SQL hatası'}` });
     }
 };

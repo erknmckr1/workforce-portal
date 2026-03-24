@@ -40,7 +40,13 @@ export interface ILeave {
     address?: string;
     auth1_responded_at?: string;
     auth2_responded_at?: string;
-    User?: { name: string; surname: string; id_dec: string };
+    exit_confirmed_at?: string;
+    User?: { 
+      name: string; 
+      surname: string; 
+      id_dec: string;
+      Section?: { name: string };
+    };
     LeaveReason?: { label: string };
     LeaveStatus?: { label: string; code: string };
     LeaveDurationType?: { label: string };
@@ -143,6 +149,21 @@ export const useLeaves = (filters?: { user_id?: string; status_id?: number; appr
         }
     });
 
+    const confirmExitMutation = useMutation({
+        mutationFn: async ({ id, confirmed_by }: { id: number; confirmed_by: string }) => {
+            const response = await apiClient.put(`/leave/${id}/confirm-exit`, { confirmed_by });
+            return response.data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["leaves"] });
+            toast.success("Çıkış onayı başarıyla kaydedildi.");
+        },
+        onError: (error: AxiosError<{message: string}>) => {
+            const message = error.response?.data?.message || "Çıkış onayı sırasında bir hata oluştu.";
+            toast.error(message);
+        }
+    });
+
     return {
         leaves: leaves || [],
         lookups: lookups || { reasons: [], statuses: [], durationTypes: [] },
@@ -157,6 +178,8 @@ export const useLeaves = (filters?: { user_id?: string; status_id?: number; appr
         isCancelling: cancelMutation.isPending,
         updateLeave: updateMutation.mutateAsync,
         isUpdating: updateMutation.isPending,
+        confirmExit: confirmExitMutation.mutateAsync,
+        isConfirmingExit: confirmExitMutation.isPending,
         error: errorLeaves || errorLookups
     };
 };

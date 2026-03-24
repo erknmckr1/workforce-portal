@@ -6,7 +6,8 @@ import {
     approveLeave,
     rejectLeave,
     cancelLeave,
-    updateLeave
+    updateLeave,
+    confirmExit
 } from "../controllers/leaveController";
 
 const router = Router();
@@ -31,5 +32,8 @@ router.put("/:id/cancel", cancelLeave);
 
 // İzin talebini güncelle (Düzenle)
 router.put("/:id", updateLeave);
+
+// Güvenlik Rotaları
+router.put("/:id/confirm-exit", confirmExit);
 
 export default router;
