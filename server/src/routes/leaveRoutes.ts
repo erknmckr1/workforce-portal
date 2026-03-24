@@ -4,7 +4,9 @@ import {
     createLeave, 
     getLeaveLookups,
     approveLeave,
-    rejectLeave
+    rejectLeave,
+    cancelLeave,
+    updateLeave
 } from "../controllers/leaveController";
 
 const router = Router();
@@ -23,5 +25,11 @@ router.put("/:id/approve", approveLeave);
 
 // İzin talebini reddet
 router.put("/:id/reject", rejectLeave);
+
+// İzin talebini iptal et (Sahibi tarafından)
+router.put("/:id/cancel", cancelLeave);
+
+// İzin talebini güncelle (Düzenle)
+router.put("/:id", updateLeave);
 
 export default router;

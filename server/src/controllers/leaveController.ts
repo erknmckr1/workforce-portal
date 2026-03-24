@@ -285,3 +285,94 @@ export const rejectLeave = async (req: Request, res: Response): Promise<Response
         return res.status(500).json({ message: "İzin reddedilirken hata oluştu." });
     }
 };
+
+// İzin İptal Et (Personel Tarafı)
+export const cancelLeave = async (req: Request, res: Response): Promise<Response> => {
+    const transaction = await sequelize.transaction();
+    try {
+        const { id } = req.params;
+        const { user_id } = req.body; // İşlemi yapan kullanıcının ID'si
+
+        const leave = await LeaveRecord.findByPk(id as string);
+        if (!leave) {
+            await transaction.rollback();
+            return res.status(404).json({ message: "İzin talebi bulunamadı." });
+        }
+
+        // 1. Sadece sahibi iptal edebilir
+        if (leave.getDataValue('user_id') !== user_id) {
+            await transaction.rollback();
+            return res.status(403).json({ message: "Bu izin talebini iptal etme yetkiniz yok." });
+        }
+
+        // 2. Sadece bekleyen (1 veya 2) durumdakiler iptal edilebilir
+        const currentStatus = leave.getDataValue('leave_status_id') as number;
+        if (currentStatus !== 1 && currentStatus !== 2) {
+            await transaction.rollback();
+            return res.status(400).json({ message: "Onaylanmış veya sonuçlanmış izin talepleri iptal edilemez." });
+        }
+
+        await leave.update({ leave_status_id: 4 }, { transaction }); // Status 4 = CANCELLED
+
+        await LeaveActivityLog.create({
+            leave_record_id: leave.getDataValue('id'),
+            performed_by: user_id,
+            action: "CANCELLED_BY_USER",
+            new_status_id: 4,
+            details: "Kullanıcı talebi tarafından iptal edildi."
+        }, { transaction });
+
+        await transaction.commit();
+        return res.status(200).json({ message: "İzin talebi başarıyla iptal edildi.", data: leave });
+    } catch (error) {
+        await transaction.rollback();
+        console.error("CancelLeave Error:", error);
+        return res.status(500).json({ message: "İzin iptal edilirken hata oluştu." });
+    }
+};
+
+// İzin Talebi Güncelle (Düzenle)
+export const updateLeave = async (req: Request, res: Response): Promise<Response> => {
+    const transaction = await sequelize.transaction();
+    try {
+        const { id } = req.params;
+        const { user_id, ...updateData } = req.body;
+
+        const leave = await LeaveRecord.findByPk(id as string);
+        if (!leave) {
+            await transaction.rollback();
+            return res.status(404).json({ message: "İzin talebi bulunamadı." });
+        }
+
+        // 1. Sadece sahibi değiştirebilir
+        if (leave.getDataValue('user_id') !== user_id) {
+            await transaction.rollback();
+            return res.status(403).json({ message: "Bu izin talebini düzenleme yetkiniz yok." });
+        }
+
+        // 2. Sadece bekleyen (1 veya 2) durumdakiler düzenlenebilir
+        const currentStatus = leave.getDataValue('leave_status_id') as number;
+        if (currentStatus !== 1 && currentStatus !== 2) {
+            await transaction.rollback();
+            return res.status(400).json({ message: "Onaylanmış veya sonuçlanmış izin talepleri düzenlenemez." });
+        }
+
+        // 3. Güncellemeyi yap
+        await leave.update(updateData, { transaction });
+
+        await LeaveActivityLog.create({
+            leave_record_id: leave.getDataValue('id'),
+            performed_by: user_id,
+            action: "UPDATED_BY_USER",
+            new_status_id: currentStatus,
+            details: "İzin talebi kullanıcı tarafından güncellendi."
+        }, { transaction });
+
+        await transaction.commit();
+        return res.status(200).json({ message: "İzin talebi başarıyla güncellendi.", data: leave });
+    } catch (error) {
+        await transaction.rollback();
+        console.error("UpdateLeave Error:", error);
+        return res.status(500).json({ message: "İzin güncellenirken hata oluştu." });
+    }
+};

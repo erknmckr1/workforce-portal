@@ -36,6 +36,10 @@ export interface ILeave {
     start_date: string;
     end_date: string;
     description?: string;
+    phone?: string;
+    address?: string;
+    auth1_responded_at?: string;
+    auth2_responded_at?: string;
     User?: { name: string; surname: string; id_dec: string };
     LeaveReason?: { label: string };
     LeaveStatus?: { label: string; code: string };
@@ -109,6 +113,36 @@ export const useLeaves = (filters?: { user_id?: string; status_id?: number; appr
         }
     });
 
+    const cancelMutation = useMutation({
+        mutationFn: async ({ id, user_id }: { id: number; user_id: string }) => {
+            const response = await apiClient.put(`/leave/${id}/cancel`, { user_id });
+            return response.data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["leaves"] });
+            toast.success("İzin talebi iptal edildi.");
+        },
+        onError: (error: AxiosError<{message: string}>) => {
+            const message = error.response?.data?.message || "İptal işlemi sırasında bir hata oluştu.";
+            toast.error(message);
+        }
+    });
+
+    const updateMutation = useMutation({
+        mutationFn: async ({ id, data }: { id: number; data: Partial<LeaveRequest> & { user_id: string } }) => {
+            const response = await apiClient.put(`/leave/${id}`, data);
+            return response.data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["leaves"] });
+            toast.success("İzin talebi güncellendi.");
+        },
+        onError: (error: AxiosError<{message: string}>) => {
+            const message = error.response?.data?.message || "Güncelleme sırasında bir hata oluştu.";
+            toast.error(message);
+        }
+    });
+
     return {
         leaves: leaves || [],
         lookups: lookups || { reasons: [], statuses: [], durationTypes: [] },
@@ -119,6 +153,10 @@ export const useLeaves = (filters?: { user_id?: string; status_id?: number; appr
         isApproving: approveMutation.isPending,
         rejectLeave: rejectMutation.mutateAsync,
         isRejecting: rejectMutation.isPending,
+        cancelLeave: cancelMutation.mutateAsync,
+        isCancelling: cancelMutation.isPending,
+        updateLeave: updateMutation.mutateAsync,
+        isUpdating: updateMutation.isPending,
         error: errorLeaves || errorLookups
     };
 };

@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 import { useLeaves, type ILeave } from "@/hooks/useLeaves";
 import { format } from "date-fns";
 import { tr } from "date-fns/locale";
@@ -65,8 +66,14 @@ export default function LeaveApprovals() {
         );
       case 4:
         return (
-          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-destructive/10 text-destructive border border-destructive/20 font-bold text-[10px] uppercase tracking-widest">
+          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-muted text-muted-foreground border border-border font-bold text-[10px] uppercase tracking-widest">
             <XCircle size={12} /> İptal Edildi
+          </div>
+        );
+      case 5:
+        return (
+          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-destructive/10 text-destructive border border-destructive/20 font-bold text-[10px] uppercase tracking-widest">
+            <XCircle size={12} /> Reddedildi
           </div>
         );
       default:
@@ -163,24 +170,54 @@ export default function LeaveApprovals() {
                   </div>
                 </div>
 
-                <div className="flex items-center mt-4 lg:mt-0 gap-3 border-t border-border/50 lg:border-none pt-6 lg:pt-0">
-                  <Button 
-                    variant="outline" 
-                    onClick={() => handleReject(leave.id!)}
-                    disabled={processingId === leave.id}
-                    className="h-12 px-6 rounded-xl font-bold border-destructive/20 text-destructive hover:bg-destructive hover:text-destructive-foreground transition-all disabled:opacity-50"
-                  >
-                    {processingId === leave.id ? <Loader2 className="animate-spin mr-2" size={18} /> : <XCircle size={18} className="mr-2" />} 
-                    Reddet
-                  </Button>
-                  <Button 
-                    onClick={() => handleApprove(leave.id!)}
-                    disabled={processingId === leave.id}
-                    className="h-12 px-8 rounded-xl bg-success hover:bg-success/90 text-success-foreground font-black shadow-lg shadow-success/20 transition-all disabled:opacity-50"
-                  >
-                    {processingId === leave.id ? <Loader2 className="animate-spin mr-2" size={18} /> : <CheckCircle2 size={18} className="mr-2" />} 
-                    Onayla
-                  </Button>
+                <div className="flex flex-col lg:items-end gap-6 mt-4 lg:mt-0 pt-6 lg:pt-0 border-t border-border/50 lg:border-none">
+                  <div className="flex flex-col lg:text-right">
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2">Mevcut Durum</span>
+                    <div className="flex items-center gap-1">
+                        {/* 1. Onay Noktası */}
+                        <div className={cn(
+                          "w-2.5 h-2.5 rounded-full transition-colors",
+                          // DURUM 5 (RED) iken: Eğer auth1 tarihi varsa ve auth2 tarihi yoksa, auth1 reddetmiştir.
+                          (leave.leave_status_id === 5 && leave.auth1_responded_at && !leave.auth2_responded_at) ? "bg-destructive shadow-[0_0_8px_rgba(var(--destructive),0.5)]" :
+                          // Eğer auth1 onaylamışsa (bu duruma sadece auth1 onay verip 2. aşamaya geçtiyse veya onaylandıysa gelinir)
+                          (leave.auth1_responded_at || leave.leave_status_id === 3 || leave.leave_status_id === 2) ? "bg-success" : 
+                          // Süreç iptal edildiyse
+                          (leave.leave_status_id === 4) ? "bg-destructive" : "bg-muted"
+                        )} />
+                        
+                        <div className="w-4 h-[2px] bg-muted/50" />
+                        
+                        {/* 2. Onay Noktası */}
+                        <div className={cn(
+                          "w-2.5 h-2.5 rounded-full transition-colors",
+                          // DURUM 5 (RED) iken: Eğer hem auth1 hem auth2 tarihi varsa, 2. kişi reddetmiştir.
+                          (leave.leave_status_id === 5 && leave.auth1_responded_at && leave.auth2_responded_at) ? "bg-destructive shadow-[0_0_8px_rgba(var(--destructive),0.5)]" :
+                          // Sadece tam onaylandı durumunda yeşil.
+                          (leave.leave_status_id === 3) ? "bg-success shadow-[0_0_8px_rgba(var(--success),0.5)]" : 
+                          "bg-muted"
+                        )} />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <Button 
+                      variant="outline" 
+                      onClick={() => handleReject(leave.id!)}
+                      disabled={processingId === leave.id}
+                      className="h-12 px-6 rounded-xl font-bold border-destructive/20 text-destructive hover:bg-destructive hover:text-destructive-foreground transition-all disabled:opacity-50"
+                    >
+                      {processingId === leave.id ? <Loader2 className="animate-spin mr-2" size={18} /> : <XCircle size={18} className="mr-2" />} 
+                      Reddet
+                    </Button>
+                    <Button 
+                      onClick={() => handleApprove(leave.id!)}
+                      disabled={processingId === leave.id}
+                      className="h-12 px-8 rounded-xl bg-success hover:bg-success/90 text-success-foreground font-black shadow-lg shadow-success/20 transition-all disabled:opacity-50"
+                    >
+                      {processingId === leave.id ? <Loader2 className="animate-spin mr-2" size={18} /> : <CheckCircle2 size={18} className="mr-2" />} 
+                      Onayla
+                    </Button>
+                  </div>
                 </div>
               </div>
             ))

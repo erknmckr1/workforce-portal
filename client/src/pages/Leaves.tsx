@@ -20,37 +20,67 @@ import { CreateLeaveModal } from "@/components/leaves/CreateLeaveModal";
 import { format } from "date-fns";
 import { tr } from "date-fns/locale";
 import { useAuthStore } from "@/store/authStore";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { PencilLine, Trash2 } from "lucide-react";
 
 export default function Leaves() {
   const { user } = useAuthStore();
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const { leaves, isLoading } = useLeaves({ user_id: user?.id_dec });
+  const [editingLeave, setEditingLeave] = useState<ILeave | null>(null);
+  const { leaves, isLoading, cancelLeave } = useLeaves({ user_id: user?.id_dec });
   const [searchTerm, setSearchTerm] = useState("");
+  const [processingId, setProcessingId] = useState<number | null>(null);
+
+  const handleEdit = (leave: ILeave) => {
+    setEditingLeave(leave);
+    setIsModalOpen(true);
+  };
+
+  const handleCancel = async (id: number) => {
+    if (!user?.id_dec) return;
+    setProcessingId(id);
+    try {
+      await cancelLeave({ id, user_id: user.id_dec });
+    } finally {
+      setProcessingId(null);
+    }
+  };
 
   const getStatusBadge = (statusId: number) => {
     switch (statusId) {
       case 1:
         return (
-          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-orange-500/10 text-orange-500 border border-orange-500/20 font-bold text-[10px] uppercase tracking-widest">
+          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-warning/10 text-warning border border-warning/20 font-bold text-[10px] uppercase tracking-widest">
             <Clock size={12} /> 1. Onay Bekliyor
           </div>
         );
       case 2:
         return (
-          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/10 text-blue-500 border border-blue-500/20 font-bold text-[10px] uppercase tracking-widest">
+          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-info/10 text-info border border-info/20 font-bold text-[10px] uppercase tracking-widest">
             <Clock size={12} /> 2. Onay Bekliyor
           </div>
         );
       case 3:
         return (
-          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-green-500/10 text-green-500 border border-green-500/20 font-bold text-[10px] uppercase tracking-widest">
+          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-success/10 text-success border border-success/20 font-bold text-[10px] uppercase tracking-widest">
             <CheckCircle2 size={12} /> Onaylandı
           </div>
         );
       case 4:
         return (
-          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-destructive/10 text-destructive border border-destructive/20 font-bold text-[10px] uppercase tracking-widest">
+          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-muted text-muted-foreground border border-border font-bold text-[10px] uppercase tracking-widest">
             <XCircle size={12} /> İptal Edildi
+          </div>
+        );
+      case 5:
+        return (
+          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-destructive/10 text-destructive border border-destructive/20 font-bold text-[10px] uppercase tracking-widest">
+            <XCircle size={12} /> Reddedildi
           </div>
         );
       default:
@@ -98,9 +128,9 @@ export default function Leaves() {
             <span className="text-4xl font-black text-orange-500">{leaves.filter((l: ILeave) => l.leave_status_id < 3).length}</span>
             <span className="text-[10px] font-bold text-orange-500 uppercase tracking-[0.2em]">Bekleyenler</span>
         </div>
-         <div className="bg-green-500/5 border border-green-500/10 p-6 rounded-[2.5rem] flex flex-col items-center justify-center gap-2 text-center">
-            <span className="text-4xl font-black text-green-500">{leaves.filter((l: ILeave) => l.leave_status_id === 3).length}</span>
-            <span className="text-[10px] font-bold text-green-500 uppercase tracking-[0.2em]">Onaylananlar</span>
+        <div className="bg-green-500/5 border border-green-500/10 p-6 rounded-[2.5rem] flex flex-col items-center justify-center gap-2 text-center">
+            <span className="text-4xl font-black text-success">{leaves.filter((l: ILeave) => l.leave_status_id === 3).length}</span>
+            <span className="text-[10px] font-bold text-success uppercase tracking-[0.2em]">Onaylananlar</span>
         </div>
         <div className="bg-primary/5 border border-primary/10 p-6 rounded-[2.5rem] flex flex-col items-center justify-center gap-2 text-center">
             <span className="text-4xl font-black text-primary">14.5</span>
@@ -173,14 +203,61 @@ export default function Leaves() {
                   <div className="flex flex-col text-right">
                     <span className="text-xs font-bold text-muted-foreground uppercase tracking-tighter">Onay Akışı</span>
                     <div className="flex items-center gap-1 mt-1">
-                        <div className={cn("w-2 h-2 rounded-full", leave.leave_status_id >= 2 || leave.leave_status_id === 3 ? "bg-green-500" : "bg-muted")} />
-                        <div className="w-4 h-[2px] bg-muted" />
-                        <div className={cn("w-2 h-2 rounded-full", leave.leave_status_id === 3 ? "bg-green-500" : "bg-muted")} />
+                        {/* 1. Onay Noktası */}
+                        <div className={cn(
+                          "w-2.5 h-2.5 rounded-full transition-colors",
+                           // 1. Onaycı Reddetme Durumu
+                          (leave.leave_status_id === 5 && leave.auth1_responded_at && !leave.auth2_responded_at) ? "bg-destructive shadow-[0_0_8px_rgba(var(--destructive),0.5)]" :
+                          // 1. Onaycı Onaylamışsa
+                          (leave.auth1_responded_at || leave.leave_status_id === 3 || leave.leave_status_id === 2) ? "bg-success" : 
+                          // İptal Edildiyse
+                          (leave.leave_status_id === 4) ? "bg-destructive" : "bg-muted"
+                        )} />
+                        
+                        <div className="w-4 h-[2px] bg-muted/50" />
+                        
+                        {/* 2. Onay Noktası */}
+                        <div className={cn(
+                          "w-2.5 h-2.5 rounded-full transition-colors",
+                           // 2. Onaycı Reddetme Durumu
+                          (leave.leave_status_id === 5 && leave.auth1_responded_at && leave.auth2_responded_at) ? "bg-destructive shadow-[0_0_8px_rgba(var(--destructive),0.5)]" :
+                          // Tam Onaylandı Durumu
+                          (leave.leave_status_id === 3) ? "bg-success shadow-[0_0_8px_rgba(var(--success),0.5)]" : "bg-muted"
+                        )} />
                     </div>
                   </div>
-                  <Button variant="ghost" className="w-12 h-12 rounded-xl border border-border/50 hover:bg-muted p-0">
-                    <MoreVertical size={20} />
-                  </Button>
+                  
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" className="w-12 h-12 rounded-xl border border-border/50 hover:bg-muted p-0">
+                        {processingId === leave.id ? <Loader2 className="animate-spin" size={18} /> : <MoreVertical size={20} />}
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48 rounded-2xl p-2 border-border/50 shadow-xl">
+                      {(leave.leave_status_id === 1 || leave.leave_status_id === 2) && (
+                        <>
+                          <DropdownMenuItem 
+                            onClick={() => handleEdit(leave)}
+                            className="flex items-center gap-2 p-3 rounded-xl font-bold cursor-pointer"
+                          >
+                            <PencilLine size={18} className="text-primary" />
+                            Düzenle
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            onClick={() => handleCancel(leave.id!)}
+                            className="flex items-center gap-2 p-3 rounded-xl font-bold text-destructive cursor-pointer hover:bg-destructive/10"
+                          >
+                            <Trash2 size={18} />
+                            İptal Et
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                      <DropdownMenuItem className="flex items-center gap-2 p-3 rounded-xl font-bold cursor-pointer">
+                        <AlertCircle size={18} className="text-muted-foreground" />
+                        Detaylar
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </div>
             ))
@@ -190,7 +267,11 @@ export default function Leaves() {
 
       <CreateLeaveModal 
         open={isModalOpen} 
-        onOpenChange={setIsModalOpen} 
+        onOpenChange={(open: boolean) => {
+          setIsModalOpen(open);
+          if (!open) setEditingLeave(null);
+        }} 
+        editingLeave={editingLeave}
       />
     </div>
   );

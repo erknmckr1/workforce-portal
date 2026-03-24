@@ -28,7 +28,7 @@ import {
   UserCircle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useLeaves, type LeaveRequest } from "@/hooks/useLeaves";
+import { useLeaves, type LeaveRequest, type ILeave } from "@/hooks/useLeaves";
 import { useAuthStore } from "@/store/authStore";
 
 const leaveSchema = z.object({
@@ -55,15 +55,17 @@ interface CreateLeaveModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   targetUser?: { id_dec: string; name: string; surname: string }; // Optional pre-selected user (for HR)
+  editingLeave?: ILeave | null; // Pass a leave to switch to edit mode
 }
 
 export function CreateLeaveModal({
   open,
   onOpenChange,
-  targetUser
+  targetUser,
+  editingLeave
 }: CreateLeaveModalProps) {
   const { user } = useAuthStore();
-  const { lookups, createLeave, isCreating } = useLeaves();
+  const { lookups, createLeave, isCreating, updateLeave, isUpdating } = useLeaves();
 
   const {
     register,
@@ -88,7 +90,26 @@ export function CreateLeaveModal({
 
   useEffect(() => {
     if (open) {
-      if (targetUser) {
+      if (editingLeave) {
+        // Format dates for datetime-local input (YYYY-MM-DDTHH:mm)
+        const formatForInput = (dateStr: string) => {
+          const date = new Date(dateStr);
+          const offset = date.getTimezoneOffset() * 60000;
+          const localISOTime = (new Date(date.getTime() - offset)).toISOString().slice(0, 16);
+          return localISOTime;
+        };
+
+        reset({
+          user_id: String(editingLeave.user_id),
+          leave_reason_id: String(editingLeave.leave_reason_id),
+          leave_duration_type_id: String(editingLeave.leave_duration_type_id),
+          start_date: formatForInput(editingLeave.start_date),
+          end_date: formatForInput(editingLeave.end_date),
+          description: editingLeave.description || "",
+          phone: editingLeave.phone || "",
+          address: editingLeave.address || ""
+        });
+      } else if (targetUser) {
         setValue("user_id", targetUser.id_dec);
       } else if (user) {
         setValue("user_id", user.id_dec);
@@ -96,7 +117,7 @@ export function CreateLeaveModal({
     } else {
       reset();
     }
-  }, [open, targetUser, user, setValue, reset]);
+  }, [open, targetUser, user, setValue, reset, editingLeave]);
 
   const onFormSubmit = async (values: LeaveFormValues) => {
     try {
@@ -106,7 +127,11 @@ export function CreateLeaveModal({
         leave_duration_type_id: Number(values.leave_duration_type_id),
       };
 
-      await createLeave(payload);
+      if (editingLeave?.id) {
+        await updateLeave({ id: editingLeave.id, data: { ...payload, user_id: values.user_id } });
+      } else {
+        await createLeave(payload);
+      }
       onOpenChange(false);
     } catch {
       // Error handled in hook (toast)
@@ -123,9 +148,9 @@ export function CreateLeaveModal({
                 <CalendarDays size={32} />
               </div>
               <div className="text-left">
-                <DialogTitle className="text-3xl font-black tracking-tight">Yeni İzin Talebi</DialogTitle>
+                <DialogTitle className="text-3xl font-black tracking-tight">{editingLeave ? "İzin Talebi Düzenle" : "Yeni İzin Talebi"}</DialogTitle>
                 <DialogDescription className="text-muted-foreground font-bold text-sm uppercase tracking-widest leading-none mt-1">
-                  Kayıt Formu
+                  {editingLeave ? `Talep No: #${editingLeave.id}` : "Kayıt Formu"}
                 </DialogDescription>
               </div>
             </div>
@@ -271,11 +296,11 @@ export function CreateLeaveModal({
                 İptal Et
               </Button>
               <Button
-                disabled={isCreating}
+                disabled={isCreating || isUpdating}
                 type="submit"
                 className="h-16 flex-1 rounded-2xl bg-primary text-primary-foreground font-black text-xl shadow-lg shadow-primary/20"
               >
-                {isCreating ? "Kaydediliyor..." : "Talebi Gönder"}
+                {isCreating || isUpdating ? "Kaydediliyor..." : (editingLeave ? "Güncelle" : "Talebi Gönder")}
               </Button>
             </div>
           </form>
