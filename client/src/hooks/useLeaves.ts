@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import apiClient from "@/lib/api";
 import { toast } from "sonner";
+import { AxiosError } from "axios";
 
 export interface LeaveRequest {
     id?: number;
@@ -45,7 +46,7 @@ export const useLeaves = (filters?: { user_id?: string; status_id?: number; appr
     const queryClient = useQueryClient();
 
     // İzin kayıtlarını çek
-    const leavesQuery = useQuery({
+    const { data: leaves, isLoading: isLoadingLeaves, error: errorLeaves } = useQuery<ILeave[]>({
         queryKey: ["leaves", filters],
         queryFn: async () => {
             const { data } = await apiClient.get("/leave", { params: filters });
@@ -54,7 +55,7 @@ export const useLeaves = (filters?: { user_id?: string; status_id?: number; appr
     });
 
     // İzin lookup verilerini çek
-    const lookupsQuery = useQuery<LeaveLookups>({
+    const { data: lookups, isLoading: isLoadingLookups, error: errorLookups } = useQuery<LeaveLookups>({
         queryKey: ["leave-lookups"],
         queryFn: async () => {
             const { data } = await apiClient.get("/leave/lookups");
@@ -69,21 +70,55 @@ export const useLeaves = (filters?: { user_id?: string; status_id?: number; appr
             return data;
         },
         onSuccess: () => {
-            toast.success("İzin talebi başarıyla oluşturuldu.");
             queryClient.invalidateQueries({ queryKey: ["leaves"] });
+            toast.success("İzin talebi başarıyla oluşturuldu.");
         },
-        onError: (error: unknown) => {
-            const message = (error as any).response?.data?.message || "İzin oluşturulurken bir hata oluştu.";
+        onError: (error: AxiosError<{message: string}>) => {
+            const message = error.response?.data?.message || "İzin talebi oluşturulurken bir hata oluştu.";
+            toast.error(message);
+        }
+    });
+
+    const approveMutation = useMutation({
+        mutationFn: async ({ id, approver_id, notes }: { id: number; approver_id: string; notes?: string }) => {
+            const response = await apiClient.put(`/leave/${id}/approve`, { approver_id, notes });
+            return response.data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["leaves"] });
+            toast.success("İzin talebini onayladınız.");
+        },
+        onError: (error: AxiosError<{message: string}>) => {
+            const message = error.response?.data?.message || "Onay işlemi sırasında bir hata oluştu.";
+            toast.error(message);
+        }
+    });
+
+    const rejectMutation = useMutation({
+        mutationFn: async ({ id, approver_id, notes }: { id: number; approver_id: string; notes?: string }) => {
+            const response = await apiClient.put(`/leave/${id}/reject`, { approver_id, notes });
+            return response.data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["leaves"] });
+            toast.success("İzin talebini reddettiniz.");
+        },
+        onError: (error: AxiosError<{message: string}>) => {
+            const message = error.response?.data?.message || "Ret işlemi sırasında bir hata oluştu.";
             toast.error(message);
         }
     });
 
     return {
-        leaves: leavesQuery.data || [],
-        isLoading: leavesQuery.isLoading,
-        lookups: lookupsQuery.data || { reasons: [], statuses: [], durationTypes: [] },
-        lookupsLoading: lookupsQuery.isLoading,
+        leaves: leaves || [],
+        lookups: lookups || { reasons: [], statuses: [], durationTypes: [] },
+        isLoading: isLoadingLeaves || isLoadingLookups,
         createLeave: createMutation.mutateAsync,
-        isCreating: createMutation.isPending
+        isCreating: createMutation.isPending,
+        approveLeave: approveMutation.mutateAsync,
+        isApproving: approveMutation.isPending,
+        rejectLeave: rejectMutation.mutateAsync,
+        isRejecting: rejectMutation.isPending,
+        error: errorLeaves || errorLookups
     };
 };

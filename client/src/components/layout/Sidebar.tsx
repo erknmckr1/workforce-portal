@@ -9,7 +9,8 @@ import {
   ChevronLeft,
   ChevronDown,
   Briefcase,
-  FileText
+  FileText,
+  ClipboardCheck
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/authStore";
@@ -28,6 +29,12 @@ const menuItems = [
     icon: CalendarDays,
     path: "/leaves",
     roles: ["Admin", "Müdür", "Şef", "Personel", "İK"]
+  },
+  {
+    title: "Onay Bekleyenler",
+    icon: ClipboardCheck,
+    path: "/leave-approvals",
+    roles: ["Admin", "Müdür", "Şef", "İK"]
   },
   {
     title: "Personel Yönetimi",

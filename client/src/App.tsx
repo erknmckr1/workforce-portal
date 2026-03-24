@@ -9,6 +9,7 @@ import MainLayout from "./components/layout/MainLayout";
 import SettingsIndex from "./pages/settings/SettingsIndex";
 import Approvals from "./pages/settings/Approvals";
 import Leaves from "./pages/Leaves";
+import LeaveApprovals from "./pages/LeaveApprovals";
 import "./App.css";
 
 import { Toaster } from "@/components/ui/sonner"; 
@@ -85,6 +86,7 @@ function App() {
 
             {/* Diğer Alt Rotalar */}
             <Route path="leaves" element={<Leaves />} />
+            <Route path="leave-approvals" element={<LeaveApprovals />} />
             <Route path="management" element={<PersonnelManagement />} />
             <Route path="reports" element={<div className="p-4 border-2 border-dashed rounded-3xl">Raporlar Sayfası Yakında...</div>} />
             
