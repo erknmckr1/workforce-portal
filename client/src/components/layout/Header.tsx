@@ -56,7 +56,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
                 {user?.name} {user?.surname}
               </span>
               <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest leading-none mt-0.5">
-                {user?.role === 'ADMIN' ? 'Yönetici' : user?.role === 'MANAGER' ? 'Müdür' : 'Personel'}
+                {user?.role || 'PERSONEL'}
               </span>
             </div>
             <div className="relative">

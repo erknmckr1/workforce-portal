@@ -23,13 +23,13 @@ const menuItems = [
     title: "Panel",
     icon: LayoutDashboard,
     path: "/",
-    roles: ["Admin", "Müdür", "Şef", "Personel", "İK"]
+    roles: ["Admin", "Müdür", "Şef", "Personel", "İK", "Revir"]
   },
   {
     title: "İzinlerim",
     icon: CalendarDays,
     path: "/leaves",
-    roles: ["Admin", "Müdür", "Şef", "Personel", "İK"]
+    roles: ["Admin", "Müdür", "Şef", "Personel", "İK", "Revir", "Güvenlik"]
   },
   {
     title: "Onay Bekleyenler",
@@ -41,24 +41,24 @@ const menuItems = [
     title: "Personel Yönetimi",
     icon: Users,
     path: "/management",
-    roles: ["Admin", "Müdür", "İK", "Personel"]
+    roles: ["Admin", "İK"]
   },
   {
     title: "Güvenlik Paneli",
     icon: ShieldCheck,
     path: "/security",
-    roles: ["Admin", "İK"]
+    roles: ["Admin", "Güvenlik"]
   },
   {
     title: "Raporlar",
     icon: FileText,
     path: "/reports",
-    roles: ["Admin", "Müdür", "İK", "Personel"]
+    roles: ["Admin", "İK", "Müdür"]
   },
   {
     title: "Ayarlar",
     icon: Settings,
-    roles: ["Admin", "Personel"],
+    roles: ["Admin", "İK"],
     children: [
       { title: "Genel Ayarlar", path: "/settings/general" },
       { title: "Onay Hiyerarşisi", path: "/settings/approvals" }
