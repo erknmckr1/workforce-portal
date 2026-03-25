@@ -12,6 +12,7 @@ import Approvals from "./pages/settings/Approvals";
 import Leaves from "./pages/Leaves";
 import LeaveApprovals from "./pages/LeaveApprovals";
 import SecurityScreen from "./pages/SecurityScreen";
+import { ThemeProvider } from "./components/theme-provider";
 import "./App.css";
 
 import { Toaster } from "@/components/ui/sonner"; 
@@ -68,62 +69,64 @@ function App() {
   }
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <Toaster position="top-center" richColors />
-        <Routes>
-          {/* Giriş yapmamışsa Login'e yönlendir */}
-          <Route
-            path="/login"
-            element={!isAuthenticated ? <Login /> : <Navigate to="/" />}
-          />
+    <ThemeProvider defaultTheme="system" storageKey="midas-theme">
+      <QueryClientProvider client={queryClient}>
+        <BrowserRouter>
+          <Toaster position="top-center" richColors />
+          <Routes>
+            {/* Giriş yapmamışsa Login'e yönlendir */}
+            <Route
+              path="/login"
+              element={!isAuthenticated ? <Login /> : <Navigate to="/" />}
+            />
 
-          {/* Korumalı Rotalar (Layout ile birlikte) */}
-          <Route
-            path="/"
-            element={isAuthenticated ? <MainLayout /> : <Navigate to="/login" />}
-          >
-            {/* Dashboard (Güvenlik Hariç) */}
-            <Route element={<ProtectedRoute allowedRoles={["Admin", "Müdür", "Şef", "Personel", "İK", "Revir"]} />}>
-              <Route index element={<Dashboard />} />
-            </Route>
+            {/* Korumalı Rotalar (Layout ile birlikte) */}
+            <Route
+              path="/"
+              element={isAuthenticated ? <MainLayout /> : <Navigate to="/login" />}
+            >
+              {/* Dashboard (Güvenlik Hariç) */}
+              <Route element={<ProtectedRoute allowedRoles={["Admin", "Müdür", "Şef", "Personel", "İK", "Revir"]} />}>
+                <Route index element={<Dashboard />} />
+              </Route>
 
-            {/* İzinlerim (Herkes Görebilir) */}
-            <Route element={<ProtectedRoute allowedRoles={["Admin", "Müdür", "Şef", "Personel", "İK", "Revir", "Güvenlik"]} />}>
-              <Route path="leaves" element={<Leaves />} />
-            </Route>
+              {/* İzinlerim (Herkes Görebilir) */}
+              <Route element={<ProtectedRoute allowedRoles={["Admin", "Müdür", "Şef", "Personel", "İK", "Revir", "Güvenlik"]} />}>
+                <Route path="leaves" element={<Leaves />} />
+              </Route>
 
-            {/* Onay Bekleyenler */}
-            <Route element={<ProtectedRoute allowedRoles={["Admin", "Müdür", "Şef", "İK"]} />}>
-              <Route path="leave-approvals" element={<LeaveApprovals />} />
-            </Route>
+              {/* Onay Bekleyenler */}
+              <Route element={<ProtectedRoute allowedRoles={["Admin", "Müdür", "Şef", "İK"]} />}>
+                <Route path="leave-approvals" element={<LeaveApprovals />} />
+              </Route>
 
-            {/* Personel Yönetimi */}
-            <Route element={<ProtectedRoute allowedRoles={["Admin", "İK"]} />}>
-              <Route path="management" element={<PersonnelManagement />} />
-            </Route>
+              {/* Personel Yönetimi */}
+              <Route element={<ProtectedRoute allowedRoles={["Admin", "İK"]} />}>
+                <Route path="management" element={<PersonnelManagement />} />
+              </Route>
 
-            {/* Güvenlik Paneli */}
-            <Route element={<ProtectedRoute allowedRoles={["Admin", "Güvenlik"]} />}>
-              <Route path="security" element={<SecurityScreen />} />
-            </Route>
+              {/* Güvenlik Paneli */}
+              <Route element={<ProtectedRoute allowedRoles={["Admin", "Güvenlik"]} />}>
+                <Route path="security" element={<SecurityScreen />} />
+              </Route>
 
-            {/* Raporlar */}
-            <Route element={<ProtectedRoute allowedRoles={["Admin", "İK", "Müdür"]} />}>
-              <Route path="reports" element={<div className="p-4 border-2 border-dashed rounded-3xl">Raporlar Sayfası Yakında...</div>} />
+              {/* Raporlar */}
+              <Route element={<ProtectedRoute allowedRoles={["Admin", "İK", "Müdür"]} />}>
+                <Route path="reports" element={<div className="p-4 border-2 border-dashed rounded-3xl">Raporlar Sayfası Yakında...</div>} />
+              </Route>
+              
+              {/* Sistem Ayarları Düz Routing */}
+              <Route element={<ProtectedRoute allowedRoles={["Admin", "İK"]} />}>
+                <Route path="settings" element={<Navigate to="/settings/general" replace />} />
+                <Route path="settings/general" element={<SettingsIndex />} />
+                <Route path="settings/approvals" element={<Approvals />} />
+              </Route>
             </Route>
-            
-            {/* Sistem Ayarları Düz Routing */}
-            <Route element={<ProtectedRoute allowedRoles={["Admin", "İK"]} />}>
-              <Route path="settings" element={<Navigate to="/settings/general" replace />} />
-              <Route path="settings/general" element={<SettingsIndex />} />
-              <Route path="settings/approvals" element={<Approvals />} />
-            </Route>
-          </Route>
-        </Routes>
-      </BrowserRouter>
-      <ReactQueryDevtools initialIsOpen={false} />
-    </QueryClientProvider>
+          </Routes>
+        </BrowserRouter>
+        <ReactQueryDevtools initialIsOpen={false} />
+      </QueryClientProvider>
+    </ThemeProvider>
   );
 }
 

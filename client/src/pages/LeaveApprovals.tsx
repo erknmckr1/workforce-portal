@@ -17,6 +17,7 @@ import { useLeaves, type ILeave } from "@/hooks/useLeaves";
 import { format } from "date-fns";
 import { tr } from "date-fns/locale";
 import { useAuthStore } from "@/store/authStore";
+import { PageHeader } from "@/components/layout/PageHeader";
 
 export default function LeaveApprovals() {
   const { user } = useAuthStore();
@@ -92,56 +93,55 @@ export default function LeaveApprovals() {
   );
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div>
-          <h1 className="text-4xl font-black text-foreground flex items-center gap-4 tracking-tighter">
-            <ClipboardCheck className="text-primary" size={40} />
-            İzin Onayları
-          </h1>
-          <p className="text-muted-foreground font-bold mt-2 text-sm uppercase tracking-widest flex items-center gap-2">
-            Onayınızı Bekleyen Personel Talepleri
-          </p>
-        </div>
+    <div className="flex flex-col h-[calc(100vh-140px)] lg:h-[calc(100vh-160px)] gap-6 animate-in fade-in duration-500 overflow-hidden">
+      
+      {/* SABİT BAŞLIK (PAGE HEADER) VE AKSİYONLAR */}
+      <div className="flex flex-col gap-6 shrink-0 pb-4 border-b border-border/50">
+        <PageHeader 
+          title="İzin Onayları"
+          description="Onayınızı Bekleyen Personel Talepleri"
+          icon={ClipboardCheck}
+          action={
+            <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
+              <div className="relative w-full sm:w-80">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
+                <Input
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Personel adı veya ID..."
+                  className="pl-11 h-11 rounded-xl bg-muted/40 border-border/50 font-bold text-sm text-foreground focus-visible:ring-primary/20 transition-all outline-none"
+                />
+              </div>
+              <Button variant="outline" className="h-11 px-6 rounded-xl font-bold border-border/50 bg-card hover:bg-muted flex items-center gap-2 text-sm shrink-0">
+                <Filter size={18} /> Filtrele
+              </Button>
+            </div>
+          }
+        />
       </div>
 
-      <div className="space-y-4">
-        <div className="flex flex-col sm:flex-row items-center gap-4 bg-muted/20 p-4 rounded-3xl border border-border/50">
-          <div className="relative flex-1 w-full">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={20} />
-            <Input
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Personel adı veya ID ile ara..."
-              className="pl-12 h-14 rounded-2xl bg-card border-none font-bold text-foreground focus-visible:ring-primary/40 transition-all"
-            />
+      {/* KAYDIRILABİLİR İÇERİK: TALEP LİSTELERİ */}
+      <div className="flex-1 min-h-0 overflow-y-auto pr-2 custom-scrollbar pb-6 space-y-4">
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center py-20 opacity-50">
+            <Loader2 className="animate-spin text-primary mb-4" size={32} />
+            <span className="font-bold text-foreground uppercase tracking-widest text-xs">Talepler Getiriliyor...</span>
           </div>
-          <Button variant="outline" className="h-14 px-8 rounded-2xl font-bold border-border/50 bg-card hover:bg-muted flex items-center gap-2">
-            <Filter size={18} /> Filtrele
-          </Button>
-        </div>
-
-        <div className="grid grid-cols-1 gap-4">
-          {isLoading ? (
-            <div className="flex flex-col items-center justify-center py-20 opacity-50">
-              <Loader2 className="animate-spin text-primary mb-4" size={40} />
-              <span className="font-bold text-foreground uppercase tracking-widest text-sm">Talepler Getiriliyor...</span>
-            </div>
-          ) : filteredLeaves.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20 bg-muted/10 rounded-[3rem] border-2 border-dashed border-border/50">
-              <CheckCircle2 className="text-success/50 mb-4" size={48} />
-              <span className="font-bold text-muted-foreground uppercase tracking-widest text-sm">Süper! Onay bekleyen hiçbir talep yok.</span>
-            </div>
-          ) : (
-            filteredLeaves.map((leave: ILeave) => (
-              <div
-                key={leave.id}
-                className="group p-6 sm:p-8 rounded-[3rem] border border-border/50 bg-card hover:shadow-2xl hover:shadow-primary/5 hover:border-primary/20 transition-all flex flex-col lg:flex-row lg:items-center justify-between gap-6"
-              >
-                <div className="flex items-start sm:items-center gap-6">
-                  <div className="w-16 h-16 rounded-[1.5rem] bg-warning/10 flex items-center justify-center text-warning shrink-0">
-                    <CalendarDays size={28} />
-                  </div>
+        ) : filteredLeaves.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 bg-muted/10 rounded-3xl border border-dashed border-border/50 h-64">
+            <CheckCircle2 className="text-success/50 mb-4" size={40} />
+            <span className="font-bold text-muted-foreground uppercase tracking-widest text-xs">Süper! Onay bekleyen hiçbir talep yok.</span>
+          </div>
+        ) : (
+          filteredLeaves.map((leave: ILeave) => (
+            <div
+              key={leave.id}
+              className="group p-5 sm:p-6 rounded-3xl border border-border/50 bg-card hover:shadow-lg hover:shadow-primary/5 hover:border-primary/20 transition-all flex flex-col lg:flex-row lg:items-center justify-between gap-6"
+            >
+              <div className="flex items-start sm:items-center gap-4">
+                <div className="w-14 h-14 rounded-2xl bg-warning/10 flex items-center justify-center text-warning shrink-0">
+                  <CalendarDays size={24} />
+                </div>
                   <div>
                     <div className="flex flex-wrap items-center gap-3 mb-2">
                       <h3 className="text-xl font-black text-foreground tracking-tight">
@@ -204,17 +204,17 @@ export default function LeaveApprovals() {
                       variant="outline" 
                       onClick={() => handleReject(leave.id!)}
                       disabled={processingId === leave.id}
-                      className="h-12 px-6 rounded-xl font-bold border-destructive/20 text-destructive hover:bg-destructive hover:text-destructive-foreground transition-all disabled:opacity-50"
+                      className="h-11 px-5 rounded-xl font-bold border-destructive/20 text-destructive hover:bg-destructive hover:text-destructive-foreground transition-all disabled:opacity-50 text-xs"
                     >
-                      {processingId === leave.id ? <Loader2 className="animate-spin mr-2" size={18} /> : <XCircle size={18} className="mr-2" />} 
+                      {processingId === leave.id ? <Loader2 className="animate-spin mr-2" size={16} /> : <XCircle size={16} className="mr-2" />} 
                       Reddet
                     </Button>
                     <Button 
                       onClick={() => handleApprove(leave.id!)}
                       disabled={processingId === leave.id}
-                      className="h-12 px-8 rounded-xl bg-success hover:bg-success/90 text-success-foreground font-black shadow-lg shadow-success/20 transition-all disabled:opacity-50"
+                      className="h-11 px-6 rounded-xl bg-success hover:bg-success/90 text-success-foreground font-black shadow-lg shadow-success/20 transition-all disabled:opacity-50 text-xs"
                     >
-                      {processingId === leave.id ? <Loader2 className="animate-spin mr-2" size={18} /> : <CheckCircle2 size={18} className="mr-2" />} 
+                      {processingId === leave.id ? <Loader2 className="animate-spin mr-2" size={16} /> : <CheckCircle2 size={16} className="mr-2" />} 
                       Onayla
                     </Button>
                   </div>
@@ -222,7 +222,6 @@ export default function LeaveApprovals() {
               </div>
             ))
           )}
-        </div>
       </div>
     </div>
   );

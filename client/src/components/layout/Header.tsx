@@ -5,6 +5,7 @@ import {
   Settings,
   Menu
 } from "lucide-react";
+import { ModeToggle } from "@/components/mode-toggle";
 import { useAuthStore } from "@/store/authStore";
 import { useState } from "react";
 
@@ -37,10 +38,13 @@ export default function Header({ onMenuClick }: HeaderProps) {
         </div>
       </div>
 
-      {/* Sağ Kısım: Bildirimler ve Profil */}
-      <div className="flex items-center gap-3 lg:gap-6">
-        <button className="relative p-2 rounded-xl text-muted-foreground hover:bg-muted transition-all active:scale-90 group">
-          <Bell size={20} className="group-hover:text-primary transition-colors" />
+      {/* Sağ Kısım: Tema, Bildirimler ve Profil */}
+      <div className="flex items-center gap-2 lg:gap-4">
+        
+        <ModeToggle />
+        
+        <button className="relative p-2 h-10 w-10 flex items-center justify-center rounded-xl text-muted-foreground hover:bg-muted transition-all active:scale-90 group">
+          <Bell size={22} className="group-hover:text-primary transition-colors" />
           <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-primary border-2 border-background animate-pulse" />
         </button>
 
