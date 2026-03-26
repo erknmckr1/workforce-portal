@@ -61,7 +61,9 @@ export const useLeaves = (filters?: { user_id?: string; status_id?: number; appr
         queryFn: async () => {
             const { data } = await apiClient.get("/leave", { params: filters });
             return data;
-        }
+        },
+        refetchInterval: 20000, // Her 20 saniyede bir listeyi tazele
+        staleTime: 15000,
     });
 
     // İzin lookup verilerini çek

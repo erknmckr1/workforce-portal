@@ -1,5 +1,4 @@
 import { Request, Response } from "express";
-import { Op, fn } from "sequelize";
 import {
     LeaveRecord,
     LeaveStatus,
@@ -7,8 +6,10 @@ import {
     LeaveDurationType,
     Operator,
     Section,
-    LeaveActivityLog
+    LeaveActivityLog,
+    Notification
 } from "../models";
+import { Op, fn } from "sequelize";
 import sequelize from "../config/database";
 
 // İzin için gerekli lookup verilerini getir
@@ -151,6 +152,16 @@ export const createLeave = async (req: Request, res: Response): Promise<Response
             details: "İzin talebi oluşturuldu."
         }, { transaction });
 
+        // --- BİLDİRİM TETİKLE ---
+        // 1. Onaycıyı bilgilendir
+        await Notification.create({
+            user_id: auth1,
+            title: "Yeni İzin Talebi",
+            message: `${targetUser.name} ${targetUser.surname} bir izin talebi oluşturdu. Onayınız bekleniyor.`,
+            type: "LEAVE_REQUEST",
+            related_id: (newLeave as any).id
+        }, { transaction });
+
         await transaction.commit();
         return res.status(201).json({ message: "İzin talebi başarıyla oluşturuldu.", data: newLeave });
     } catch (error) {
@@ -173,38 +184,55 @@ export const getLeaves = async (req: Request, res: Response): Promise<any> => {
 
         // ZIRH #2 : VERİ SÜZGEÇLERİ (Matrix Kuralları)
         
-        // 1. Senaryo (Admin-7 ve İK-4) => Sınırsız Erişim. API'ye client parametresiyle "Ali'yi" gönderirse Ali'yi arar.
+        // 1. Senaryo (Admin-7 ve İK-4) => Sınırsız Erişim Yetkisi Var ama Filtrelere de uymalı
         if (roleId === 7 || roleId === 4) {
-            const queryUserId = req.query.user_id as string;
-            if (queryUserId) where.user_id = queryUserId;
-            if (status_id) where.leave_status_id = status_id;
+            const queryUserId = (req.query.user_id || req.query.personnel_id) as string;
             
-            if (approver_id) {
-                where = { ...where, [Op.or]: [
-                        { auth1_user_id: approver_id, leave_status_id: 1 },
-                        { auth2_user_id: approver_id, leave_status_id: 2 }
-                    ]
-                };
+            if (queryUserId) {
+                // Eğer "İzinlerim" sayfası gibi bir sayfa özel bir ID istiyorsa, Admin olsa bile onu kısıtla
+                where.user_id = queryUserId;
+            }
+            
+            if (status_id) {
+                where.leave_status_id = status_id;
+            } else if (approver_id) {
+                // SÜPER YETKİ: Admin onay ekranında TÜM bekleyen işleri görür (1 veya 2)
+                where.leave_status_id = { [Op.in]: [1, 2] };
             }
         } 
-        // 2. Senaryo (Müdür-3) => Kendi izinleri "VEYA" 2. Onaycısı o olduğu ve onayda bekleyen izinler
+        // 2. Senaryo (Müdür-3) => Kendi izinleri "VEYA" Onaycı olduğu bekleyenler
         else if (roleId === 3) {
-            where = {
-                [Op.or]: [
-                    { user_id: userId },            // Kendi izni
-                    { auth2_user_id: userId }       // Onun imzasına gelenler
-                ]
-            };
+            const queryUserId = req.query.user_id as string;
+            if (queryUserId === userId) {
+                // İzinlerim sayfası sorgusu
+                where.user_id = userId;
+            } else if (approver_id) {
+                // Onay ekranı sorgusu
+                where.auth2_user_id = userId;
+                where.leave_status_id = 2; // Müdür sadece 2. onayda bekleyenleri görür
+            } else {
+                // Genel liste (Dashboard vb)
+                where[Op.or] = [
+                    { user_id: userId },
+                    { auth2_user_id: userId }
+                ];
+            }
             if (status_id) where.leave_status_id = status_id;
         } 
-        // 3. Senaryo (Şef-2) => Kendi izinleri "VEYA" 1. Onaycısı o olduğu izinler
+        // 3. Senaryo (Şef-2)
         else if (roleId === 2) {
-            where = {
-                [Op.or]: [
-                    { user_id: userId },            // Kendi izni
-                    { auth1_user_id: userId }       // Şefin masasına düşenler
-                ]
-            };
+            const queryUserId = req.query.user_id as string;
+            if (queryUserId === userId) {
+                where.user_id = userId;
+            } else if (approver_id) {
+                where.auth1_user_id = userId;
+                where.leave_status_id = 1; // Şef sadece 1. onayda bekleyenleri görür
+            } else {
+                where[Op.or] = [
+                    { user_id: userId },
+                    { auth1_user_id: userId }
+                ];
+            }
             if (status_id) where.leave_status_id = status_id;
         }
         // 4. Senaryo (Güvenlik-6) => Kendi izinleri "VEYA" Zaten 2 onayı da bitmiş durumu `3=Onaylandı` olan ve "Çıkış Yapmayı" bekleyen tüm izinler
@@ -263,17 +291,22 @@ export const approveLeave = async (req: Request, res: Response): Promise<Respons
         let newStatus = 0;
         let actionEnum = "";
 
+        const loggedRole = (req as any).user.role_id;
+        const isAdmin = loggedRole === 7 || loggedRole === 4;
+
         const currentStatus = leave.getDataValue('leave_status_id') as number;
         
         if (currentStatus === 1) {
-            if (leave.getDataValue('auth1_user_id') !== approver_id) {
+            // ADMIN değilse onaycı kontrolü yap
+            if (!isAdmin && leave.getDataValue('auth1_user_id') !== approver_id) {
                 await transaction.rollback();
                 return res.status(403).json({ message: "Bu izni onaylama yetkiniz yok (1. Onaycı değilsiniz)." });
             }
             newStatus = leave.getDataValue('auth2_user_id') ? 2 : 3;
             actionEnum = newStatus === 3 ? "APPROVED" : "APPROVED_STEP1";
         } else if (currentStatus === 2) {
-            if (leave.getDataValue('auth2_user_id') !== approver_id) {
+            // ADMIN değilse onaycı kontrolü yap
+            if (!isAdmin && leave.getDataValue('auth2_user_id') !== approver_id) {
                 await transaction.rollback();
                 return res.status(403).json({ message: "Bu izni onaylama yetkiniz yok (2. Onaycı değilsiniz)." });
             }
@@ -293,6 +326,28 @@ export const approveLeave = async (req: Request, res: Response): Promise<Respons
             new_status_id: newStatus,
             details: notes || "İzin onaylandı."
         }, { transaction });
+
+        // --- BİLDİRİM TETİKLE ---
+        const leaveOwner = await Operator.findByPk(leave.getDataValue('user_id'));
+        if (newStatus === 2 && leave.getDataValue('auth2_user_id')) {
+            // 2. Onaycıya bildir
+            await Notification.create({
+                user_id: leave.getDataValue('auth2_user_id'),
+                title: "İzin Onay Sırası",
+                message: `${leaveOwner?.name} ${leaveOwner?.surname} personelin izni 1. onaydan geçti. Sizin onayınız bekleniyor.`,
+                type: "APPROVAL_STEP1",
+                related_id: leave.getDataValue('id')
+            }, { transaction });
+        } else if (newStatus === 3) {
+            // Personele bildir (Onaylandı)
+            await Notification.create({
+                user_id: leave.getDataValue('user_id'),
+                title: "İzniniz Onaylandı",
+                message: "İzin talebiniz tüm onay süreçlerinden başarıyla geçerek onaylanmıştır.",
+                type: "APPROVED",
+                related_id: leave.getDataValue('id')
+            }, { transaction });
+        }
 
         await transaction.commit();
         return res.status(200).json({ message: "İzin başarıyla onaylandı.", data: leave });
@@ -347,6 +402,15 @@ export const rejectLeave = async (req: Request, res: Response): Promise<Response
             action: "REJECTED",
             new_status_id: 5,
             details: notes || "İzin Yönetici tarafından reddedildi."
+        }, { transaction });
+
+        // --- BİLDİRİM TETİKLE ---
+        await Notification.create({
+            user_id: leave.getDataValue('user_id'),
+            title: "İzin Talebi Reddedildi",
+            message: "İzin talebiniz yönetici tarafından reddedilmiştir.",
+            type: "REJECTED",
+            related_id: leave.getDataValue('id')
         }, { transaction });
 
         await transaction.commit();

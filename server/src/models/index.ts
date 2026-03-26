@@ -5,7 +5,7 @@ import { Operator } from "./Operator";
 import { LeaveRecord } from "./LeaveRecord";
 import { LeaveBalanceLog } from "./LeaveBalanceLog";
 import { LeaveActivityLog } from "./LeaveActivityLog";
-
+import Notification from "./Notification";
 // --- Lookups & Operator Associations ---
 Section.hasMany(Department, { foreignKey: "section_id" });
 Department.belongsTo(Section, { foreignKey: "section_id" });
@@ -61,6 +61,12 @@ LeaveActivityLog.belongsTo(Operator, { foreignKey: "performed_by" });
 LeaveActivityLog.belongsTo(LeaveStatus, { as: "OldStatus", foreignKey: "old_status_id" });
 LeaveActivityLog.belongsTo(LeaveStatus, { as: "NewStatus", foreignKey: "new_status_id" });
 
+// --- Notification Associations ---
+Notification.belongsTo(Operator, { as: "User", foreignKey: "user_id" });
+Operator.hasMany(Notification, { as: "Notifications", foreignKey: "user_id" });
+
+Notification.belongsTo(LeaveRecord, { as: "Leave", foreignKey: "related_id" });
+
 export {
     sequelize,
     Section,
@@ -75,5 +81,6 @@ export {
     LeaveDurationType,
     LeaveRecord,
     LeaveBalanceLog,
-    LeaveActivityLog
+    LeaveActivityLog,
+    Notification
 };

@@ -6,6 +6,7 @@ import { sequelize } from "./models";
 import authRoutes from "./routes/authRoutes";
 import personnelRoutes from "./routes/personnelRoutes";
 import leaveRoutes from "./routes/leaveRoutes";
+import notificationRoutes from "./routes/notificationRoutes";
 
 dotenv.config();
 
@@ -34,20 +35,21 @@ app.use(cors(corsOptions));
 app.use("/api/auth", authRoutes);
 app.use("/api/personnel", personnelRoutes);
 app.use("/api/leave", leaveRoutes);
+app.use("/api/notifications", notificationRoutes);
 
 // DB bağlantısı ve sunucu başlatma
 const startServer = async () => {
     try {
-        console.log("MSSQL veritabanına bağlantı başarılı.");
+        await sequelize.authenticate();
         await sequelize.sync(); 
-        console.log("Tüm modeller senkronize edildi.");
 
-        app.listen(port, () => {
-            console.log(`Server çalışıyor: http://localhost:${port}`);
+        const server = app.listen(port, () => {
+        });
+
+        // Server'ın kapanmasını engellemek için hata dinleyicisi
+        server.on('error', (e) => {
         });
     } catch (error) {
-        console.error("❌ Veritabanına bağlanılamadı:", error);
-        process.exit(1);
     }
 };
 

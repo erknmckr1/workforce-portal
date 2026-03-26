@@ -69,23 +69,19 @@ const ApproverSelect = memo(function ApproverSelect({ value, onChange, disabled,
         !value && "border-destructive/30 bg-destructive/5 text-destructive",
         value && "border-primary/20 bg-primary/5"
       )}>
-        <SelectValue placeholder={placeholder}>
-          {selectedPerson ? (
-            <div className="flex flex-col text-left">
-              <span className="font-bold text-foreground">{selectedPerson.name} {selectedPerson.surname}</span>
-            </div>
-          ) : null}
-        </SelectValue>
+        <SelectValue placeholder={placeholder} />
       </SelectTrigger>
       <SelectContent className="rounded-2xl shadow-xl max-h-80">
-        {open && personnel.map((p: IPersonnel) => (
-          <SelectItem key={p.id_dec} value={p.id_dec} className="py-3 cursor-pointer">
-            <div className="flex flex-col">
-              <span className="font-bold text-foreground">{p.name} {p.surname}</span>
-              <span className="text-[10px] text-muted-foreground uppercase tracking-widest">{getRoleName(p.role_id)} • DEC: {p.id_dec}</span>
-            </div>
-          </SelectItem>
-        ))}
+        <div className="flex flex-col gap-1 p-2">
+          {personnel.map((p: IPersonnel) => (
+            <SelectItem key={p.id_dec} value={p.id_dec} className="py-3 cursor-pointer rounded-xl">
+              <div className="flex flex-col">
+                <span className="font-extrabold text-foreground">{p.name} {p.surname}</span>
+                <span className="text-[10px] text-muted-foreground uppercase tracking-widest">{getRoleName(p.role_id)} • DEC: {p.id_dec}</span>
+              </div>
+            </SelectItem>
+          ))}
+        </div>
       </SelectContent>
     </Select>
   );
@@ -260,7 +256,7 @@ export default function Approvals() {
     actData.forEach((p: IPersonnel) => pMap.set(p.id_dec, `${p.name} ${p.surname}`));
 
     // Sadece "Onaycı" olabilecek personelleri dropdownlara dahil ediyoruz:
-    const allowedRolesRegex = /müdür|mühendis|ustabaşı/i;
+    const allowedRolesRegex = /müdür|mühendis|ustabaşı|admin|ik|yönetici|genel/i;
     const approvers = actData.filter((p: IPersonnel) => {
       const rn = rMap.get(p.role_id) || "";
       return allowedRolesRegex.test(rn);

@@ -12,7 +12,6 @@ declare global {
   }
 }
 
-// 1. OTOBÜSE BİLET KONTROLÜ (Sadece giriş yapanlar)
 export const requireAuth = (req: Request, res: Response, next: NextFunction): any => {
     const token = req.cookies.auth_token;
     
@@ -29,7 +28,7 @@ export const requireAuth = (req: Request, res: Response, next: NextFunction): an
     }
 };
 
-// 2. VIP ALAN KONTROLÜ (Sadece belirli roller girebilir)
+
 export const requireRoles = (allowedRoles: number[]) => {
     return (req: Request, res: Response, next: NextFunction): any => {
         // req.user requireAuth sayesinde zaten var olmalı

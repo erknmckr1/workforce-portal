@@ -200,23 +200,27 @@ export default function LeaveApprovals() {
                   </div>
 
                   <div className="flex items-center gap-3">
-                    <Button 
-                      variant="outline" 
-                      onClick={() => handleReject(leave.id!)}
-                      disabled={processingId === leave.id}
-                      className="h-11 px-5 rounded-xl font-bold border-destructive/20 text-destructive hover:bg-destructive hover:text-destructive-foreground transition-all disabled:opacity-50 text-xs"
-                    >
-                      {processingId === leave.id ? <Loader2 className="animate-spin mr-2" size={16} /> : <XCircle size={16} className="mr-2" />} 
-                      Reddet
-                    </Button>
-                    <Button 
-                      onClick={() => handleApprove(leave.id!)}
-                      disabled={processingId === leave.id}
-                      className="h-11 px-6 rounded-xl bg-success hover:bg-success/90 text-success-foreground font-black shadow-lg shadow-success/20 transition-all disabled:opacity-50 text-xs"
-                    >
-                      {processingId === leave.id ? <Loader2 className="animate-spin mr-2" size={16} /> : <CheckCircle2 size={16} className="mr-2" />} 
-                      Onayla
-                    </Button>
+                    {(leave.leave_status_id === 1 || leave.leave_status_id === 2) && (
+                      <>
+                        <Button 
+                          variant="outline" 
+                          onClick={() => handleReject(leave.id!)}
+                          disabled={processingId === leave.id}
+                          className="h-11 px-5 rounded-xl font-bold border-destructive/20 text-destructive hover:bg-destructive hover:text-destructive-foreground transition-all disabled:opacity-50 text-xs"
+                        >
+                          {processingId === leave.id ? <Loader2 className="animate-spin mr-2" size={16} /> : <XCircle size={16} className="mr-2" />} 
+                          Reddet
+                        </Button>
+                        <Button 
+                          onClick={() => handleApprove(leave.id!)}
+                          disabled={processingId === leave.id}
+                          className="h-11 px-6 rounded-xl bg-success hover:bg-success/90 text-success-foreground font-black shadow-lg shadow-success/20 transition-all disabled:opacity-50 text-xs"
+                        >
+                          {processingId === leave.id ? <Loader2 className="animate-spin mr-2" size={16} /> : <CheckCircle2 size={16} className="mr-2" />} 
+                          Onayla
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
