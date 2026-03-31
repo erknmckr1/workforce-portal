@@ -2,7 +2,6 @@ import { useState } from "react";
 import {
   ClipboardCheck,
   Search,
-  Filter,
   Clock,
   CheckCircle2,
   XCircle,
@@ -21,7 +20,14 @@ import { PageHeader } from "@/components/layout/PageHeader";
 
 export default function LeaveApprovals() {
   const { user } = useAuthStore();
-  const { leaves, isLoading, approveLeave, rejectLeave } = useLeaves({ approver_id: user?.id_dec });
+  const [activeTab, setActiveTab] = useState<"pending" | "history">("pending");
+  const [currentPage, setCurrentPage] = useState(1);
+  const { leaves, totalPages, isLoading, approveLeave, rejectLeave } = useLeaves({
+    approver_id: user?.id_dec,
+    is_history: activeTab === "history",
+    page: currentPage,
+    limit: 10
+  });
   const [searchTerm, setSearchTerm] = useState("");
   const [processingId, setProcessingId] = useState<number | null>(null);
 
@@ -99,11 +105,37 @@ export default function LeaveApprovals() {
       <div className="flex flex-col gap-6 shrink-0 pb-4 border-b border-border/50">
         <PageHeader 
           title="İzin Onayları"
-          description="Onayınızı Bekleyen Personel Talepleri"
+          description={activeTab === "pending" ? "Onayınızı Bekleyen Personel Talepleri" : "Geçmişte Gerçekleştirdiğiniz Onay İşlemleri"}
           icon={ClipboardCheck}
           action={
             <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
-              <div className="relative w-full sm:w-80">
+              {/* TAB BUTONLARI */}
+              <div className="flex bg-muted/40 p-1 rounded-xl border border-border/50 shrink-0">
+                <button
+                  onClick={() => { setActiveTab("pending"); setCurrentPage(1); }}
+                  className={cn(
+                    "px-4 py-2 rounded-lg text-xs font-black transition-all flex items-center gap-2",
+                    activeTab === "pending" 
+                      ? "bg-card text-primary shadow-sm" 
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <AlertCircle size={14} /> Bekleyenler
+                </button>
+                <button
+                  onClick={() => { setActiveTab("history"); setCurrentPage(1); }}
+                  className={cn(
+                    "px-4 py-2 rounded-lg text-xs font-black transition-all flex items-center gap-2",
+                    activeTab === "history" 
+                      ? "bg-card text-primary shadow-sm" 
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <ClipboardCheck size={14} /> Geçmiş
+                </button>
+              </div>
+
+              <div className="relative w-full sm:w-64">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
                 <Input
                   value={searchTerm}
@@ -112,9 +144,6 @@ export default function LeaveApprovals() {
                   className="pl-11 h-11 rounded-xl bg-muted/40 border-border/50 font-bold text-sm text-foreground focus-visible:ring-primary/20 transition-all outline-none"
                 />
               </div>
-              <Button variant="outline" className="h-11 px-6 rounded-xl font-bold border-border/50 bg-card hover:bg-muted flex items-center gap-2 text-sm shrink-0">
-                <Filter size={18} /> Filtrele
-              </Button>
             </div>
           }
         />
@@ -129,8 +158,17 @@ export default function LeaveApprovals() {
           </div>
         ) : filteredLeaves.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 bg-muted/10 rounded-3xl border border-dashed border-border/50 h-64">
-            <CheckCircle2 className="text-success/50 mb-4" size={40} />
-            <span className="font-bold text-muted-foreground uppercase tracking-widest text-xs">Süper! Onay bekleyen hiçbir talep yok.</span>
+            {activeTab === "pending" ? (
+              <>
+                <CheckCircle2 className="text-success/50 mb-4" size={40} />
+                <span className="font-bold text-muted-foreground uppercase tracking-widest text-xs">Süper! Onay bekleyen hiçbir talep yok.</span>
+              </>
+            ) : (
+              <>
+                <ClipboardCheck className="text-muted-foreground/30 mb-4" size={40} />
+                <span className="font-bold text-muted-foreground uppercase tracking-widest text-xs">Henüz geçmişte bir onay kaydınız bulunmuyor.</span>
+              </>
+            )}
           </div>
         ) : (
           filteredLeaves.map((leave: ILeave) => (
@@ -226,6 +264,41 @@ export default function LeaveApprovals() {
               </div>
             ))
           )}
+
+        {/* PAGINATION CONTROLS */}
+        {!isLoading && totalPages > 1 && (
+          <div className="flex items-center justify-between mt-8 p-4 bg-muted/20 rounded-2xl border border-border/50">
+            <div className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
+                Sayfa <span className="text-foreground">{currentPage}</span> / {totalPages}
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9 rounded-lg font-bold border-border/50 bg-card"
+                disabled={currentPage === 1}
+                onClick={() => {
+                   setCurrentPage(prev => Math.max(1, prev - 1));
+                   document.querySelector(".flex-1")?.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+              >
+                Geri
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9 rounded-lg font-bold border-border/50 bg-card"
+                disabled={currentPage === totalPages}
+                onClick={() => {
+                   setCurrentPage(prev => Math.min(totalPages, prev + 1));
+                   document.querySelector(".flex-1")?.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+              >
+                İleri
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -44,12 +44,15 @@ const startServer = async () => {
         await sequelize.sync(); 
 
         const server = app.listen(port, () => {
+            console.log(`Server is running on port ${port}...`);
         });
 
         // Server'ın kapanmasını engellemek için hata dinleyicisi
         server.on('error', (e) => {
+            console.error('Server error:', e);
         });
     } catch (error) {
+        console.error('Database connection or Sync error:', error);
     }
 };
 

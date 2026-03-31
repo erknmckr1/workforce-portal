@@ -174,13 +174,17 @@ export const createLeave = async (req: Request, res: Response): Promise<Response
 // İzinleri Listele (Filtreleme ile)
 export const getLeaves = async (req: Request, res: Response): Promise<any> => {
     try {
-        const { status_id, approver_id, start_date, end_date } = req.query;
+        const { status_id, approver_id, start_date, end_date, page = 1, limit = 10 } = req.query;
+        const offset = (Number(page) - 1) * Number(limit);
+
         // BİLET KONTROLÜNDEN GEÇEN SİTE KULLANICISININ KİMLİĞİ BURADA
         const loggedUser = (req as any).user; 
         const roleId = loggedUser.role_id;
         const userId = loggedUser.id_dec;
 
         let where: any = {};
+
+        const isHistory = req.query.is_history === "true";
 
         // ZIRH #2 : VERİ SÜZGEÇLERİ (Matrix Kuralları)
         
@@ -196,8 +200,13 @@ export const getLeaves = async (req: Request, res: Response): Promise<any> => {
             if (status_id) {
                 where.leave_status_id = status_id;
             } else if (approver_id) {
-                // SÜPER YETKİ: Admin onay ekranında TÜM bekleyen işleri görür (1 veya 2)
-                where.leave_status_id = { [Op.in]: [1, 2] };
+                if (isHistory) {
+                    // GEÇMİŞ: Admin onay ekranında SADECE Bitmiş işleri görür (3 Onaylı veya 4 Reddedilmiş)
+                    where.leave_status_id = { [Op.in]: [3, 4, 5] }; // Onaylı, Red, İptal
+                } else {
+                    // BEKLEYEN: Süper yetkiyle tüm beklemedeki işleri görür
+                    where.leave_status_id = { [Op.in]: [1, 2] };
+                }
             }
         } 
         // 2. Senaryo (Müdür-3) => Kendi izinleri "VEYA" Onaycı olduğu bekleyenler
@@ -207,9 +216,15 @@ export const getLeaves = async (req: Request, res: Response): Promise<any> => {
                 // İzinlerim sayfası sorgusu
                 where.user_id = userId;
             } else if (approver_id) {
-                // Onay ekranı sorgusu
-                where.auth2_user_id = userId;
-                where.leave_status_id = 2; // Müdür sadece 2. onayda bekleyenleri görür
+                if (isHistory) {
+                    // GEÇMİŞ: Müdürün 2. onaycısı olduğu ama sürecin bittiği işler
+                    where.auth2_user_id = userId;
+                    where.leave_status_id = { [Op.in]: [3, 4, 5] };
+                } else {
+                    // BEKLEYEN: Onay ekranı sorgusu
+                    where.auth2_user_id = userId;
+                    where.leave_status_id = 2; // Müdür sadece 2. onayda bekleyenleri görür
+                }
             } else {
                 // Genel liste (Dashboard vb)
                 where[Op.or] = [
@@ -225,8 +240,15 @@ export const getLeaves = async (req: Request, res: Response): Promise<any> => {
             if (queryUserId === userId) {
                 where.user_id = userId;
             } else if (approver_id) {
-                where.auth1_user_id = userId;
-                where.leave_status_id = 1; // Şef sadece 1. onayda bekleyenleri görür
+                if (isHistory) {
+                    // GEÇMİŞ: Şefin 1. onaycısı olduğu ama 1. kademeyi geçmiş (Artık 2 veya daha fazla) her şey
+                    where.auth1_user_id = userId;
+                    where.leave_status_id = { [Op.gt]: 1 };
+                } else {
+                    // BEKLEYEN
+                    where.auth1_user_id = userId;
+                    where.leave_status_id = 1; // Şef sadece 1. onayda bekleyenleri görür
+                }
             } else {
                 where[Op.or] = [
                     { user_id: userId },
@@ -250,7 +272,8 @@ export const getLeaves = async (req: Request, res: Response): Promise<any> => {
             if (status_id) where.leave_status_id = status_id;
         }
 
-        const leaves = await LeaveRecord.findAll({
+        // Veritabanı Sorgusu (Sayfalamalı ve Sayımlı)
+        const { count, rows: leaves } = await LeaveRecord.findAndCountAll({
             where,
             include: [
                 { 
@@ -265,10 +288,20 @@ export const getLeaves = async (req: Request, res: Response): Promise<any> => {
                 { model: Operator, as: "Approver1", attributes: ["name", "surname"] },
                 { model: Operator, as: "Approver2", attributes: ["name", "surname"] }
             ],
-            order: [["created_at", "DESC"]]
+            order: [["created_at", "DESC"]],
+            limit: Number(limit),
+            offset: offset,
+            distinct: true
         });
 
-        return res.status(200).json(leaves);
+        const totalPages = Math.ceil(count / Number(limit));
+
+        return res.status(200).json({
+            data: leaves,
+            totalCount: count,
+            totalPages,
+            currentPage: Number(page)
+        });
     } catch (error) {
         console.error("GetLeaves Hatası:", error);
         return res.status(500).json({ message: "İzin kayıtları çekilirken hata oluştu." });

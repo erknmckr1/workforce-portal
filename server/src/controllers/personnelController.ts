@@ -3,11 +3,27 @@ import { Operator, Role, Section, Department, JobTitle } from "../models";
 import bcrypt from "bcryptjs";
 import { Op } from "sequelize";
 
-// Tüm aktif personeli getir (is_active = 1)
+// Tüm aktif personeli getir (is_active = 1) - Sayfalama ve Arama Desteği ile
 export const getAllPersonnel = async (req: Request, res: Response): Promise<Response> => {
     try {
-        const personnel = await Operator.findAll({
-            where: { is_active: 1 },
+        const page = parseInt(req.query.page as string) || 1;
+        const limit = parseInt(req.query.limit as string) || 50;
+        const search = (req.query.search as string) || "";
+        const offset = (page - 1) * limit;
+
+        const whereCondition: any = { is_active: 1 };
+
+        // Arama filtresi (İsim, Soyisim, ID_DEC)
+        if (search) {
+            whereCondition[Op.or] = [
+                { name: { [Op.like]: `%${search}%` } },
+                { surname: { [Op.like]: `%${search}%` } },
+                { id_dec: { [Op.like]: `%${search}%` } }
+            ];
+        }
+
+        const { count, rows: personnel } = await Operator.findAndCountAll({
+            where: whereCondition,
             include: [
                 { model: Role, attributes: ["id", "name"] },
                 { model: Section, attributes: ["id", "name"] },
@@ -17,10 +33,17 @@ export const getAllPersonnel = async (req: Request, res: Response): Promise<Resp
                 { model: Operator, as: "Auth2", attributes: ["name", "surname"] }
             ],
             attributes: { exclude: ["op_password"] },
-            order: [["name", "ASC"]]
+            order: [["name", "ASC"]],
+            limit: limit,
+            offset: offset
         });
 
-        return res.status(200).json(personnel);
+        return res.status(200).json({
+            data: personnel,
+            total: count,
+            page: page,
+            totalPages: Math.ceil(count / limit)
+        });
     } catch (error) {
         console.error("GetAllPersonnel Hatası:", error);
         return res.status(500).json({ message: "Personel listesi çekilirken hata oluştu." });

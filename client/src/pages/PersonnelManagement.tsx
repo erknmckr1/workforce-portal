@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Users,
   Search,
@@ -7,7 +7,9 @@ import {
   UserPlus,
   Mail,
   Building2,
-  Eye
+  Eye,
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -19,6 +21,7 @@ import { PersonnelFormModal } from "@/components/personnel/PersonnelFormModal";
 import { PersonnelDetailModal } from "@/components/personnel/PersonnelDetailModal";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { useDebounce } from "@/hooks/useDebounce";
 
 export default function PersonnelManagement() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -27,9 +30,15 @@ export default function PersonnelManagement() {
   const [detailPersonnel, setDetailPersonnel] = useState<Personnel | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean; id: string | null }>({ isOpen: false, id: null });
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 50;
 
   const { data: lookups = { roles: [], sections: [], departments: [], titles: [] } } = useLookups();
-  const { data: personnel = [], isLoading: loading, createMutation, updateMutation, deleteMutation } = usePersonnel();
+  const { data: personnelResponse, isLoading: loading, createMutation, updateMutation, deleteMutation } = usePersonnel(currentPage, pageSize, searchTerm);
+  
+  const personnel = personnelResponse?.data || [];
+  const totalItems = personnelResponse?.total || 0;
+  const totalPages = personnelResponse?.totalPages || 1;
 
   const handleEdit = (p: Personnel) => {
     setEditingPersonnel(p);
@@ -69,16 +78,6 @@ export default function PersonnelManagement() {
     }
   };
 
-  const filteredPersonnel = personnel.filter(p => {
-    const term = searchTerm.toLowerCase();
-    return (
-      `${p.name} ${p.surname}`.toLowerCase().includes(term) ||
-      p.id_dec.includes(term) ||
-      (p.Section?.name || '').toLowerCase().includes(term) ||
-      (p.Department?.name || '').toLowerCase().includes(term)
-    );
-  });
-
   return (
     <div className="flex flex-col h-[calc(100vh-140px)] lg:h-[calc(100vh-160px)] gap-6 animate-in fade-in slide-in-from-bottom-2 duration-500 overflow-hidden">
       {/* Üst Başlık ve Aksiyonlar (SABİT) */}
@@ -91,11 +90,13 @@ export default function PersonnelManagement() {
             <>
               <div className="relative w-full sm:w-80">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
-                <input
+                <DebouncedSearchInput 
                   placeholder="Personel Ara..."
-                  className="w-full pl-11 h-11 bg-muted/40 border border-border/50 rounded-xl focus:bg-card focus:border-primary/20 focus:ring-4 focus:ring-primary/10 transition-all font-bold text-sm outline-none text-foreground placeholder:text-muted-foreground shadow-sm"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onSearch={(val) => {
+                    setSearchTerm(val);
+                    setCurrentPage(1);
+                  }}
+                  initialValue={searchTerm}
                 />
               </div>
 
@@ -137,14 +138,14 @@ export default function PersonnelManagement() {
                   </div>
                 </td>
               </tr>
-            ) : filteredPersonnel.length === 0 ? (
+            ) : personnel.length === 0 ? (
               <tr>
                 <td colSpan={6} className="px-8 py-32 text-center text-muted-foreground font-bold italic text-lg">
                   Kriterlere uygun personel bulunamadı.
                 </td>
               </tr>
             ) : (
-              filteredPersonnel.map((p) => (
+              personnel.map((p) => (
                 <tr key={p.id_dec} className="group hover:bg-muted/20 transition-all duration-300">
                   <td className="px-6 py-3">
                     <div className="flex items-center gap-4">
@@ -273,14 +274,96 @@ export default function PersonnelManagement() {
         isLoading={deleteMutation.isPending}
       />
 
-      {/* Kayıt Özeti (SABİT ALT BÖLÜM) */}
-      <div className="flex justify-between items-center px-6 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 shrink-0">
-        <span>Sistemde toplam {filteredPersonnel.length} personel kaydı bulundu</span>
-        <span className="flex items-center gap-2">
-          <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-          Veritabanı ile senkronize
-        </span>
+      {/* Sayfalama ve Kayıt Özeti (SABİT ALT BÖLÜM) */}
+      <div className="flex flex-col sm:flex-row justify-between items-center px-6 py-4 bg-card border-t border-border gap-4 shrink-0">
+        <div className="flex items-center gap-4 order-2 sm:order-1">
+          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/50">
+            Toplam {totalItems} Kayıt • Sayfa {currentPage} / {totalPages}
+          </span>
+          <div className="flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/50">Senkronize</span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 order-1 sm:order-2">
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-8 w-8 rounded-lg border-border/50 hover:bg-primary hover:text-primary-foreground disabled:opacity-30 transition-all font-bold"
+            onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+            disabled={currentPage === 1 || loading}
+          >
+            <ChevronLeft size={16} />
+          </Button>
+
+          <div className="flex items-center gap-1">
+            {[...Array(Math.min(5, totalPages))].map((_, i) => {
+              // Basit bir sayfa numarası gösterme mantığı
+              let pageNum = currentPage;
+              if (currentPage <= 3) pageNum = i + 1;
+              else if (currentPage >= totalPages - 2) pageNum = totalPages - 4 + i;
+              else pageNum = currentPage - 2 + i;
+
+              if (pageNum > 0 && pageNum <= totalPages) {
+                return (
+                  <Button
+                    key={pageNum}
+                    variant={currentPage === pageNum ? "default" : "outline"}
+                    className={cn(
+                      "h-8 w-8 rounded-lg text-[10px] font-black transition-all",
+                      currentPage === pageNum ? "shadow-lg shadow-primary/20" : "border-border/50 hover:bg-muted"
+                    )}
+                    onClick={() => setCurrentPage(pageNum)}
+                    disabled={loading}
+                  >
+                    {pageNum}
+                  </Button>
+                );
+              }
+              return null;
+            })}
+          </div>
+
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-8 w-8 rounded-lg border-border/50 hover:bg-primary hover:text-primary-foreground disabled:opacity-30 transition-all font-bold"
+            onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+            disabled={currentPage === totalPages || loading}
+          >
+            <ChevronRight size={16} />
+          </Button>
+        </div>
       </div>
     </div>
+  );
+}
+
+// PERFORMANS İÇİN İZOLE EDİLMİŞ INPUT BİLEŞENİ
+// Bu bileşen yerel state kullandığı için ana sayfayı gereksiz render etmez.
+function DebouncedSearchInput({ 
+  placeholder, 
+  onSearch, 
+  initialValue 
+}: { 
+  placeholder: string; 
+  onSearch: (val: string) => void;
+  initialValue: string;
+}) {
+  const [value, setValue] = useState(initialValue);
+  const debouncedValue = useDebounce(value, 500);
+
+  useEffect(() => {
+    onSearch(debouncedValue);
+  }, [debouncedValue]);
+
+  return (
+    <input
+      placeholder={placeholder}
+      className="w-full pl-11 h-11 bg-muted/40 border border-border/50 rounded-xl focus:bg-card focus:border-primary/20 focus:ring-4 focus:ring-primary/10 transition-all font-bold text-sm outline-none text-foreground placeholder:text-muted-foreground shadow-sm"
+      value={value}
+      onChange={(e) => setValue(e.target.value)}
+    />
   );
 }

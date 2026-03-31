@@ -33,16 +33,26 @@ export interface Personnel {
   Auth1?: { name: string; surname: string };
   Auth2?: { name: string; surname: string };
 }
+export interface PersonnelResponse {
+  data: Personnel[];
+  total: number;
+  page: number;
+  totalPages: number;
+}
+
 // useQuery veri okuma, useMutation yaz, güncelle, sil
-export const usePersonnel = () => {
+export const usePersonnel = (page: number = 1, limit: number = 50, search: string = "") => {
   const queryClient = useQueryClient();
 
-  const query = useQuery<Personnel[]>({
-    queryKey: ["personnel"],
+  const query = useQuery<PersonnelResponse>({
+    queryKey: ["personnel", page, limit, search],
     queryFn: async () => {
-      const resp = await apiClient.get("/personnel");
+      const resp = await apiClient.get("/personnel", {
+        params: { page, limit, search }
+      });
       return resp.data;
     },
+    placeholderData: (previousData) => previousData, // Sayfa geçişlerinde ekranın boşalmasını önler
   });
 
   const createMutation = useMutation({

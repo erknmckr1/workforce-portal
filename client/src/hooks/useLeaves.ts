@@ -52,15 +52,27 @@ export interface ILeave {
     LeaveDurationType?: { label: string };
 }
 
-export const useLeaves = (filters?: { user_id?: string; status_id?: number; approver_id?: string }) => {
+export const useLeaves = (filters?: { 
+    user_id?: string; 
+    status_id?: number; 
+    approver_id?: string; 
+    is_history?: boolean;
+    page?: number;
+    limit?: number;
+}) => {
     const queryClient = useQueryClient();
 
     // İzin kayıtlarını çek
-    const { data: leaves, isLoading: isLoadingLeaves, error: errorLeaves } = useQuery<ILeave[]>({
+    const { data: leaves, isLoading: isLoadingLeaves, error: errorLeaves } = useQuery<{
+        data: ILeave[];
+        totalCount: number;
+        totalPages: number;
+        currentPage: number;
+    }>({
         queryKey: ["leaves", filters],
         queryFn: async () => {
             const { data } = await apiClient.get("/leave", { params: filters });
-            return data;
+            return data; // Artık bu bir obje: { data: ILeave[], totalCount, totalPages, currentPage }
         },
         refetchInterval: 20000, // Her 20 saniyede bir listeyi tazele
         staleTime: 15000,
@@ -167,7 +179,10 @@ export const useLeaves = (filters?: { user_id?: string; status_id?: number; appr
     });
 
     return {
-        leaves: leaves || [],
+        leaves: leaves?.data || [],
+        totalCount: leaves?.totalCount || 0,
+        totalPages: leaves?.totalPages || 0,
+        currentPage: leaves?.currentPage || 1,
         lookups: lookups || { reasons: [], statuses: [], durationTypes: [] },
         isLoading: isLoadingLeaves || isLoadingLookups,
         createLeave: createMutation.mutateAsync,
