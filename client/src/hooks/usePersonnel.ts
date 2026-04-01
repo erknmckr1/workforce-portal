@@ -16,6 +16,7 @@ export interface Personnel {
   email?: string;
   gender?: string;
   address?: string;
+  phone?: string;
   role_id: number;
   section?: number | string;
   department?: number | string;

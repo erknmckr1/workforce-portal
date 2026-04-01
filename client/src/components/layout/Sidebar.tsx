@@ -11,7 +11,8 @@ import {
   Briefcase,
   FileText,
   ClipboardCheck,
-  ShieldCheck
+  ShieldCheck,
+  Stethoscope
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/authStore";
@@ -54,6 +55,12 @@ const menuItems = [
     icon: FileText,
     path: "/reports",
     roles: ["Admin", "İK", "Müdür"]
+  },
+  {
+    title: "Revir İşlemleri",
+    icon: Stethoscope,
+    path: "/infirmary",
+    roles: ["Admin", "Revir"]
   },
   {
     title: "Ayarlar",

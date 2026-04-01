@@ -45,6 +45,8 @@ export const getLeaveLookups = async (req: Request, res: Response): Promise<Resp
                 { id: 5, code: "PATERNITY", label: "Babalık İzni", required_permission: null },
                 { id: 6, code: "MARRIAGE", label: "Evlilik İzni", required_permission: null },
                 { id: 7, code: "BEREAVEMENT", label: "Vefat İzni", required_permission: null },
+                { id: 8, code: "DOCTOR_S", label: "Doktor Sevk", required_permission: null },
+                { id: 9, code: "DOCTOR_I", label: "Doktor İstirahat", required_permission: null },
             ], { ignoreDuplicates: true });
 
             reasons = await LeaveReason.findAll({ where: { is_active: true } });
@@ -95,7 +97,12 @@ export const createLeave = async (req: Request, res: Response): Promise<Response
         const auth1 = targetUser.auth1;
         const auth2 = targetUser.auth2;
 
-        if (!auth1) {
+        const loggedUser = (req as any).user;
+        const isAuthorizedForAutoApprove = loggedUser?.role_id === 7 || loggedUser?.role_id === 4 || loggedUser?.role_id === 5; // Admin, İK, Revir
+        const shouldAutoApprove = (req.body.status === "Approved" || req.body.is_revir === true) && isAuthorizedForAutoApprove;
+
+        // Revir kaydı değilse ve Şef atanmamışsa hata ver
+        if (!shouldAutoApprove && !auth1) {
             await transaction.rollback();
             return res.status(400).json({ message: "Seçili personelin 1. onaycısı (Birim Şefi) atanmamış. Lütfen önce onay hiyerarşisini düzenleyin." });
         }
@@ -122,16 +129,16 @@ export const createLeave = async (req: Request, res: Response): Promise<Response
             });
         }
 
-        // 2. İlk durumu belirle (Genelde PENDING_AUTH1 id=1)
-        const initialStatus = 1;
+        // 2. İlk durumu belirle (Revir/Admin ise direkt Onaylı=3, değilse Bekleyen=1)
+        const initialStatus = shouldAutoApprove ? 3 : 1;
 
         // 3. Kaydı oluştur
         const newLeave = await LeaveRecord.create({
             user_id,
             leave_reason_id,
             leave_status_id: initialStatus,
-            leave_duration_type_id,
-            auth1_user_id: auth1,
+            leave_duration_type_id: leave_duration_type_id || 4,
+            auth1_user_id: shouldAutoApprove ? (auth1 || creator_id) : auth1, 
             auth2_user_id: auth2 || null,
             start_date,
             end_date,
@@ -144,28 +151,43 @@ export const createLeave = async (req: Request, res: Response): Promise<Response
         }, { transaction });
 
         // 4. Aktivite logu yaz
+        let actionEnum = "CREATED";
+        if (shouldAutoApprove) actionEnum = "CREATED_BY_REVIR";
+        else if (creator_id !== user_id) actionEnum = "CREATED_BY_HR";
+
         await LeaveActivityLog.create({
             leave_record_id: (newLeave as any).id,
             performed_by: creator_id,
-            action: creator_id === user_id ? "CREATED" : "CREATED_BY_HR",
+            action: actionEnum,
             new_status_id: initialStatus,
-            details: "İzin talebi oluşturuldu."
+            details: shouldAutoApprove ? "Revir tarafından doğrudan onaylı kayıt oluşturuldu." : "İzin talebi oluşturuldu."
         }, { transaction });
 
         // --- BİLDİRİM TETİKLE ---
-        // 1. Onaycıyı bilgilendir
-        await Notification.create({
-            user_id: auth1,
-            title: "Yeni İzin Talebi",
-            message: `${targetUser.name} ${targetUser.surname} bir izin talebi oluşturdu. Onayınız bekleniyor.`,
-            type: "LEAVE_REQUEST",
-            related_id: (newLeave as any).id
-        }, { transaction });
+        if (!shouldAutoApprove && auth1) {
+            // Normal İzin: Onaycıya bildir
+            await Notification.create({
+                user_id: auth1,
+                title: "Yeni İzin Talebi",
+                message: `${targetUser.name} ${targetUser.surname} bir izin talebi oluşturdu. Onayınız bekleniyor.`,
+                type: "LEAVE_REQUEST",
+                related_id: (newLeave as any).id
+            }, { transaction });
+        } else if (shouldAutoApprove) {
+            // Revir İzni: Personele bildir (Zaten onaylı)
+            await Notification.create({
+                user_id: user_id,
+                title: "Revir İzni Oluşturuldu",
+                message: `Revir tarafından adınıza ${req.body.leave_type || 'doktor sevk/istirahat'} izni oluşturulmuştur.`,
+                type: "APPROVED",
+                related_id: (newLeave as any).id
+            }, { transaction });
+        }
 
         await transaction.commit();
         return res.status(201).json({ message: "İzin talebi başarıyla oluşturuldu.", data: newLeave });
     } catch (error) {
-        await transaction.rollback();
+        if (transaction) await transaction.rollback();
         console.error("CreateLeave Hatası:", error);
         return res.status(500).json({ message: "İzin talebi oluşturulurken hata oluştu." });
     }
@@ -188,23 +210,21 @@ export const getLeaves = async (req: Request, res: Response): Promise<any> => {
 
         // ZIRH #2 : VERİ SÜZGEÇLERİ (Matrix Kuralları)
         
-        // 1. Senaryo (Admin-7 ve İK-4) => Sınırsız Erişim Yetkisi Var ama Filtrelere de uymalı
-        if (roleId === 7 || roleId === 4) {
+        // 1. Senaryo (Admin-7, İK-4, Revir-5) => Geniş Erişim Yetkisi
+        if (roleId === 7 || roleId === 4 || roleId === 5) {
             const queryUserId = (req.query.user_id || req.query.personnel_id) as string;
             
             if (queryUserId) {
-                // Eğer "İzinlerim" sayfası gibi bir sayfa özel bir ID istiyorsa, Admin olsa bile onu kısıtla
                 where.user_id = queryUserId;
             }
             
             if (status_id) {
                 where.leave_status_id = status_id;
             } else if (approver_id) {
+                // ... Mevcut approver id mantığı ...
                 if (isHistory) {
-                    // GEÇMİŞ: Admin onay ekranında SADECE Bitmiş işleri görür (3 Onaylı veya 4 Reddedilmiş)
-                    where.leave_status_id = { [Op.in]: [3, 4, 5] }; // Onaylı, Red, İptal
+                    where.leave_status_id = { [Op.in]: [3, 4, 5] };
                 } else {
-                    // BEKLEYEN: Süper yetkiyle tüm beklemedeki işleri görür
                     where.leave_status_id = { [Op.in]: [1, 2] };
                 }
             }

@@ -12,6 +12,7 @@ import Approvals from "./pages/settings/Approvals";
 import Leaves from "./pages/Leaves";
 import LeaveApprovals from "./pages/LeaveApprovals";
 import SecurityScreen from "./pages/SecurityScreen";
+import Infirmary from "./pages/Infirmary";
 import { ThemeProvider } from "./components/theme-provider";
 import "./App.css";
 
@@ -108,6 +109,11 @@ function App() {
               {/* Güvenlik Paneli */}
               <Route element={<ProtectedRoute allowedRoles={["Admin", "Güvenlik"]} />}>
                 <Route path="security" element={<SecurityScreen />} />
+              </Route>
+
+              {/* Revir İşlemleri */}
+              <Route element={<ProtectedRoute allowedRoles={["Admin", "Revir"]} />}>
+                <Route path="infirmary" element={<Infirmary />} />
               </Route>
 
               {/* Raporlar */}
