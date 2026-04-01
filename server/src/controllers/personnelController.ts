@@ -8,10 +8,21 @@ export const getAllPersonnel = async (req: Request, res: Response): Promise<Resp
     try {
         const page = parseInt(req.query.page as string) || 1;
         const limit = parseInt(req.query.limit as string) || 50;
+        const isApprover = req.query.isApprover === "true";
         const search = (req.query.search as string) || "";
         const offset = (page - 1) * limit;
 
         const whereCondition: any = { is_active: 1 };
+        const roleWhere: any = {};
+
+        if (isApprover) {
+            roleWhere.name = { [Op.or]: [
+                { [Op.like]: "%Müdür%" },
+                { [Op.like]: "%Şef%" },
+                { [Op.like]: "%Admin%" },
+                { [Op.like]: "%İK%" }
+            ] };
+        }
 
         // Arama filtresi (İsim, Soyisim, ID_DEC)
         if (search) {
@@ -25,7 +36,11 @@ export const getAllPersonnel = async (req: Request, res: Response): Promise<Resp
         const { count, rows: personnel } = await Operator.findAndCountAll({
             where: whereCondition,
             include: [
-                { model: Role, attributes: ["id", "name"] },
+                { 
+                    model: Role, 
+                    attributes: ["id", "name"],
+                    where: Object.keys(roleWhere).length > 0 ? roleWhere : undefined
+                },
                 { model: Section, attributes: ["id", "name"] },
                 { model: Department, attributes: ["id", "name"] },
                 { model: JobTitle, attributes: ["id", "name"] },

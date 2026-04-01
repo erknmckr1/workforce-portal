@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, memo, useCallback } from "react";
 import {
   Users,
   Search,
@@ -40,10 +40,15 @@ export default function PersonnelManagement() {
   const totalItems = personnelResponse?.total || 0;
   const totalPages = personnelResponse?.totalPages || 1;
 
-  const handleEdit = (p: Personnel) => {
+  const handleEdit = useCallback((p: Personnel) => {
     setEditingPersonnel(p);
     setShowModal(true);
-  };
+  }, []);
+
+  const handleShowDetail = useCallback((p: Personnel) => {
+    setDetailPersonnel(p);
+    setShowDetailModal(true);
+  }, []);
 
   const handleFormSubmit = async (formData: Partial<Personnel> & { password?: string }) => {
     try {
@@ -61,9 +66,9 @@ export default function PersonnelManagement() {
     }
   };
 
-  const handleSoftDelete = (id: string) => {
+  const handleSoftDelete = useCallback((id: string) => {
     setConfirmModal({ isOpen: true, id });
-  };
+  }, []);
 
   const executeDelete = async () => {
     if (!confirmModal.id) return;
@@ -146,98 +151,13 @@ export default function PersonnelManagement() {
               </tr>
             ) : (
               personnel.map((p) => (
-                <tr key={p.id_dec} className="group hover:bg-muted/20 transition-all duration-300">
-                  <td className="px-6 py-3">
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-xl bg-linear-to-br from-primary/20 to-primary/5 border border-primary/20 flex items-center justify-center text-primary font-black text-sm shadow-inner group-hover:scale-110 transition-transform uppercase">
-                        {p.name[0]}{p.surname[0]}
-                      </div>
-                      <div className="flex flex-col">
-                        <span className="text-sm font-black text-foreground leading-none tracking-tight">
-                          {p.name} {p.surname}
-                        </span>
-                        <div className="flex items-center gap-1.5 mt-1 text-muted-foreground/70">
-                          <Mail size={12} />
-                          <span className="text-[10px] font-bold leading-none">{p.email || 'E-posta tanımlı değil'}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-3">
-                    <div className="flex flex-col gap-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-black bg-primary/10 text-primary px-1.5 py-0.5 rounded">DEC</span>
-                        <span className="text-xs font-black text-foreground tabular-nums tracking-wider">{p.id_dec}</span>
-                      </div>
-                      <div className="flex items-center gap-2 opacity-60">
-                        <span className="text-[9px] font-black bg-muted text-muted-foreground px-1.5 py-0.5 rounded">HEX</span>
-                        <span className="text-[9px] font-black font-mono tracking-widest">{p.id_hex}</span>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-3">
-                    <div className="flex flex-col gap-1">
-                      <div className="flex items-center gap-2 text-xs font-bold text-foreground">
-                        <Building2 size={14} className="text-primary/60" />
-                        {p.Section?.name || 'Bölüm Yok'}
-                      </div>
-                      <div className="text-[10px] font-bold text-muted-foreground/60 ml-5 flex items-center gap-1.5">
-                        <span className="w-1 h-1 rounded-full bg-border" />
-                        {p.Department?.name || 'Departman Yok'}
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-3">
-                    <span className="inline-flex items-center px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-primary text-primary-foreground shadow-sm shadow-primary/20">
-                      {p.Role?.name || 'Rol Atanmamış'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-3">
-                    <div className="flex items-center gap-3">
-                      <div className="flex flex-col">
-                        <span className={cn(
-                          "text-xs font-black tracking-tight",
-                          p.leave_balance > 0 ? "text-green-500" : "text-destructive"
-                        )}>
-                          {p.leave_balance} Gün İzin
-                        </span>
-                        {p.route && (
-                          <span className="text-[9px] font-bold text-muted-foreground/60 mt-0.5">
-                            {p.route} / {p.stop_name || '---'}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-3 text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <button
-                        onClick={() => {
-                          setDetailPersonnel(p);
-                          setShowDetailModal(true);
-                        }}
-                        className="w-8 h-8 rounded-lg bg-muted/50 text-muted-foreground hover:bg-info hover:text-info-foreground transition-all active:scale-90 flex items-center justify-center shadow-sm cursor-pointer"
-                        title="Görüntüle"
-                      >
-                        <Eye size={16} />
-                      </button>
-                      <button
-                        onClick={() => handleEdit(p)}
-                        className="w-8 h-8 rounded-lg bg-muted/50 text-muted-foreground hover:bg-primary hover:text-primary-foreground transition-all active:scale-90 flex items-center justify-center shadow-sm cursor-pointer"
-                        title="Düzenle"
-                      >
-                        <Edit2 size={16} />
-                      </button>
-                      <button
-                        onClick={() => handleSoftDelete(p.id_dec)}
-                        className="w-8 h-8 rounded-lg bg-muted/50 text-muted-foreground hover:bg-destructive hover:text-destructive-foreground transition-all active:scale-90 flex items-center justify-center shadow-sm cursor-pointer"
-                        title="Sil"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
+                <PersonnelRow 
+                  key={p.id_dec} 
+                  p={p} 
+                  onEdit={handleEdit} 
+                  onDetail={handleShowDetail} 
+                  onDelete={handleSoftDelete} 
+                />
               ))
             )}
           </tbody>
@@ -340,9 +260,113 @@ export default function PersonnelManagement() {
   );
 }
 
+// PERFORMANS İÇİN İZOLE EDİLMİŞ TABLO SATIRI
+const PersonnelRow = memo(({ 
+  p, 
+  onEdit, 
+  onDetail, 
+  onDelete 
+}: { 
+  p: Personnel; 
+  onEdit: (p: Personnel) => void; 
+  onDetail: (p: Personnel) => void; 
+  onDelete: (id: string) => void; 
+}) => {
+  return (
+    <tr className="group hover:bg-muted/20 transition-all duration-300">
+      <td className="px-6 py-3">
+        <div className="flex items-center gap-4">
+          <div className="w-10 h-10 rounded-xl bg-linear-to-br from-primary/20 to-primary/5 border border-primary/20 flex items-center justify-center text-primary font-black text-sm shadow-inner group-hover:scale-110 transition-transform uppercase">
+            {p.name[0]}{p.surname[0]}
+          </div>
+          <div className="flex flex-col">
+            <span className="text-sm font-black text-foreground leading-none tracking-tight">
+              {p.name} {p.surname}
+            </span>
+            <div className="flex items-center gap-1.5 mt-1 text-muted-foreground/70">
+              <Mail size={12} />
+              <span className="text-[10px] font-bold leading-none">{p.email || 'E-posta tanımlı değil'}</span>
+            </div>
+          </div>
+        </div>
+      </td>
+      <td className="px-6 py-3">
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-black bg-primary/10 text-primary px-1.5 py-0.5 rounded">DEC</span>
+            <span className="text-xs font-black text-foreground tabular-nums tracking-wider">{p.id_dec}</span>
+          </div>
+          <div className="flex items-center gap-2 opacity-60">
+            <span className="text-[9px] font-black bg-muted text-muted-foreground px-1.5 py-0.5 rounded">HEX</span>
+            <span className="text-[9px] font-black font-mono tracking-widest">{p.id_hex}</span>
+          </div>
+        </div>
+      </td>
+      <td className="px-6 py-3">
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-2 text-xs font-bold text-foreground">
+            <Building2 size={14} className="text-primary/60" />
+            {p.Section?.name || 'Bölüm Yok'}
+          </div>
+          <div className="text-[10px] font-bold text-muted-foreground/60 ml-5 flex items-center gap-1.5">
+            <span className="w-1 h-1 rounded-full bg-border" />
+            {p.Department?.name || 'Departman Yok'}
+          </div>
+        </div>
+      </td>
+      <td className="px-6 py-3">
+        <span className="inline-flex items-center px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-primary text-primary-foreground shadow-sm shadow-primary/20">
+          {p.Role?.name || 'Rol Atanmamış'}
+        </span>
+      </td>
+      <td className="px-6 py-3">
+        <div className="flex items-center gap-3">
+          <div className="flex flex-col">
+            <span className={cn(
+              "text-xs font-black tracking-tight",
+              p.leave_balance > 0 ? "text-green-500" : "text-destructive"
+            )}>
+              {p.leave_balance} Gün İzin
+            </span>
+            {p.route && (
+              <span className="text-[9px] font-bold text-muted-foreground/60 mt-0.5">
+                {p.route} / {p.stop_name || '---'}
+              </span>
+            )}
+          </div>
+        </div>
+      </td>
+      <td className="px-6 py-3 text-right">
+        <div className="flex items-center justify-end gap-2">
+          <button
+            onClick={() => onDetail(p)}
+            className="w-8 h-8 rounded-lg bg-muted/50 text-muted-foreground hover:bg-info hover:text-info-foreground transition-all active:scale-90 flex items-center justify-center shadow-sm cursor-pointer"
+            title="Görüntüle"
+          >
+            <Eye size={16} />
+          </button>
+          <button
+            onClick={() => onEdit(p)}
+            className="w-8 h-8 rounded-lg bg-muted/50 text-muted-foreground hover:bg-primary hover:text-primary-foreground transition-all active:scale-90 flex items-center justify-center shadow-sm cursor-pointer"
+            title="Düzenle"
+          >
+            <Edit2 size={16} />
+          </button>
+          <button
+            onClick={() => onDelete(p.id_dec)}
+            className="w-8 h-8 rounded-lg bg-muted/50 text-muted-foreground hover:bg-destructive hover:text-destructive-foreground transition-all active:scale-90 flex items-center justify-center shadow-sm cursor-pointer"
+            title="Sil"
+          >
+            <Trash2 size={16} />
+          </button>
+        </div>
+      </td>
+    </tr>
+  );
+});
+
 // PERFORMANS İÇİN İZOLE EDİLMİŞ INPUT BİLEŞENİ
-// Bu bileşen yerel state kullandığı için ana sayfayı gereksiz render etmez.
-function DebouncedSearchInput({ 
+function DebouncedSearchInput({
   placeholder, 
   onSearch, 
   initialValue 
@@ -356,7 +380,7 @@ function DebouncedSearchInput({
 
   useEffect(() => {
     onSearch(debouncedValue);
-  }, [debouncedValue]);
+  }, [debouncedValue, onSearch]);
 
   return (
     <input

@@ -1,119 +1,151 @@
-import { ShieldCheck, Building2, GitMerge, Users, Loader2, Search } from "lucide-react";
+import { ShieldCheck, Building2, GitMerge, Loader2, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useState, useMemo, useDeferredValue, useEffect, memo, useCallback } from "react";
+import { useState, useMemo, useEffect, memo, useCallback } from "react";
+import { useDebounce } from "@/hooks/useDebounce";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import apiClient from "@/lib/api";
+import { usePersonnel } from "@/hooks/usePersonnel";
+import type { Personnel } from "@/hooks/usePersonnel";
+import { useLookups } from "@/hooks/useLookups";
+import type { LookupSection, LookupDepartment } from "@/hooks/useLookups";
 import { toast } from "sonner";
 
-interface IPersonnel {
-  id_dec: string;
-  name: string;
-  surname: string;
-  role_id: number;
-  section: number;
-  department: number;
-  is_active: number;
-}
-
-interface ISection {
-  id: number;
-  name: string;
-  manager_id: string | null;
-}
-
-interface IDepartment {
-  id: number;
-  section_id: number;
-  name: string;
-  supervisor_id: string | null;
-}
-
-interface IRole {
-  id: number;
-  name: string;
-}
-
-// Yazı yazarken gecikmeyi önleyen (Input Lag / INP) izole bileşen
-function DebouncedSearchInput({ value, onChange, placeholder, className }: { value: string, onChange: (val: string) => void, placeholder?: string, className?: string }) {
+const ApproverSelect = memo(function ApproverSelect({ value, onChange, disabled, personnel, placeholder, getRoleName }: {
+  value: string | undefined,
+  onChange: (v: string) => void,
+  disabled: boolean,
+  personnel: Personnel[],
+  placeholder: string,
+  getRoleName: (id: number) => string
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
   const [localValue, setLocalValue] = useState(value);
 
+  // Prop'tan gelen veri değiştikçe yerel state'i güncelle (Senkronizasyon)
   useEffect(() => {
-    const timer = setTimeout(() => {
-      onChange(localValue);
-    }, 150); // 150ms gecikmeli arama
-    return () => clearTimeout(timer);
-  }, [localValue, onChange]);
+    setLocalValue(value);
+  }, [value]);
+
+  const handleSelect = (val: string) => {
+    setLocalValue(val); // UI anında güncellensin
+    onChange(val);      // Mutasyon arkada başlasın
+  };
+
+  const selectedName = useMemo(() => {
+    if (!localValue) return null;
+    const p = personnel.find(x => x.id_dec === localValue);
+    return p ? `${p.name} ${p.surname}` : null;
+  }, [localValue, personnel]);
+
+  // Arama sonucuna göre sadece eşleşenleri filtrele (Performans için memoize)
+  const filteredApprovers = useMemo(() => {
+    if (!search.trim()) return personnel.slice(0, 50); // İlk açıldığında listeyi boğmamak için sadece 50 kişi
+    const lower = search.toLowerCase();
+    return personnel.filter(p =>
+      p.name.toLowerCase().includes(lower) ||
+      p.surname.toLowerCase().includes(lower) ||
+      p.id_dec.toLowerCase().includes(lower)
+    ).slice(0, 50); // Arama sonuçlarında da performansı koru
+  }, [personnel, search]);
+
 
   return (
-    <Input
-      value={localValue}
-      onChange={(e) => setLocalValue(e.target.value)}
-      placeholder={placeholder}
-      className={className}
-    />
-  );
-}
-
-// Performans optimizasyonu: Binlerce SelectItem'ı sayfa yüklenişinde renderlamamak için Select'i açılınca dolduralım.
-const ApproverSelect = memo(function ApproverSelect({ value, onChange, disabled, personnel, getRoleName, placeholder }: { value: string | undefined, onChange: (v: string) => void, disabled: boolean, personnel: IPersonnel[], getRoleName: (id: number) => string, placeholder: string }) {
-  const [open, setOpen] = useState(false);
-  const selectedPerson = value ? personnel.find((p) => p.id_dec === value) : null;
-
-  return (
-    <Select value={value} onValueChange={onChange} disabled={disabled} onOpenChange={setOpen}>
+    <Select
+      value={localValue || ""}
+      onValueChange={handleSelect}
+      disabled={disabled}
+      onOpenChange={(isOpen) => {
+        setOpen(isOpen);
+        if (!isOpen) setSearch("");
+      }}
+    >
       <SelectTrigger className={cn(
-        "h-12 rounded-xl font-bold border-border/50 bg-muted/20 transition-all",
-        !value && "border-destructive/30 bg-destructive/5 text-destructive",
-        value && "border-primary/20 bg-primary/5"
+        "h-10 w-64 rounded-lg font-bold border-border/40 bg-muted/10 transition-all gap-3 shrink-0",
+        !localValue && "border-destructive/20 bg-destructive/5 text-destructive",
+        localValue && "border-primary/10 bg-primary/5",
+        disabled && "opacity-80"
       )}>
-        <SelectValue placeholder={placeholder} />
+        <div className="flex-1 flex items-center gap-2 overflow-hidden text-left">
+          {disabled && <Loader2 className="h-3 w-3 animate-spin text-primary shrink-0" />}
+          <div className="truncate text-sm">
+            {selectedName ? (
+              <span className="text-foreground">{selectedName}</span>
+            ) : (
+              <span className="text-muted-foreground opacity-50">{placeholder}</span>
+            )}
+            {/* Radix UI için gizli tetikleyici */}
+            <div className="hidden">
+              <SelectValue />
+            </div>
+          </div>
+        </div>
       </SelectTrigger>
-      <SelectContent className="rounded-2xl shadow-xl max-h-80">
-        <div className="flex flex-col gap-1 p-2">
-          {personnel.map((p: IPersonnel) => (
-            <SelectItem key={p.id_dec} value={p.id_dec} className="py-3 cursor-pointer rounded-xl">
-              <div className="flex flex-col">
-                <span className="font-extrabold text-foreground">{p.name} {p.surname}</span>
-                <span className="text-[10px] text-muted-foreground uppercase tracking-widest">{getRoleName(p.role_id)} • DEC: {p.id_dec}</span>
-              </div>
-            </SelectItem>
+      <SelectContent className="rounded-2xl shadow-xl max-h-[400px] w-64 min-w-[250px]">
+        {/* Sabit Arama Kutusu */}
+        <div className="sticky top-0 z-10 bg-popover p-2 border-b border-border/50 shadow-sm">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" size={14} />
+            <Input
+              placeholder="İsim, Soyisim veya DEC Ara..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              // Select'in klavye olaylarını engellememesi için:
+              onKeyDown={(e) => e.stopPropagation()}
+              className="pl-8 h-9 text-xs rounded-lg bg-muted/30 border-none focus-visible:ring-primary/40"
+            />
+          </div>
+        </div>
+
+        <div className="p-1">
+          {/* PERFORMANS: Liste sadece dropdown açıkken render edilir, donmayı önleyen asıl hamle budur. */}
+          {open && (filteredApprovers.length > 0 ? (
+            filteredApprovers.map((p) => (
+              <SelectItem key={p.id_dec} value={p.id_dec} className="py-3 cursor-pointer rounded-xl hover:bg-primary/5">
+                <div className="flex flex-col text-left">
+                  <span className="font-extrabold text-foreground">{p.name} {p.surname}</span>
+                </div>
+              </SelectItem>
+            ))
+          ) : open && (
+            <div className="py-6 text-center text-xs font-bold text-muted-foreground opacity-60 italic">
+              Sonuç bulunamadı...
+            </div>
           ))}
+          {!open && (
+            <div className="py-2 text-center text-[10px] text-muted-foreground opacity-30 animate-pulse">
+              Yükleniyor...
+            </div>
+          )}
         </div>
       </SelectContent>
     </Select>
   );
 });
 
-// React.memo ile sarmalanan List Satırları (Sadece kendi verileri değiştiğinde render edilir)
-const SectionRow = memo(({ section, count, personnel, getRoleName, onAssign, isPending }: {
-  section: ISection,
-  count: number,
-  personnel: IPersonnel[],
+const SectionRow = memo(({ section, personnel, getRoleName, onAssign, isPending }: {
+  section: LookupSection,
+  count?: number,
+  personnel: Personnel[],
   getRoleName: (id: number) => string,
   onAssign: (id: number, val: string) => void,
   isPending: boolean
 }) => {
   return (
-    <div className="group relative flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-[1.5rem] border border-border/50 bg-card  hover:shadow-lg hover:shadow-primary/5 transition-all">
-      <div className="flex flex-col">
-        <span className="text-lg font-black text-foreground flex items-center gap-2">
+    <div className="group relative flex items-center justify-between gap-4 px-5 py-3 h-16 rounded-xl border border-border/40 bg-card/60 hover:bg-card hover:border-primary/20 transition-all">
+      <div className="flex-1 flex items-center gap-3">
+        <span className="text-sm font-extrabold text-foreground flex items-center gap-2">
           {section.name}
           {!section.manager_id && (
-            <span className="flex h-2 w-2 rounded-full bg-destructive animate-pulse" title="Atama Bekliyor"></span>
+            <span className="flex h-1.5 w-1.5 rounded-full bg-destructive animate-pulse" title="Atama Bekliyor"></span>
           )}
         </span>
-        <span className="text-sm font-bold text-muted-foreground flex items-center gap-1.5 mt-1">
-          <Users size={14} className="text-primary/60" /> {count} Personel
-        </span>
       </div>
-      <div className="w-full sm:w-64 shrink-0">
-        <label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground mb-1.5 block ml-1">Bölüm Müdürü</label>
+      <div className="shrink-0">
         <ApproverSelect
           value={section.manager_id || undefined}
-          onChange={(val: string) => onAssign(section.id, val)}
+          onChange={(val: string) => onAssign(Number(section.id), val)}
           disabled={isPending}
           personnel={personnel}
           getRoleName={getRoleName}
@@ -124,38 +156,32 @@ const SectionRow = memo(({ section, count, personnel, getRoleName, onAssign, isP
   );
 });
 
-const DepartmentRow = memo(({ dept, count, sectionName, personnel, getRoleName, onAssign, isPending }: {
-  dept: IDepartment,
-  count: number,
+const DepartmentRow = memo(({ dept, sectionName, personnel, getRoleName, onAssign, isPending }: {
+  dept: LookupDepartment,
+  count?: number,
   sectionName: string,
-  personnel: IPersonnel[],
+  personnel: Personnel[],
   getRoleName: (id: number) => string,
   onAssign: (id: number, val: string) => void,
   isPending: boolean
 }) => {
   return (
-    <div className="group relative flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-[1.5rem] border border-border/50 bg-card hover:shadow-lg hover:shadow-primary/5 transition-all">
-      <div className="flex flex-col">
-        <span className="text-lg font-black text-foreground flex items-center gap-2">
+    <div className="group relative flex items-center justify-between gap-4 px-5 py-3 h-16 ml-6 rounded-xl border border-border/40 bg-card/40 hover:bg-card hover:border-primary/20 transition-all ">
+      <div className="flex-1 flex items-center gap-3 flex-wrap">
+        <span className="text-sm font-extrabold text-foreground flex items-center gap-2 leading-none">
           {dept.name}
           {!dept.supervisor_id && (
-            <span className="flex h-2 w-2 rounded-full bg-destructive animate-pulse" title="Atama Bekliyor"></span>
+            <span className="flex h-1.5 w-1.5 rounded-full bg-destructive animate-pulse" title="Atama Bekliyor"></span>
           )}
         </span>
-        <div className="flex items-center gap-3 mt-1">
-          <span className="text-[11px] font-bold text-blue-500 bg-blue-500/10 px-2 py-0.5 rounded-md flex items-center gap-1">
-            <Building2 size={12} /> {sectionName}
-          </span>
-          <span className="text-sm font-bold text-muted-foreground flex items-center gap-1.5">
-            <Users size={14} className="text-primary/60" /> {count} Personel
-          </span>
-        </div>
+        <span className="text-[11px] font-bold text-blue-500 bg-blue-500/10 px-2 py-0.5 rounded-md flex items-center gap-1 shrink-0">
+          <Building2 size={12} /> {sectionName}
+        </span>
       </div>
-      <div className="w-full sm:w-64 shrink-0">
-        <label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground mb-1.5 block ml-1">Birim Şefi</label>
+      <div className="shrink-0">
         <ApproverSelect
           value={dept.supervisor_id || undefined}
-          onChange={(val: string) => onAssign(dept.id, val)}
+          onChange={(val: string) => onAssign(Number(dept.id), val)}
           disabled={isPending}
           personnel={personnel}
           getRoleName={getRoleName}
@@ -167,147 +193,78 @@ const DepartmentRow = memo(({ dept, count, sectionName, personnel, getRoleName, 
 });
 
 export default function Approvals() {
-  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
+  const debouncedSearchTerm = useDebounce(searchTerm, 500);
 
-  // Veritabanından lookup'ları ve personelleri çek
-  const { data: lookups, isLoading: lookupsLoading } = useQuery({
-    queryKey: ["personnel-lookups"],
-    queryFn: async () => {
-      const { data } = await apiClient.get("/personnel/lookups");
-      return data;
-    }
-  });
+  const { data: lookups, isLoading: lookupsLoading, refetch: refetchLookups } = useLookups();
+  const {
+    data: personnelResponse,
+    isLoading: personnelLoading,
+    updateSectionManagerMutation,
+    updateDepartmentSupervisorMutation,
+    syncApprovalsMutation
+  } = usePersonnel(1, 200, "", true);
 
-  const { data: personnel, isLoading: personnelLoading } = useQuery({
-    queryKey: ["personnel-all"],
-    queryFn: async () => {
-      const { data } = await apiClient.get("/personnel");
-      return data;
-    }
-  });
+  const personnel = useMemo(() => personnelResponse?.data || [], [personnelResponse]);
 
-  // Mutasyonlar
-  const sectionMutation = useMutation({
-    mutationFn: async ({ id, manager_id }: { id: number; manager_id: string }) => {
-      await apiClient.put(`/personnel/section-manager/${id}`, { manager_id });
-    },
-    onSuccess: () => {
-      toast.success("Bölüm Yöneticisi atandı ve izin hiyerarşisi güncellendi.");
-      queryClient.invalidateQueries({ queryKey: ["personnel-lookups"] });
-      queryClient.invalidateQueries({ queryKey: ["lookups"] });
-      queryClient.invalidateQueries({ queryKey: ["personnel-all"] });
-    },
-    onError: () => toast.error("Atama sırasında hata oluştu!")
-  });
-
-  const departmentMutation = useMutation({
-    mutationFn: async ({ id, supervisor_id }: { id: number; supervisor_id: string }) => {
-      await apiClient.put(`/personnel/department-supervisor/${id}`, { supervisor_id });
-    },
-    onSuccess: () => {
-      toast.success("Birim Sorumlusu atandı ve izin hiyerarşisi güncellendi.");
-      queryClient.invalidateQueries({ queryKey: ["personnel-lookups"] });
-      queryClient.invalidateQueries({ queryKey: ["lookups"] });
-      queryClient.invalidateQueries({ queryKey: ["personnel-all"] });
-    },
-    onError: () => toast.error("Atama sırasında hata oluştu!")
-  });
-
-  const syncMutation = useMutation({
-    mutationFn: async () => {
-      await apiClient.post(`/personnel/sync-approvals`);
-    },
-    onSuccess: () => {
-      toast.success("Tüm Yetkiler Başarıyla Senkronize Edildi!");
-      queryClient.invalidateQueries({ queryKey: ["personnel-all"] });
-      queryClient.invalidateQueries({ queryKey: ["personnel-lookups"] });
-      queryClient.invalidateQueries({ queryKey: ["lookups"] });
-    },
-    onError: () => toast.error("Senkronizasyon işlemi başarısız oldu!")
-  });
-
-  // Personel sayılarını O(N) zamanda tek seferde (hızlıca) hesaplayıp cache'liyoruz
-  const { sectionCounts, departmentCounts } = useMemo(() => {
-    const sc: Record<number, number> = {};
-    const dc: Record<number, number> = {};
-    const act = (Array.isArray(personnel) ? personnel : []).filter((p: IPersonnel) => Number(p.is_active) === 1);
-    act.forEach(p => {
-      const s = Number(p.section);
-      const d = Number(p.department);
-      if (s) sc[s] = (sc[s] || 0) + 1;
-      if (d) dc[d] = (dc[d] || 0) + 1;
-    });
-    return { sectionCounts: sc, departmentCounts: dc };
-  }, [personnel]);
-
-  // Hızlı Erişim için Map (Sözlük) Objeleri (O(1) Karmaşıklık)
-  const { sectionMap, roleMap, sections, departments, eligibleApprovers, personnelMap } = useMemo(() => {
+  const { sectionMap, roleMap, sections, departments, eligibleApprovers } = useMemo(() => {
     const sMap = new Map<number, string>();
     const rMap = new Map<number, string>();
-    const pMap = new Map<string, string>();
     const sArray = lookups?.sections || [];
     const dArray = lookups?.departments || [];
     const rArray = lookups?.roles || [];
-    const actData = (Array.isArray(personnel) ? personnel : []).filter((p: IPersonnel) => Number(p.is_active) === 1);
+    const actData = personnel.filter(p => Number(p.is_active) === 1);
 
-    sArray.forEach((s: ISection) => sMap.set(s.id, s.name));
-    rArray.forEach((r: IRole) => rMap.set(r.id, r.name));
-    actData.forEach((p: IPersonnel) => pMap.set(p.id_dec, `${p.name} ${p.surname}`));
+    sArray.forEach(s => sMap.set(Number(s.id), s.name));
+    rArray.forEach(r => rMap.set(Number(r.id), r.name));
 
-    // Sadece "Onaycı" olabilecek personelleri dropdownlara dahil ediyoruz:
-    const allowedRolesRegex = /müdür|mühendis|ustabaşı|admin|ik|yönetici|genel/i;
-    const approvers = actData.filter((p: IPersonnel) => {
+    const allowedRolesRegex = /^(şef|müdür|admin|test)$/i;
+    const approvers = actData.filter(p => {
       const rn = rMap.get(p.role_id) || "";
       return allowedRolesRegex.test(rn);
     });
 
-    return { sectionMap: sMap, roleMap: rMap, sections: sArray, departments: dArray, eligibleApprovers: approvers, personnelMap: pMap };
+    return { sectionMap: sMap, roleMap: rMap, sections: sArray, departments: dArray, eligibleApprovers: approvers };
   }, [lookups, personnel]);
 
-  // Arama filtrelemesi - React tabanlı Input (Yazma gecikmesini / INP sorununu çözmek için)
-  const deferredSearchTerm = useDeferredValue(searchTerm);
-
-
-
   const filteredSections = useMemo(() => {
-    if (!deferredSearchTerm) return sections;
-    const lowerSearch = deferredSearchTerm.toLowerCase();
-    return sections.filter((s: ISection) => {
-      const matchName = s.name.toLowerCase().includes(lowerSearch);
-      const matchManager = s.manager_id && personnelMap.get(s.manager_id)?.toLowerCase().includes(lowerSearch);
-      return matchName || matchManager;
-    });
-  }, [sections, deferredSearchTerm, personnelMap]);
+    if (!debouncedSearchTerm) return sections;
+    const lowerSearch = debouncedSearchTerm.toLowerCase();
+    return sections.filter(s => s.name.toLowerCase().includes(lowerSearch));
+  }, [sections, debouncedSearchTerm]);
 
   const filteredDepartments = useMemo(() => {
-    if (!deferredSearchTerm) return departments;
-    const lowerSearch = deferredSearchTerm.toLowerCase();
-    return departments.filter((d: IDepartment) => {
-      const matchName = d.name.toLowerCase().includes(lowerSearch);
-      const matchSec = sectionMap.get(d.section_id)?.toLowerCase().includes(lowerSearch);
-      const matchSup = d.supervisor_id && personnelMap.get(d.supervisor_id)?.toLowerCase().includes(lowerSearch);
-      return matchName || matchSec || matchSup;
-    });
-  }, [departments, deferredSearchTerm, personnelMap, sectionMap]);
+    if (!debouncedSearchTerm) return departments;
+    const lowerSearch = debouncedSearchTerm.toLowerCase();
+    return departments.filter(d => d.name.toLowerCase().includes(lowerSearch));
+  }, [departments, debouncedSearchTerm]);
 
   const getSectionName = useCallback((secId: number) => sectionMap.get(secId) || "Bölüm Belirtilmemiş", [sectionMap]);
   const getRoleName = useCallback((roleId: number) => roleMap.get(roleId) || "-", [roleMap]);
 
-  // Memoize assignment callbacks so rows don't unnecessarily re-render
   const handleSectionAssign = useCallback((id: number, manager_id: string) => {
-    sectionMutation.mutate({ id, manager_id });
-  }, [sectionMutation]);
+    updateSectionManagerMutation.mutate({ id, manager_id }, {
+      onSuccess: async () => {
+        await refetchLookups();
+        toast.success("Bölüm Yöneticisi atandı ve izin hiyerarşisi güncellendi.");
+      }
+    });
+  }, [updateSectionManagerMutation, refetchLookups]);
 
   const handleDepartmentAssign = useCallback((id: number, supervisor_id: string) => {
-    departmentMutation.mutate({ id, supervisor_id });
-  }, [departmentMutation]);
+    updateDepartmentSupervisorMutation.mutate({ id, supervisor_id }, {
+      onSuccess: async () => {
+        await refetchLookups();
+        toast.success("Birim Sorumlusu atandı ve izin hiyerarşisi güncellendi.");
+      }
+    });
+  }, [updateDepartmentSupervisorMutation, refetchLookups]);
 
-  if ((lookupsLoading || personnelLoading) && (!lookups || !personnel)) {
+  if ((lookupsLoading || personnelLoading) && (!lookups || !personnel.length)) {
     return (
       <div className="flex flex-col items-center justify-center py-10 opacity-60">
         <Loader2 className="animate-spin text-primary mb-4" size={32} />
-        <span className="text-sm font-bold text-foreground">Veriler Yüklüyor...</span>
+        <span className="text-sm font-bold text-foreground">Veriler Yükleniyor...</span>
       </div>
     );
   }
@@ -336,18 +293,19 @@ export default function Approvals() {
           </div>
           <Button
             variant="outline"
-            onClick={() => syncMutation.mutate()}
-            disabled={syncMutation.isPending}
+            onClick={() => syncApprovalsMutation.mutate(undefined, {
+              onSuccess: () => toast.success("Tüm Yetkiler Başarıyla Senkronize Edildi!")
+            })}
+            disabled={syncApprovalsMutation.isPending}
             className="w-full sm:w-auto h-12 rounded-[1rem] font-bold border-primary/20 bg-primary/5 text-primary hover:bg-primary/10 transition-all shrink-0"
           >
-            {syncMutation.isPending ? <Loader2 size={18} className="mr-2 animate-spin" /> : <ShieldCheck size={18} className="mr-2" />}
+            {syncApprovalsMutation.isPending ? <Loader2 size={18} className="mr-2 animate-spin" /> : <ShieldCheck size={18} className="mr-2" />}
             Tüm Yetkileri Senkronize Et
           </Button>
         </div>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 lg:gap-12">
-        {/* SECTION SEÇİMLERİ (2. ONAYCILAR) */}
         <div className="flex flex-col gap-5">
           <h4 className="font-black text-xl flex items-center gap-3 text-foreground bg-muted/30 p-4 rounded-3xl border border-border/50">
             <div className="w-10 h-10 rounded-[1rem] bg-blue-500/10 text-blue-500 flex items-center justify-center">
@@ -360,21 +318,19 @@ export default function Approvals() {
           </h4>
 
           <div className="space-y-4">
-            {filteredSections.map((section: ISection) => (
+            {filteredSections.map((section) => (
               <SectionRow
                 key={section.id}
                 section={section}
-                count={sectionCounts[section.id] || 0}
                 personnel={eligibleApprovers}
                 getRoleName={getRoleName}
                 onAssign={handleSectionAssign}
-                isPending={sectionMutation.isPending}
+                isPending={updateSectionManagerMutation.isPending}
               />
             ))}
           </div>
         </div>
 
-        {/* DEPARTMENT SEÇİMLERİ (1. ONAYCILAR) */}
         <div className="flex flex-col gap-5">
           <h4 className="font-black text-xl flex items-center gap-3 text-foreground bg-muted/30 p-4 rounded-3xl border border-border/50">
             <div className="w-10 h-10 rounded-[1rem] bg-orange-500/10 text-orange-500 flex items-center justify-center">
@@ -387,16 +343,15 @@ export default function Approvals() {
           </h4>
 
           <div className="space-y-4">
-            {filteredDepartments.map((dept: IDepartment) => (
+            {filteredDepartments.map((dept) => (
               <DepartmentRow
                 key={dept.id}
                 dept={dept}
-                count={departmentCounts[dept.id] || 0}
-                sectionName={getSectionName(dept.section_id)}
+                sectionName={getSectionName(Number(dept.id))}
                 personnel={eligibleApprovers}
                 getRoleName={getRoleName}
                 onAssign={handleDepartmentAssign}
-                isPending={departmentMutation.isPending}
+                isPending={updateDepartmentSupervisorMutation.isPending}
               />
             ))}
           </div>
@@ -404,4 +359,11 @@ export default function Approvals() {
       </div>
     </div>
   );
+}
+
+function DebouncedSearchInput({ value: initialValue, onChange, placeholder, className }: { value: string; onChange: (val: string) => void; placeholder?: string; className?: string; }) {
+  const [localValue, setLocalValue] = useState(initialValue);
+  const debouncedValue = useDebounce(localValue, 500);
+  useEffect(() => { onChange(debouncedValue); }, [debouncedValue, onChange]);
+  return <Input value={localValue} onChange={(e) => setLocalValue(e.target.value)} placeholder={placeholder} className={className} />;
 }

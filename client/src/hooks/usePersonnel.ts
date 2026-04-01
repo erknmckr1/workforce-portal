@@ -41,14 +41,14 @@ export interface PersonnelResponse {
 }
 
 // useQuery veri okuma, useMutation yaz, güncelle, sil
-export const usePersonnel = (page: number = 1, limit: number = 50, search: string = "") => {
+export const usePersonnel = (page: number = 1, limit: number = 50, search: string = "", isApprover: boolean = false) => {
   const queryClient = useQueryClient();
 
   const query = useQuery<PersonnelResponse>({
-    queryKey: ["personnel", page, limit, search],
+    queryKey: ["personnel", page, limit, search, isApprover],
     queryFn: async () => {
       const resp = await apiClient.get("/personnel", {
-        params: { page, limit, search }
+        params: { page, limit, search, isApprover }
       });
       return resp.data;
     },
@@ -82,10 +82,43 @@ export const usePersonnel = (page: number = 1, limit: number = 50, search: strin
     },
   });
 
+  // Onay Hiyerarşisi Mutasyonları
+  const updateSectionManagerMutation = useMutation({
+    mutationFn: async ({ id, manager_id }: { id: number; manager_id: string }) => {
+      return apiClient.put(`/personnel/section-manager/${id}`, { manager_id });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["personnel"] });
+      queryClient.invalidateQueries({ queryKey: ["personnel-lookups"] });
+    },
+  });
+
+  const updateDepartmentSupervisorMutation = useMutation({
+    mutationFn: async ({ id, supervisor_id }: { id: number; supervisor_id: string }) => {
+      return apiClient.put(`/personnel/department-supervisor/${id}`, { supervisor_id });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["personnel"] });
+      queryClient.invalidateQueries({ queryKey: ["personnel-lookups"] });
+    },
+  });
+
+  const syncApprovalsMutation = useMutation({
+    mutationFn: async () => {
+      return apiClient.post(`/personnel/sync-approvals`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["personnel"] });
+    },
+  });
+
   return {
     ...query,
     createMutation,
     updateMutation,
     deleteMutation,
+    updateSectionManagerMutation,
+    updateDepartmentSupervisorMutation,
+    syncApprovalsMutation
   };
 };
