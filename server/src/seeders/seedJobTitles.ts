@@ -46,7 +46,6 @@ const seedJobTitles = async () => {
             });
         }
 
-        console.log(" Job titles seeded successfully!");
         process.exit(0);
     } catch (error) {
         console.error(" Seeding failed:", error);

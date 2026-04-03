@@ -20,7 +20,6 @@ export const getLeaveLookups = async (req: Request, res: Response): Promise<Resp
         let durationTypes = await LeaveDurationType.findAll();
 
         if (reasons.length === 0) {
-            console.log("Lookups are empty. Seeding defaults...");
             // Fail-safe seeding for dev environment
             await LeaveStatus.bulkCreate([
                 { id: 1, code: "PENDING_AUTH1", label: "1. Onaycı Bekleniyor" },
@@ -53,8 +52,6 @@ export const getLeaveLookups = async (req: Request, res: Response): Promise<Resp
             statuses = await LeaveStatus.findAll();
             durationTypes = await LeaveDurationType.findAll();
         }
-
-        console.log(`Leave Lookups fetched - Reasons: ${reasons.length}, Statuses: ${statuses.length}, Durations: ${durationTypes.length}`);
 
         return res.status(200).json({
             reasons,
@@ -124,8 +121,8 @@ export const createLeave = async (req: Request, res: Response): Promise<Response
 
         if (overlappingLeave) {
             await transaction.rollback();
-            return res.status(400).json({ 
-                message: "Bu tarih aralığında zaten devam eden veya onay bekleyen bir izin talebiniz mevcut." 
+            return res.status(400).json({
+                message: "Bu tarih aralığında zaten devam eden veya onay bekleyen bir izin talebiniz mevcut."
             });
         }
 
@@ -138,7 +135,7 @@ export const createLeave = async (req: Request, res: Response): Promise<Response
             leave_reason_id,
             leave_status_id: initialStatus,
             leave_duration_type_id: leave_duration_type_id || 4,
-            auth1_user_id: shouldAutoApprove ? (auth1 || creator_id) : auth1, 
+            auth1_user_id: shouldAutoApprove ? (auth1 || creator_id) : auth1,
             auth2_user_id: auth2 || null,
             start_date,
             end_date,
@@ -196,28 +193,25 @@ export const createLeave = async (req: Request, res: Response): Promise<Response
 // İzinleri Listele (Filtreleme ile)
 export const getLeaves = async (req: Request, res: Response): Promise<any> => {
     try {
-        const { status_id, approver_id, start_date, end_date, page = 1, limit = 10 } = req.query;
+        const { status_id, approver_id, start_date, end_date, search, leave_reasons, page = 1, limit = 10 } = req.query;
         const offset = (Number(page) - 1) * Number(limit);
-
         // BİLET KONTROLÜNDEN GEÇEN SİTE KULLANICISININ KİMLİĞİ BURADA
-        const loggedUser = (req as any).user; 
+        const loggedUser = (req as any).user;
         const roleId = loggedUser.role_id;
         const userId = loggedUser.id_dec;
 
         let where: any = {};
 
-        const isHistory = req.query.is_history === "true";
+        const isHistory = req.query.is_history === "true"
 
-        // ZIRH #2 : VERİ SÜZGEÇLERİ (Matrix Kuralları)
-        
         // 1. Senaryo (Admin-7, İK-4, Revir-5) => Geniş Erişim Yetkisi
         if (roleId === 7 || roleId === 4 || roleId === 5) {
             const queryUserId = (req.query.user_id || req.query.personnel_id) as string;
-            
+
             if (queryUserId) {
                 where.user_id = queryUserId;
             }
-            
+
             if (status_id) {
                 where.leave_status_id = status_id;
             } else if (approver_id) {
@@ -228,7 +222,7 @@ export const getLeaves = async (req: Request, res: Response): Promise<any> => {
                     where.leave_status_id = { [Op.in]: [1, 2] };
                 }
             }
-        } 
+        }
         // 2. Senaryo (Müdür-3) => Kendi izinleri "VEYA" Onaycı olduğu bekleyenler
         else if (roleId === 3) {
             const queryUserId = req.query.user_id as string;
@@ -253,7 +247,7 @@ export const getLeaves = async (req: Request, res: Response): Promise<any> => {
                 ];
             }
             if (status_id) where.leave_status_id = status_id;
-        } 
+        }
         // 3. Senaryo (Şef-2)
         else if (roleId === 2) {
             const queryUserId = req.query.user_id as string;
@@ -279,7 +273,7 @@ export const getLeaves = async (req: Request, res: Response): Promise<any> => {
         }
         // 4. Senaryo (Güvenlik-6) => Kendi izinleri "VEYA" Zaten 2 onayı da bitmiş durumu `3=Onaylandı` olan ve "Çıkış Yapmayı" bekleyen tüm izinler
         else if (roleId === 6) {
-           where = {
+            where = {
                 [Op.or]: [
                     { user_id: userId },             // Kendi izni (Onay/Red farketmez hepsini görmeli menüsü var çünkü)
                     { leave_status_id: 3 }           // Güvenlik kapısı modülünde görmek zorunda olduğu tam onaylı kişiler
@@ -292,15 +286,33 @@ export const getLeaves = async (req: Request, res: Response): Promise<any> => {
             if (status_id) where.leave_status_id = status_id;
         }
 
+        if (leave_reasons) {
+            where.leave_reason_id = { [Op.in]: String(leave_reasons).split(',').map(Number) };
+        }
+
         // Veritabanı Sorgusu (Sayfalamalı ve Sayımlı)
+        let operatorWhere: any = {};
+        if (search) {
+            operatorWhere = {
+                [Op.or]: [
+                    { name: { [Op.like]: `%${search}%` } },
+                    { surname: { [Op.like]: `%${search}%` } },
+                    { id_dec: { [Op.like]: `%${search}%` } }
+                ]
+            };
+        }
+
         const { count, rows: leaves } = await LeaveRecord.findAndCountAll({
             where,
+            subQuery: false, // İsim arama (required:true) filtrelemesinin doğru çalışması için şart
             include: [
-                { 
-                    model: Operator, 
-                    as: "User", 
+                {
+                    model: Operator,
+                    as: "User",
+                    where: search ? operatorWhere : undefined,
+                    required: search ? true : false,
                     attributes: ["name", "surname", "id_dec"],
-                    include: [{ model: Section, attributes: ["name"] }] 
+                    include: [{ model: Section, attributes: ["name"] }]
                 },
                 { model: LeaveReason, attributes: ["label"] },
                 { model: LeaveStatus, attributes: ["label", "code"] },
@@ -315,7 +327,6 @@ export const getLeaves = async (req: Request, res: Response): Promise<any> => {
         });
 
         const totalPages = Math.ceil(count / Number(limit));
-
         return res.status(200).json({
             data: leaves,
             totalCount: count,
@@ -348,7 +359,7 @@ export const approveLeave = async (req: Request, res: Response): Promise<Respons
         const isAdmin = loggedRole === 7 || loggedRole === 4;
 
         const currentStatus = leave.getDataValue('leave_status_id') as number;
-        
+
         if (currentStatus === 1) {
             // ADMIN değilse onaycı kontrolü yap
             if (!isAdmin && leave.getDataValue('auth1_user_id') !== approver_id) {
@@ -441,7 +452,7 @@ export const rejectLeave = async (req: Request, res: Response): Promise<Response
             await transaction.rollback();
             return res.status(403).json({ message: "Bu izni reddetme yetkiniz yok (1. Onaycı değilsiniz)." });
         }
-        
+
         if (currentStatus === 2 && leave.getDataValue('auth2_user_id') !== approver_id) {
             await transaction.rollback();
             return res.status(403).json({ message: "Bu izni reddetme yetkiniz yok (2. Onaycı değilsiniz)." });
@@ -488,17 +499,28 @@ export const cancelLeave = async (req: Request, res: Response): Promise<Response
             return res.status(404).json({ message: "İzin talebi bulunamadı." });
         }
 
-        // 1. Sadece sahibi iptal edebilir
-        if (leave.getDataValue('user_id') !== user_id) {
+        const loggedUser = (req as any).user;
+        const roleId = loggedUser?.role_id;
+        const isAdminOrRevir = roleId === 7 || roleId === 4 || roleId === 5; // Admin, İK, Revir
+
+        // 1. Sadece sahibi VEYA Yetkili (Admin/Revir/İK) iptal edebilir
+        if (leave.getDataValue('user_id') !== user_id && !isAdminOrRevir) {
             await transaction.rollback();
             return res.status(403).json({ message: "Bu izin talebini iptal etme yetkiniz yok." });
         }
 
-        // 2. Sadece bekleyen (1 veya 2) durumdakiler iptal edilebilir
         const currentStatus = leave.getDataValue('leave_status_id') as number;
-        if (currentStatus !== 1 && currentStatus !== 2) {
+
+        // 2. Zaten bitmiş/iptal edilmiş süreçler
+        if (currentStatus === 4 || currentStatus === 5) {
             await transaction.rollback();
-            return res.status(400).json({ message: "Onaylanmış veya sonuçlanmış izin talepleri iptal edilemez." });
+            return res.status(400).json({ message: "Bu izin talebi zaten bitmiş veya iptal edilmiş." });
+        }
+
+        // 3. Normal personel sadece bekleyenleri (1,2) iptal edebilir. Yetkililer ise onaylanmışı (3) da iptal edebilir.
+        if (!isAdminOrRevir && currentStatus !== 1 && currentStatus !== 2) {
+            await transaction.rollback();
+            return res.status(400).json({ message: "Onaylanmış izin talepleri departman yöneticisi veya revir olmadan iptal edilemez." });
         }
 
         await leave.update({ leave_status_id: 4 }, { transaction }); // Status 4 = CANCELLED
@@ -506,9 +528,11 @@ export const cancelLeave = async (req: Request, res: Response): Promise<Response
         await LeaveActivityLog.create({
             leave_record_id: leave.getDataValue('id'),
             performed_by: user_id,
-            action: "CANCELLED_BY_USER",
+            action: isAdminOrRevir && leave.getDataValue('user_id') !== user_id ? "CANCELLED_BY_ADMIN" : "CANCELLED_BY_USER",
             new_status_id: 4,
-            details: "Kullanıcı talebi tarafından iptal edildi."
+            details: isAdminOrRevir && leave.getDataValue('user_id') !== user_id 
+                ? "Yetkili personel (Revir/Admin/İK) tarafından iptal edildi." 
+                : "Kullanıcı talebi tarafından iptal edildi."
         }, { transaction });
 
         await transaction.commit();
@@ -564,8 +588,8 @@ export const updateLeave = async (req: Request, res: Response): Promise<Response
 
         if (overlappingLeave) {
             await transaction.rollback();
-            return res.status(400).json({ 
-                message: "Güncellenen tarih aralığı başka bir aktif/bekleyen talebinizle çakışmaktadır." 
+            return res.status(400).json({
+                message: "Güncellenen tarih aralığı başka bir aktif/bekleyen talebinizle çakışmaktadır."
             });
         }
 

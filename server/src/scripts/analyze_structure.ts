@@ -2,7 +2,7 @@ import { sequelize } from "../models";
 
 async function analyzeSectionDepartmentRelationship() {
     try {
-        console.log("📊 Section - Department Analizi Başlıyor (Küçük Harf Tablo İsimleri ile)...");
+       
         await sequelize.authenticate();
 
         const [results]: any[] = await sequelize.query(`
@@ -20,19 +20,17 @@ async function analyzeSectionDepartmentRelationship() {
             ORDER BY S.id, D.id
         `);
 
-        console.log("\n📋 MEVCUT PERSONEL DAĞILIMI (BÖLÜM -> BİRİM):");
-        console.log("==========================================");
+      
         
         let currentSecId = null;
         results.forEach((row: any) => {
             if (row.sec_id !== currentSecId) {
-                console.log(`\n🏗️  BÖLÜM: ${row.sec_name || 'BÖLÜM YOK'} (ID: ${row.sec_id || '?'})`);
+              
                 currentSecId = row.sec_id;
             }
-            console.log(`   └─> BİRİM: ${String(row.dep_name || 'BİRİM YOK').padEnd(25)} (ID: ${String(row.dep_id || '?').padEnd(3)}) [${row.total_count} Kişi]`);
+    
         });
 
-        console.log("\n==========================================");
         process.exit(0);
     } catch (error) {
         console.error("❌ Hata:", error);

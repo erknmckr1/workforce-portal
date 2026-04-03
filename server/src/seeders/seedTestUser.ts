@@ -27,16 +27,12 @@ const seedTestUser = async () => {
         });
 
         if (created) {
-            console.log(" Test user 'Ahmet Yılmaz' created successfully!");
-            console.log("   - Login ID (Sicil No): 1001");
-            console.log("   - Password: 123456");
-            console.log("   - Kiosk Hex ID: A1B2C3D4");
         } else {
             console.log(" Test user '1001' already exists.");
             
             // Mevcut kullanıcının şifresini bilhassa 123456 yapalım ki test edelim
             await user.update({ op_password: hashedPassword });
-            console.log(" Updated existing user's password to '123456'.");
+            console.log(" Updated existing user's passrd to '123456'.");
         }
 
         process.exit(0);
