@@ -42,9 +42,10 @@ Thumbs.db
 /coverage
 
 # TypeScript
-*.tsbuildinfo
+*.tsbuildinfo 
 next-env.d.ts
 
 # Misc
 *.pem
 .vercel
+/gemini.md

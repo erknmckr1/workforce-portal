@@ -98,7 +98,6 @@ export default function Sidebar({ isOpen, onToggle, collapsed, onCollapse }: Sid
     }
   };
 
-  console.log(expandedMenu)
   return (
     <>
       {/* Mobile Overlay */}

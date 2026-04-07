@@ -40,6 +40,16 @@ export default function PersonnelManagement() {
   const totalItems = personnelResponse?.total || 0;
   const totalPages = personnelResponse?.totalPages || 1;
 
+  const handleSearch = useCallback((val: string) => {
+    setSearchTerm(prev => {
+      if (prev !== val) {
+        setCurrentPage(1);
+        return val;
+      }
+      return prev;
+    });
+  }, []);
+
   const handleEdit = useCallback((p: Personnel) => {
     setEditingPersonnel(p);
     setShowModal(true);
@@ -97,10 +107,7 @@ export default function PersonnelManagement() {
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
                 <DebouncedSearchInput 
                   placeholder="Personel Ara..."
-                  onSearch={(val) => {
-                    setSearchTerm(val);
-                    setCurrentPage(1);
-                  }}
+                  onSearch={handleSearch}
                   initialValue={searchTerm}
                 />
               </div>

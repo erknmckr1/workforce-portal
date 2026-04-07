@@ -14,6 +14,7 @@ import LeaveApprovals from "./pages/LeaveApprovals";
 import SecurityScreen from "./pages/SecurityScreen";
 import Infirmary from "./pages/Infirmary";
 import { ThemeProvider } from "./components/theme-provider";
+import { ConfirmProvider } from "@/providers/ConfirmProvider";
 import "./App.css";
 
 import { Toaster } from "@/components/ui/sonner"; 
@@ -74,6 +75,7 @@ function App() {
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
           <Toaster position="top-center" richColors />
+          <ConfirmProvider>
           <Routes>
             {/* Giriş yapmamışsa Login'e yönlendir */}
             <Route
@@ -127,8 +129,11 @@ function App() {
                 <Route path="settings/general" element={<SettingsIndex />} />
                 <Route path="settings/approvals" element={<Approvals />} />
               </Route>
+              {/* 404 Yönlendirme */}
+              <Route path="*" element={<Navigate to="/" />} />
             </Route>
           </Routes>
+          </ConfirmProvider>
         </BrowserRouter>
         <ReactQueryDevtools initialIsOpen={false} />
       </QueryClientProvider>
