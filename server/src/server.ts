@@ -24,6 +24,9 @@ const corsOptions = {
         "http://localhost:5175",
         "http://localhost:5176",
         "http://localhost:5177",
+        "http://192.168.0.77:5173",
+        "https://navigational-runtgenographically-joline.ngrok-free.dev",
+        "https://two-kings-find.loca.lt"
     ],
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],

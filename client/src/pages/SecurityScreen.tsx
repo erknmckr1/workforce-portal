@@ -19,11 +19,14 @@ import { PageHeader } from "@/components/layout/PageHeader";
 
 export default function SecurityScreen() {
   const { user } = useAuthStore();
-  const { leaves, isLoading, confirmExit, isConfirmingExit } = useLeaves();
+  const { leaves, isLoading, confirmExit, isConfirmingExit } = useLeaves({ is_security: true });
   const [searchTerm, setSearchTerm] = useState("");
 
   const approvedLeaves = useMemo(() => {
-    return (leaves as ILeave[]).filter(l => l.leave_status_id === 3);
+    return (leaves as ILeave[]).filter(l => 
+      l.leave_status_id === 3 && 
+      format(new Date(l.start_date), "HH:mm") !== "07:30"
+    );
   }, [leaves]);
 
   const filteredLeaves = useMemo(() => {

@@ -50,6 +50,8 @@ export interface ILeave {
     LeaveReason?: { label: string };
     LeaveStatus?: { label: string; code: string };
     LeaveDurationType?: { label: string };
+    Approver1?: { name: string; surname: string };
+    Approver2?: { name: string; surname: string };
 }
 
 export const useLeaves = (filters?: { 
@@ -57,6 +59,7 @@ export const useLeaves = (filters?: {
     status_id?: number; 
     approver_id?: string; 
     is_history?: boolean;
+    is_security?: boolean;
     page?: number;
     limit?: number;
 }) => {

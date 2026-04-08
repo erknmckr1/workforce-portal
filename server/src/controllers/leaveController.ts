@@ -193,7 +193,7 @@ export const createLeave = async (req: Request, res: Response): Promise<Response
 // İzinleri Listele (Filtreleme ile)
 export const getLeaves = async (req: Request, res: Response): Promise<any> => {
     try {
-        const { status_id, approver_id, start_date, end_date, search, leave_reasons, page = 1, limit = 10 } = req.query;
+        const { status_id, approver_id, start_date, end_date, search, leave_reasons, page = 1, limit = 10, is_security } = req.query;
         const offset = (Number(page) - 1) * Number(limit);
         // BİLET KONTROLÜNDEN GEÇEN SİTE KULLANICISININ KİMLİĞİ BURADA
         const loggedUser = (req as any).user;
@@ -201,11 +201,29 @@ export const getLeaves = async (req: Request, res: Response): Promise<any> => {
         const userId = loggedUser.id_dec;
 
         let where: any = {};
+        const isHistory = req.query.is_history === "true";
 
-        const isHistory = req.query.is_history === "true"
+        // GÜVENLİK ÖNCELİKLİ GÖRÜNÜM: (is_security bayrağı gelmişse veya rolü güvenlikse)
+        // Admin olsa bile bu sayfada "Güvenlik Görünümü" istiyoruz demektir.
+        // GÜVENLİK PANELİ GÖRÜNÜMÜ: Sadece sayfa tarafından özel istek (is_security="true") atılmışsa çalışır.
+        // Rolü ne olursa olsun (Güvenlik, Admin), bu sayfaya girildiğinde fabrika çıkış listesi gelir.
+        if (is_security === "true") {
+            const todayStart = new Date();
+            todayStart.setHours(0, 0, 0, 0);
+            const todayEnd = new Date();
+            todayEnd.setHours(23, 59, 59, 999);
 
+            where[Op.and] = [
+                { leave_status_id: 3 },
+                {
+                    start_date: {
+                        [Op.between]: [todayStart, todayEnd]
+                    }
+                }
+            ];
+        }
         // 1. Senaryo (Admin-7, İK-4, Revir-5) => Geniş Erişim Yetkisi
-        if (roleId === 7 || roleId === 4 || roleId === 5) {
+        else if (roleId === 7 || roleId === 4 || roleId === 5) {
             const queryUserId = (req.query.user_id || req.query.personnel_id) as string;
 
             if (queryUserId) {
@@ -215,7 +233,6 @@ export const getLeaves = async (req: Request, res: Response): Promise<any> => {
             if (status_id) {
                 where.leave_status_id = status_id;
             } else if (approver_id) {
-                // ... Mevcut approver id mantığı ...
                 if (isHistory) {
                     where.leave_status_id = { [Op.in]: [3, 4, 5] };
                 } else {
@@ -223,67 +240,38 @@ export const getLeaves = async (req: Request, res: Response): Promise<any> => {
                 }
             }
         }
-        // 2. Senaryo (Müdür-3) => Kendi izinleri "VEYA" Onaycı olduğu bekleyenler
-        else if (roleId === 3) {
+        // 2 & 3. Senaryolar (Müdür-3, Şef-2, Personel-1 vb.) => Onay Odaklı ve Sahiplik Odaklı Dinamik Filtreleme
+        else {
             const queryUserId = req.query.user_id as string;
+
             if (queryUserId === userId) {
-                // İzinlerim sayfası sorgusu
+                // Sadece kendi izinlerim sayfası
                 where.user_id = userId;
+                if (status_id) where.leave_status_id = status_id;
             } else if (approver_id) {
+                // ONAY SAYFASI: Rol bağımsız, hiyerarşi ve kademe odaklı filtre (Chef/Manager ayrımını ortadan kaldırır)
                 if (isHistory) {
-                    // GEÇMİŞ: Müdürün 2. onaycısı olduğu ama sürecin bittiği işler
-                    where.auth2_user_id = userId;
-                    where.leave_status_id = { [Op.in]: [3, 4, 5] };
+                    // GEÇMİŞ: Onaycı olduğu ve sürecin artık o aşamayı geçtiği işler
+                    where[Op.or] = [
+                        { [Op.and]: [{ auth1_user_id: userId }, { leave_status_id: { [Op.gt]: 1 } }] },
+                        { [Op.and]: [{ auth2_user_id: userId }, { leave_status_id: { [Op.in]: [3, 4, 5] } }] }
+                    ];
                 } else {
-                    // BEKLEYEN: Onay ekranı sorgusu
-                    where.auth2_user_id = userId;
-                    where.leave_status_id = 2; // Müdür sadece 2. onayda bekleyenleri görür
+                    // BEKLEYEN: Sıra kimdeyse o görür
+                    where[Op.or] = [
+                        { [Op.and]: [{ auth1_user_id: userId }, { leave_status_id: 1 }] },
+                        { [Op.and]: [{ auth2_user_id: userId }, { leave_status_id: 2 }] }
+                    ];
                 }
             } else {
-                // Genel liste (Dashboard vb)
+                // Genel/Dashboard görünümü: Sahibi veya herhangi bir aşamada onaycısı olduğu tüm izinler
                 where[Op.or] = [
                     { user_id: userId },
+                    { auth1_user_id: userId },
                     { auth2_user_id: userId }
                 ];
+                if (status_id) where.leave_status_id = status_id;
             }
-            if (status_id) where.leave_status_id = status_id;
-        }
-        // 3. Senaryo (Şef-2)
-        else if (roleId === 2) {
-            const queryUserId = req.query.user_id as string;
-            if (queryUserId === userId) {
-                where.user_id = userId;
-            } else if (approver_id) {
-                if (isHistory) {
-                    // GEÇMİŞ: Şefin 1. onaycısı olduğu ama 1. kademeyi geçmiş (Artık 2 veya daha fazla) her şey
-                    where.auth1_user_id = userId;
-                    where.leave_status_id = { [Op.gt]: 1 };
-                } else {
-                    // BEKLEYEN
-                    where.auth1_user_id = userId;
-                    where.leave_status_id = 1; // Şef sadece 1. onayda bekleyenleri görür
-                }
-            } else {
-                where[Op.or] = [
-                    { user_id: userId },
-                    { auth1_user_id: userId }
-                ];
-            }
-            if (status_id) where.leave_status_id = status_id;
-        }
-        // 4. Senaryo (Güvenlik-6) => Kendi izinleri "VEYA" Zaten 2 onayı da bitmiş durumu `3=Onaylandı` olan ve "Çıkış Yapmayı" bekleyen tüm izinler
-        else if (roleId === 6) {
-            where = {
-                [Op.or]: [
-                    { user_id: userId },             // Kendi izni (Onay/Red farketmez hepsini görmeli menüsü var çünkü)
-                    { leave_status_id: 3 }           // Güvenlik kapısı modülünde görmek zorunda olduğu tam onaylı kişiler
-                ]
-            };
-        }
-        // 5. Senaryo (Personel-1, Revir-5 vb) => SADECE VE SADECE kendilerinin oluşturduğu veya sahip olduğu izinler
-        else {
-            where.user_id = userId;
-            if (status_id) where.leave_status_id = status_id;
         }
 
         if (leave_reasons) {
@@ -366,7 +354,14 @@ export const approveLeave = async (req: Request, res: Response): Promise<Respons
                 await transaction.rollback();
                 return res.status(403).json({ message: "Bu izni onaylama yetkiniz yok (1. Onaycı değilsiniz)." });
             }
-            newStatus = leave.getDataValue('auth2_user_id') ? 2 : 3;
+
+            const auth1Id = leave.getDataValue('auth1_user_id');
+            const auth2Id = leave.getDataValue('auth2_user_id');
+
+            // Eğer 2. onaycı tanımlı değilse VEYA 2. onaycı ile 1. onaycı aynı kişiyse doğrudan TAM ONAY (3)
+            const hasValidAuth2 = auth2Id && auth2Id !== auth1Id && auth2Id !== "0" && auth2Id !== "";
+
+            newStatus = hasValidAuth2 ? 2 : 3;
             actionEnum = newStatus === 3 ? "APPROVED" : "APPROVED_STEP1";
         } else if (currentStatus === 2) {
             // ADMIN değilse onaycı kontrolü yap
@@ -530,8 +525,8 @@ export const cancelLeave = async (req: Request, res: Response): Promise<Response
             performed_by: user_id,
             action: isAdminOrRevir && leave.getDataValue('user_id') !== user_id ? "CANCELLED_BY_ADMIN" : "CANCELLED_BY_USER",
             new_status_id: 4,
-            details: isAdminOrRevir && leave.getDataValue('user_id') !== user_id 
-                ? "Yetkili personel (Revir/Admin/İK) tarafından iptal edildi." 
+            details: isAdminOrRevir && leave.getDataValue('user_id') !== user_id
+                ? "Yetkili personel (Revir/Admin/İK) tarafından iptal edildi."
                 : "Kullanıcı talebi tarafından iptal edildi."
         }, { transaction });
 
