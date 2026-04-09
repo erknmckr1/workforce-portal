@@ -6,6 +6,8 @@ import { LeaveRecord } from "./LeaveRecord";
 import { LeaveBalanceLog } from "./LeaveBalanceLog";
 import { LeaveActivityLog } from "./LeaveActivityLog";
 import Notification from "./Notification";
+import { CompanyCalendar } from "./CompanyCalendar";
+
 // --- Lookups & Operator Associations ---
 Section.hasMany(Department, { foreignKey: "section_id" });
 Department.belongsTo(Section, { foreignKey: "section_id" });
@@ -82,5 +84,6 @@ export {
     LeaveRecord,
     LeaveBalanceLog,
     LeaveActivityLog,
-    Notification
+    Notification,
+    CompanyCalendar
 };

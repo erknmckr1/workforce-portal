@@ -7,6 +7,8 @@ import authRoutes from "./routes/authRoutes";
 import personnelRoutes from "./routes/personnelRoutes";
 import leaveRoutes from "./routes/leaveRoutes";
 import notificationRoutes from "./routes/notificationRoutes";
+import calendarRoutes from "./routes/calendarRoutes";
+import ratesRoutes from "./routes/ratesRoutes";
 
 dotenv.config();
 
@@ -43,6 +45,8 @@ app.use("/api/auth", authRoutes);
 app.use("/api/personnel", personnelRoutes);
 app.use("/api/leave", leaveRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/calendar", calendarRoutes);
+app.use("/api/rates", ratesRoutes);
 
 // DB bağlantısı ve sunucu başlatma
 const startServer = async () => {

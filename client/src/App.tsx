@@ -14,6 +14,8 @@ import LeaveApprovals from "./pages/LeaveApprovals";
 import SecurityScreen from "./pages/SecurityScreen";
 import Infirmary from "./pages/Infirmary";
 import KioskPage from "./pages/KioskPage";
+import CompanyCalendarManager from "./pages/CompanyCalendarManager";
+import YearlyCalendarPage from "./pages/YearlyCalendarPage";
 import { ThemeProvider } from "./components/theme-provider";
 import { ConfirmProvider } from "@/providers/ConfirmProvider";
 import "./App.css";
@@ -132,6 +134,16 @@ function App() {
                 <Route path="settings/general" element={<SettingsIndex />} />
                 <Route path="settings/approvals" element={<Approvals />} />
               </Route>
+              {/* Takvim Yönetimi - Sadece Admin & İK */}
+              <Route element={<ProtectedRoute allowedRoles={["Admin", "İK"]} />}>
+                <Route path="calendar-manager" element={<CompanyCalendarManager />} />
+              </Route>
+
+              {/* Senelik Plan - Tüm personel görebilir */}
+              <Route element={<ProtectedRoute allowedRoles={["Admin", "İK", "Müdür", "Şef", "Personel", "Revir", "Güvenlik"]} />}>
+                <Route path="yearly-plan" element={<YearlyCalendarPage />} />
+              </Route>
+
               {/* 404 Yönlendirme */}
               <Route path="*" element={<Navigate to="/" />} />
             </Route>

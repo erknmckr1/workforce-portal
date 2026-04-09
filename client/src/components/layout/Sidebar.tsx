@@ -13,7 +13,9 @@ import {
   ClipboardCheck,
   ShieldCheck,
   Stethoscope,
-  MonitorSmartphone
+  MonitorSmartphone,
+  Wrench,
+  CalendarRange
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/authStore";
@@ -65,12 +67,21 @@ const menuItems = [
     roles: ["Admin", "Revir"]
   },
   {
+    title: "Araçlar",
+    icon: Wrench,
+    roles: ["Admin", "İK", "Müdür", "Şef", "Personel", "Revir", "Güvenlik"],
+    children: [
+      { title: "Senelik Plan", path: "/yearly-plan", icon: CalendarRange, roles: ["Admin", "İK", "Müdür", "Şef", "Personel", "Revir", "Güvenlik"] }
+    ]
+  },
+  {
     title: "Ayarlar",
     icon: Settings,
     roles: ["Admin", "İK"],
     children: [
       { title: "Genel Ayarlar", path: "/settings/general" },
-      { title: "Onay Hiyerarşisi", path: "/settings/approvals" }
+      { title: "Onay Hiyerarşisi", path: "/settings/approvals" },
+      { title: "Takvim Yönetimi", path: "/calendar-manager", roles: ["Admin", "İK"] }
     ]
   },
 ];
@@ -86,7 +97,8 @@ export default function Sidebar({ isOpen, onToggle, collapsed, onCollapse }: Sid
   const location = useLocation();
   const { user, logout } = useAuthStore();
   const [expandedMenu, setExpandedMenu] = useState<string | null>(
-    location.pathname.startsWith("/settings") ? "Ayarlar" : null
+    (location.pathname.startsWith("/settings") || location.pathname.startsWith("/calendar-manager")) ? "Ayarlar" :
+    location.pathname.startsWith("/yearly-plan") ? "Araçlar" : null
   );
 
   const handleLogout = async () => {
@@ -209,10 +221,11 @@ export default function Sidebar({ isOpen, onToggle, collapsed, onCollapse }: Sid
                     </Link>
                   )}
 
-                  {/* Alt Menü Render'ı */}
                   {hasChildren && isExpanded && !collapsed && (
                     <div className="flex flex-col space-y-1 pl-12 pr-2 animate-in slide-in-from-top-2 duration-200">
-                      {item.children!.map(child => {
+                      {item.children!
+                        .filter(child => !('roles' in child) || (child as any).roles.includes(user?.role || ""))
+                        .map(child => {
                         const isChildActive = location.pathname === child.path;
                         return (
                           <Link
