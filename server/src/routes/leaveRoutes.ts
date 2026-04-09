@@ -9,35 +9,19 @@ import {
     updateLeave,
     confirmExit
 } from "../controllers/leaveController";
-import { requireAuth } from "../middlewares/authMiddleware";
+import { requireKioskOrAuth } from "../middlewares/kioskMiddleware";
 
 const router = Router();
 
-// ZIRH #1 : Buraya API üzerinden gelen herkesin token'ı denetlenir. 
-// "Giriş yapmamış" hiç kimse aşağıdaki metodlara ulaşamaz!
-router.use(requireAuth);
-// Yardımcı verileri (reasons, statuses, duration types) getir
-router.get("/lookups", getLeaveLookups);
+// --- İzin İşlemleri (Kiosk Anahtarı veya Giriş Bileti Şart!) ---
+router.get("/lookups", requireKioskOrAuth, getLeaveLookups);
+router.get("/", requireKioskOrAuth, getLeaves);
+router.post("/", requireKioskOrAuth, createLeave);
 
-// Tüm izinleri listele (Filtreleme desteğiyle)
-router.get("/", getLeaves);
-
-// Yeni izin talebi oluştur
-router.post("/", createLeave);
-
-// İzin talebini onayla
-router.put("/:id/approve", approveLeave);
-
-// İzin talebini reddet
-router.put("/:id/reject", rejectLeave);
-
-// İzin talebini iptal et (Sahibi tarafından)
-router.put("/:id/cancel", cancelLeave);
-
-// İzin talebini güncelle (Düzenle)
-router.put("/:id", updateLeave);
-
-// Güvenlik Rotaları
-router.put("/:id/confirm-exit", confirmExit);
+router.put("/:id/approve", requireKioskOrAuth, approveLeave);
+router.put("/:id/reject", requireKioskOrAuth, rejectLeave);
+router.put("/:id/cancel", requireKioskOrAuth, cancelLeave);
+router.put("/:id", requireKioskOrAuth, updateLeave);
+router.put("/:id/confirm-exit", requireKioskOrAuth, confirmExit);
 
 export default router;

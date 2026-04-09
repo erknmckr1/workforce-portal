@@ -197,17 +197,38 @@ export const getLeaves = async (req: Request, res: Response): Promise<any> => {
         const offset = (Number(page) - 1) * Number(limit);
         // BİLET KONTROLÜNDEN GEÇEN SİTE KULLANICISININ KİMLİĞİ BURADA
         const loggedUser = (req as any).user;
-        const roleId = loggedUser.role_id;
-        const userId = loggedUser.id_dec;
+        const roleId = loggedUser?.role_id;
+        const userId = loggedUser?.id_dec;
 
         let where: any = {};
         const isHistory = req.query.is_history === "true";
+        const queryUserId = (req.query.user_id || req.query.personnel_id) as string;
+        const queryApproverId = req.query.approver_id as string;
 
+        // 0. KİOSK/IFRAME SENARYOSU (Giriş Yapmamış Kullanıcı)
+        if (!loggedUser) {
+            if (queryUserId) {
+                where.user_id = queryUserId;
+                if (status_id) where.leave_status_id = status_id;
+            } else if (queryApproverId) {
+                // Kiosk üzerinden onay bekleyenleri veya geçmişini gör
+                if (isHistory) {
+                    where.leave_status_id = { [Op.in]: [3, 4, 5] };
+                    where[Op.or] = [
+                        { auth1_user_id: queryApproverId },
+                        { auth2_user_id: queryApproverId }
+                    ];
+                } else {
+                    // Bekleyenler (Sıra kimdeyse o görür)
+                    where[Op.or] = [
+                        { [Op.and]: [{ auth1_user_id: queryApproverId }, { leave_status_id: 1 }] },
+                        { [Op.and]: [{ auth2_user_id: queryApproverId }, { leave_status_id: 2 }] }
+                    ];
+                }
+            }
+        }
         // GÜVENLİK ÖNCELİKLİ GÖRÜNÜM: (is_security bayrağı gelmişse veya rolü güvenlikse)
-        // Admin olsa bile bu sayfada "Güvenlik Görünümü" istiyoruz demektir.
-        // GÜVENLİK PANELİ GÖRÜNÜMÜ: Sadece sayfa tarafından özel istek (is_security="true") atılmışsa çalışır.
-        // Rolü ne olursa olsun (Güvenlik, Admin), bu sayfaya girildiğinde fabrika çıkış listesi gelir.
-        if (is_security === "true") {
+        else if (is_security === "true") {
             const todayStart = new Date();
             todayStart.setHours(0, 0, 0, 0);
             const todayEnd = new Date();
@@ -224,8 +245,6 @@ export const getLeaves = async (req: Request, res: Response): Promise<any> => {
         }
         // 1. Senaryo (Admin-7, İK-4, Revir-5) => Geniş Erişim Yetkisi
         else if (roleId === 7 || roleId === 4 || roleId === 5) {
-            const queryUserId = (req.query.user_id || req.query.personnel_id) as string;
-
             if (queryUserId) {
                 where.user_id = queryUserId;
             }
@@ -241,23 +260,19 @@ export const getLeaves = async (req: Request, res: Response): Promise<any> => {
             }
         }
         // 2 & 3. Senaryolar (Müdür-3, Şef-2, Personel-1 vb.) => Onay Odaklı ve Sahiplik Odaklı Dinamik Filtreleme
-        else {
-            const queryUserId = req.query.user_id as string;
-
+        else if (loggedUser) {
             if (queryUserId === userId) {
                 // Sadece kendi izinlerim sayfası
                 where.user_id = userId;
                 if (status_id) where.leave_status_id = status_id;
             } else if (approver_id) {
-                // ONAY SAYFASI: Rol bağımsız, hiyerarşi ve kademe odaklı filtre (Chef/Manager ayrımını ortadan kaldırır)
+                // ONAY SAYFASI: Rol bağımsız, hiyerarşi ve kademe odaklı filtre
                 if (isHistory) {
-                    // GEÇMİŞ: Onaycı olduğu ve sürecin artık o aşamayı geçtiği işler
                     where[Op.or] = [
                         { [Op.and]: [{ auth1_user_id: userId }, { leave_status_id: { [Op.gt]: 1 } }] },
                         { [Op.and]: [{ auth2_user_id: userId }, { leave_status_id: { [Op.in]: [3, 4, 5] } }] }
                     ];
                 } else {
-                    // BEKLEYEN: Sıra kimdeyse o görür
                     where[Op.or] = [
                         { [Op.and]: [{ auth1_user_id: userId }, { leave_status_id: 1 }] },
                         { [Op.and]: [{ auth2_user_id: userId }, { leave_status_id: 2 }] }
@@ -343,7 +358,9 @@ export const approveLeave = async (req: Request, res: Response): Promise<Respons
         let newStatus = 0;
         let actionEnum = "";
 
-        const loggedRole = (req as any).user.role_id;
+        // KİOSK VEYA PANEL KONTROLÜ
+        const loggedUser = (req as any).user;
+        const loggedRole = loggedUser?.role_id;
         const isAdmin = loggedRole === 7 || loggedRole === 4;
 
         const currentStatus = leave.getDataValue('leave_status_id') as number;

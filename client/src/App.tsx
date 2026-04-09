@@ -13,6 +13,7 @@ import Leaves from "./pages/Leaves";
 import LeaveApprovals from "./pages/LeaveApprovals";
 import SecurityScreen from "./pages/SecurityScreen";
 import Infirmary from "./pages/Infirmary";
+import KioskPage from "./pages/KioskPage";
 import { ThemeProvider } from "./components/theme-provider";
 import { ConfirmProvider } from "@/providers/ConfirmProvider";
 import "./App.css";
@@ -82,6 +83,8 @@ function App() {
               path="/login"
               element={!isAuthenticated ? <Login /> : <Navigate to="/" />}
             />
+
+            <Route path="/kiosk-terminal" element={<KioskPage />} />
 
             {/* Korumalı Rotalar (Layout ile birlikte) */}
             <Route
