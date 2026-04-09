@@ -34,7 +34,7 @@ export function ConfirmDialog({
 }: ConfirmDialogProps) {
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !isLoading && !open && onClose()}>
-      <DialogContent className="sm:max-w-md rounded-[2rem] p-6 sm:p-8 border border-border/20 shadow-none bg-card">
+      <DialogContent className="sm:max-w-md rounded-[2rem] p-6 sm:p-8 border border-border/20 shadow-none bg-card z-100">
         <DialogHeader className="flex flex-col items-center text-center sm:text-center space-y-4 pt-2">
           <div className={cn(
             "w-20 h-20 rounded-[1.75rem] flex items-center justify-center shadow-inner",
@@ -64,12 +64,12 @@ export function ConfirmDialog({
             disabled={isLoading}
             className={cn(
               "flex-1 h-14 rounded-[1.25rem] font-black text-lg text-white shadow-xl transition-all active:scale-95",
-              variant === "destructive" 
-                ? "bg-destructive hover:bg-destructive/90 shadow-destructive/20" 
+              variant === "destructive"
+                ? "bg-destructive hover:bg-destructive/90 shadow-destructive/20"
                 : "bg-primary hover:bg-primary/90 shadow-primary/20"
             )}
           >
-             {isLoading ? "İşleniyor..." : confirmText}
+            {isLoading ? "İşleniyor..." : confirmText}
           </Button>
         </div>
       </DialogContent>

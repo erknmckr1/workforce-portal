@@ -12,10 +12,12 @@ import {
   FileText,
   ClipboardCheck,
   ShieldCheck,
-  Stethoscope
+  Stethoscope,
+  MonitorSmartphone
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/authStore";
+import { useModuleStore } from "@/store/moduleStore";
 import apiClient from "@/lib/api";
 import { toast } from "sonner";
 
@@ -238,8 +240,26 @@ export default function Sidebar({ isOpen, onToggle, collapsed, onCollapse }: Sid
             })}
         </nav>
 
-        {/* Alt Kısım: Çıkış */}
-        <div className="p-4 border-t border-border/50">
+        {/* Alt Kısım: İşlemler & Çıkış */}
+        <div className="p-4 border-t border-border/50 space-y-2">
+          {/* Kiosk Açma Butonu */}
+          <button
+            onClick={() => useModuleStore.getState().openPopup()}
+            className={cn(
+              "flex items-center gap-4 px-4 h-12 w-full rounded-xl transition-all  bg-orange-500/10 hover:bg-orange-500 text-foreground hover:text-card group",
+              collapsed ? "lg:justify-center" : ""
+            )}
+          >
+            <MonitorSmartphone size={20} className="shrink-0 group-hover:scale-110 transition-transform" />
+            <span className={cn(
+              "font-bold text-sm tracking-tight",
+              collapsed ? "lg:hidden" : "block"
+            )}>
+              Kiosk Ekranı
+            </span>
+          </button>
+
+          {/* Oturumu Kapat */}
           <button
             onClick={handleLogout}
             className={cn(

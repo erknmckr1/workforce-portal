@@ -2,13 +2,14 @@ import { useState } from "react";
 import { Outlet } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import Header from "./Header";
+import { ModuleWrapperPopup } from "@/components/kiosk/ModuleWrapperPopup";
 
 export default function MainLayout() {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   return (
-    <div className="flex h-screen w-full bg-background overflow-hidden">
+    <div className="flex h-screen w-full bg-background overflow-hidden relative">
       {/* Sol Menü: Sidebar */}
       <Sidebar
         isOpen={isMobileOpen}
@@ -29,6 +30,9 @@ export default function MainLayout() {
           </div>
         </main>
       </div>
+      
+      {/* Kiosk Modülü (Tüm ekranın üstüne binen global Modal) */}
+      <ModuleWrapperPopup />
     </div>
   );
 }
