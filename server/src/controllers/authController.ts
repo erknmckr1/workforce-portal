@@ -11,10 +11,10 @@ const COOKIE_MAX_AGE = 30 * 24 * 60 * 60 * 1000; // 30 Gün (Milisaniye)
 
 export const standardLogin = async (req: Request, res: Response): Promise<any> => {
     try {
-        const { username, password } = req.body; 
+        const { username } = req.body; 
 
-        if (!username || !password) {
-            return res.status(400).json({ message: "Kullanıcı adı  ve şifre gereklidir." });
+        if (!username) {
+            return res.status(400).json({ message: "Kullanıcı ID numarası gereklidir." });
         }
 
         const user: any = await Operator.findOne({
@@ -27,16 +27,13 @@ export const standardLogin = async (req: Request, res: Response): Promise<any> =
             ]
         });
 
-        if (!user || !user.op_password) {
-            return res.status(401).json({ message: "Hatalı id numarası veya şifre girdiniz." });
+        if (!user) {
+            return res.status(401).json({ message: "Sistemde bu ID ile kayıtlı personel bulunamadı." });
         }
 
-        // DB'deki hash'lenmiş şifre ile girilen şifreyi kıyasla
-        const isValidPassword = await bcrypt.compare(password, user.op_password);
-
-        if (!isValidPassword) {
-            return res.status(401).json({ message: "Hatalı id numarası veya şifre girdiniz." });
-        }
+        // Şifre kontrolü geçici olarak devre dışı (Sadece ID ile giriş)
+        // const isValidPassword = await bcrypt.compare(password, user.op_password);
+        // if (!isValidPassword) ...
 
         // Kullanıcı geçerli. Token üret
         const token = jwt.sign(

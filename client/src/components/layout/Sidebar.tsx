@@ -15,7 +15,8 @@ import {
   Stethoscope,
   MonitorSmartphone,
   Wrench,
-  CalendarRange
+  CalendarRange,
+  ShieldAlert
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/authStore";
@@ -81,7 +82,8 @@ const menuItems = [
     children: [
       { title: "Genel Ayarlar", path: "/settings/general" },
       { title: "Onay Hiyerarşisi", path: "/settings/approvals" },
-      { title: "Takvim Yönetimi", path: "/calendar-manager", roles: ["Admin", "İK"] }
+      { title: "Takvim Yönetimi", path: "/calendar-manager", roles: ["Admin", "İK"] },
+      { title: "Şifre Talepleri", path: "/password-resets", roles: ["Admin", "İK"] }
     ]
   },
 ];

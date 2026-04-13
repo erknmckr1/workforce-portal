@@ -13,7 +13,7 @@ LeaveRecord.init(
         leave_reason_id: { type: DataTypes.INTEGER, allowNull: false },
         leave_status_id: { type: DataTypes.INTEGER, allowNull: false },
         leave_duration_type_id: { type: DataTypes.INTEGER, allowNull: false },
-        auth1_user_id: { type: DataTypes.STRING(255), allowNull: false },
+        auth1_user_id: { type: DataTypes.STRING(255), allowNull: true },
         auth2_user_id: { type: DataTypes.STRING(255), allowNull: true },
         start_date: { type: DataTypes.DATE, allowNull: false },
         end_date: { type: DataTypes.DATE, allowNull: false },

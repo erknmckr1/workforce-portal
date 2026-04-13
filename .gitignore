@@ -49,3 +49,18 @@ next-env.d.ts
 *.pem
 .vercel
 /gemini.md
+
+# Scripts
+/server/src/scripts
+server/src/scripts
+/server/scripts
+server/scripts
+
+# Scratch & Experimental
+/server/scratch
+server/scratch
+/server/src/scratch
+server/src/scratch
+/server/src/stratch
+server/src/stratch
+scratch/

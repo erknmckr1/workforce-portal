@@ -16,15 +16,25 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { User, Lock, ArrowRight, ShieldCheck, Zap } from "lucide-react";
+import { User, ArrowRight, ShieldCheck, Zap } from "lucide-react";
 import { AxiosError } from "axios";
 import type { ControllerRenderProps } from "react-hook-form";
 import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 
 // Zod Schema Definition
 const loginSchema = z.object({
   username: z.string().min(1, "Kullanıcı ID zorunludur."),
-  password: z.string().min(1, "Şifre zorunludur."),
+  password: z.string().optional(),
 });
 
 type FormData = z.infer<typeof loginSchema>;
@@ -33,6 +43,11 @@ export default function Login() {
   const loginAction = useAuthStore((state) => state.login);
   const [globalError, setGlobalError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Şifre sıfırlama talebi için state'ler
+  const [resetId, setResetId] = useState("");
+  const [resetLoading, setResetLoading] = useState(false);
+  const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
 
   const form = useForm<FormData>({
     resolver: zodResolver(loginSchema),
@@ -64,6 +79,26 @@ export default function Login() {
     }
   };
 
+  const handleRequestReset = async () => {
+    if (!resetId) {
+      toast.error("Lütfen Kullanıcı ID numaranızı giriniz.");
+      return;
+    }
+
+    try {
+      setResetLoading(true);
+      await apiClient.post("/auth/request-reset", { user_id: resetId });
+      toast.success("Talebiniz İK birimine başarıyla iletildi.");
+      setIsResetDialogOpen(false);
+      setResetId("");
+    } catch (err: any) {
+      const errorMsg = err.response?.data?.message || "Talep iletilirken bir hata oluştu.";
+      toast.error(errorMsg);
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-background antialiased">
       {/* Sol Panel: Giriş Formu */}
@@ -71,10 +106,9 @@ export default function Login() {
         <div className="max-w-[420px] mx-auto w-full space-y-10">
           <div className="space-y-3">
             <h1 className="text-4xl font-black tracking-tighter text-foreground leading-[1.1]">
-              Midas <span className="text-primary italic">Workforce</span>
+              Midas
             </h1>
             <p className="text-muted-foreground text-lg font-medium leading-relaxed">
-              İş gücü yönetim portalına hoş geldiniz. <br className="hidden sm:block" />
               Otunumu başlatmak için bilgilerinizi girin.
             </p>
           </div>
@@ -110,30 +144,6 @@ export default function Login() {
                     </FormItem>
                   )}
                 />
-
-                <FormField
-                  control={form.control}
-                  name="password"
-                  render={({ field }: { field: ControllerRenderProps<FormData, "password"> }) => (
-                    <FormItem className="space-y-1.5">
-                      <FormLabel className="text-sm font-bold tracking-tight text-foreground/80">Şifre</FormLabel>
-                      <FormControl>
-                        <div className="relative group">
-                          <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground/50 group-focus-within:text-primary transition-colors">
-                            <Lock size={18} />
-                          </div>
-                          <Input
-                            type="password"
-                            placeholder="••••••••"
-                            {...field}
-                            className="h-13 pl-11 rounded-2xl border-input bg-background focus:ring-2 focus:ring-primary/20 transition-all text-base"
-                          />
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
               </div>
 
               <div className="flex items-center justify-between px-0.5">
@@ -150,9 +160,40 @@ export default function Login() {
                     Beni hatırla
                   </label>
                 </div>
-                <button type="button" className="text-sm font-bold text-primary hover:text-primary/80 transition-colors">
-                  Yardım Al?
-                </button>
+                <Dialog open={isResetDialogOpen} onOpenChange={setIsResetDialogOpen}>
+                  <DialogTrigger asChild>
+                    <button type="button" className="text-sm font-bold text-primary hover:text-primary/80 transition-colors">
+                      Şifremi Unuttum?
+                    </button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[425px] rounded-[2rem] p-8 border-none shadow-2xl">
+                    <DialogHeader className="space-y-3">
+                      <DialogTitle className="text-2xl font-black tracking-tight">Şifre Sıfırlama Talebi</DialogTitle>
+                      <DialogDescription className="text-muted-foreground font-medium">
+                        TC veya Sicil numaranızı girin. İK ekibi talebinizi onayladığında şifreniz sıfırlanacaktır.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="py-6 space-y-2">
+                      <Label htmlFor="reset_id" className="text-sm font-bold ml-1 text-foreground/70">Kullanıcı ID</Label>
+                      <Input
+                        id="reset_id"
+                        placeholder="Örn: 123456"
+                        value={resetId}
+                        onChange={(e) => setResetId(e.target.value)}
+                        className="h-12 rounded-2xl border-input bg-muted/30 focus:ring-2 focus:ring-primary/20 transition-all"
+                      />
+                    </div>
+                    <DialogFooter>
+                      <Button
+                        onClick={handleRequestReset}
+                        disabled={resetLoading}
+                        className="w-full h-12 rounded-2xl font-bold text-base shadow-lg shadow-primary/20"
+                      >
+                        {resetLoading ? "Gönderiliyor..." : "Talep Gönder"}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
               </div>
 
               <Button
@@ -192,7 +233,7 @@ export default function Login() {
           {/* Üst Kısım: Slogan ve Başlık */}
           <div className="space-y-6">
             <p className="text-xl text-card font-medium leading-relaxed max-w-lg border-l-2 border-card pl-6">
-              Midas Workforce ile süreçlerinizi dijitalleştirin, verimliliği en üst seviyeye taşıyın.
+               Süreçlerinizi dijitalleştirin, verimliliği en üst seviyeye taşıyın.
             </p>
           </div>
 

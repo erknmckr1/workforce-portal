@@ -46,7 +46,8 @@ export default function Infirmary() {
   const [viewMode, setViewMode] = useState<"FORM" | "HISTORY">("FORM");
   const [historyPage, setHistoryPage] = useState(1);
   const [historySearchTerm, setHistorySearchTerm] = useState("");
-  const debouncedSearchTerm = useDebounce(historySearchTerm, 400);
+  const debouncedHistorySearch = useDebounce(historySearchTerm, 500);
+  const debouncedPersonnelSearch = useDebounce(searchTerm, 500);
 
   const { confirm } = useConfirm();
 
@@ -74,13 +75,13 @@ export default function Infirmary() {
   });
 
   const { data: allHistoryResponse } = useQuery({
-    queryKey: ["infirmary-all-history", historyPage, debouncedSearchTerm],
+    queryKey: ["infirmary-all-history", historyPage, debouncedHistorySearch],
     queryFn: async () => {
       const response = await axios.get("/leave", {
-        params: { 
-          limit: 15, 
+        params: {
+          limit: 50,
           page: historyPage,
-          search: debouncedSearchTerm,
+          search: debouncedHistorySearch,
           leave_reasons: "8,9",
           status_id: 3
         }
@@ -91,13 +92,13 @@ export default function Infirmary() {
     placeholderData: (previousData) => previousData // Yeni veri gelene kadar eskiyi tut (Titremeyi önler)
   });
 
-  const recentLeaves = useMemo(() => 
-    recentLeavesResponse?.data || [], 
+  const recentLeaves = useMemo(() =>
+    recentLeavesResponse?.data || [],
     [recentLeavesResponse]
   );
 
-  // Tüm personelleri hızlıca çekelim (Arama için)
-  const { data: personnelResponse, isLoading: isLoadingPersonnel } = usePersonnel(1, 1000, searchTerm);
+  // Tüm personelleri aramaya göre çekelim (Debounced)
+  const { data: personnelResponse, isLoading: isLoadingPersonnel } = usePersonnel(1, 15, debouncedPersonnelSearch);
   const personnelList = useMemo(() => personnelResponse?.data || [], [personnelResponse]);
 
   // Seçilen Personel Bilgisi
@@ -126,7 +127,7 @@ export default function Infirmary() {
         address: formData.address,
         phone: formData.phone,
         description: `[REVİR KAYDI - ${user?.name}] ${formData.description}`,
-        status: "Approved", 
+        status: "Approved",
         is_revir: true
       };
 
@@ -169,7 +170,7 @@ export default function Infirmary() {
     });
 
     if (!isConfirmed) return;
-    
+
     try {
       await axios.put(`/leave/${id}/cancel`, { user_id: user?.id_dec });
       toast.success("Revir kaydı iptal edildi.");
@@ -182,7 +183,7 @@ export default function Infirmary() {
   };
 
   return (
-    <div className="space-y-3 animate-in fade-in duration-500 max-h-[calc(100vh-100px)] overflow-hidden">
+    <div className="space-y-3 animate-in fade-in duration-500 ">
       {/* Header */}
       <div className="flex flex-col gap-0">
         <h1 className="text-2xl font-black tracking-tight text-foreground flex items-center gap-2">
@@ -281,7 +282,7 @@ export default function Infirmary() {
           )}
 
           {/* SON REVİR KAYITLARI LİSTESİ */}
-          <div className="bg-card border border-border/50 rounded-[1.5rem] p-4 shadow-sm flex-1 flex flex-col min-h-0">
+          <div className="bg-card border border-border/50 rounded-[1.5rem] p-4 shadow-sm flex-1 flex flex-col min-h-[400px]">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-sm font-bold flex items-center gap-2">
                 <ClipboardList size={16} className="text-primary" />
@@ -290,7 +291,7 @@ export default function Infirmary() {
               {isLoadingLeaves && <Loader2 size={12} className="animate-spin text-muted-foreground" />}
             </div>
 
-            <div className="flex-1 overflow-y-auto custom-scrollbar pr-1">
+            <div className="flex-1 max-h-[400px] overflow-y-auto custom-scrollbar pr-1">
               {recentLeaves.length > 0 ? (
                 <div className="border border-border/40 rounded-xl overflow-hidden bg-background/30 shadow-inner">
                   <table className="w-full text-left border-collapse">
@@ -303,8 +304,8 @@ export default function Infirmary() {
                     </thead>
                     <tbody className="divide-y divide-border/30">
                       {recentLeaves.map((leave: { id: number; User?: { name: string; surname: string }; start_date: string; leave_reason_id: number }) => (
-                        <tr 
-                          key={leave.id} 
+                        <tr
+                          key={leave.id}
                           className="hover:bg-primary/5 transition-colors group border-b border-border/10 last:border-0"
                         >
                           <td className="px-3 py-2.5">
@@ -320,8 +321,8 @@ export default function Infirmary() {
                           <td className="px-1 py-2.5 text-center">
                             <span className={cn(
                               "text-[8px] font-black uppercase tracking-tighter px-1.5 py-0.5 rounded-full",
-                              leave.leave_reason_id === 8 
-                                ? "bg-primary/10 text-primary border border-primary/20" 
+                              leave.leave_reason_id === 8
+                                ? "bg-primary/10 text-primary border border-primary/20"
                                 : "bg-blue-500/10 text-blue-600 border border-blue-500/20"
                             )}>
                               {leave.leave_reason_id === 8 ? "SEVK" : "İSTİRH."}
@@ -495,18 +496,18 @@ export default function Infirmary() {
               </div>
             </form>
           ) : (
-            <div className="bg-card border border-border/50 rounded-[1.5rem] p-5 shadow-sm flex-1 flex flex-col min-h-0 animate-in fade-in zoom-in-95 duration-300">
+            <div className="bg-card border border-border/50 rounded-[1.5rem] p-5 shadow-sm flex-1 flex flex-col max-h-[800px] animate-in fade-in zoom-in-95 duration-300">
               <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-border/50 pb-3 mb-4 gap-3">
                 <div className="flex items-center gap-2 text-base font-black text-foreground">
                   <ClipboardList className="text-primary" size={20} />
                   Tüm Revir Geçmişi
                 </div>
-                
+
                 <div className="flex items-center gap-3 flex-1 md:max-w-md">
                   <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/40" size={14} />
-                    <Input 
-                      placeholder="Personel İsmi ile Geçmişte Ara..." 
+                    <Input
+                      placeholder="Personel İsmi ile Geçmişte Ara..."
                       value={historySearchTerm}
                       onChange={(e) => {
                         setHistorySearchTerm(e.target.value);
@@ -515,9 +516,9 @@ export default function Infirmary() {
                       className="pl-9 h-9 text-xs rounded-xl bg-muted/30 border-none font-bold"
                     />
                   </div>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     onClick={() => setViewMode("FORM")}
                     className="font-black uppercase tracking-widest text-[10px] hover:bg-primary/5 text-primary whitespace-nowrap"
                   >
@@ -527,9 +528,9 @@ export default function Infirmary() {
                 </div>
               </div>
 
-              <div className="flex-1 overflow-x-auto custom-scrollbar">
+              <div className="flex-1 h-full overflow-y-auto custom-scrollbar border border-border/20 rounded-xl bg-background/50">
                 <table className="w-full text-left border-collapse">
-                  <thead className="bg-muted/30 sticky top-0 z-10 border-b border-border/50">
+                  <thead className="bg-muted sticky top-0 z-50 border-b border-border/50">
                     <tr>
                       <th className="px-3 py-3 text-[10px] font-black uppercase text-muted-foreground">Personel / Bölüm</th>
                       <th className="px-3 py-3 text-[10px] font-black uppercase text-muted-foreground">İzin Türü</th>
@@ -549,8 +550,8 @@ export default function Infirmary() {
                         <td className="px-3 py-4">
                           <span className={cn(
                             "text-[9px] font-black uppercase px-2 py-1 rounded-full border",
-                            leave.leave_reason_id === 8 
-                              ? "bg-primary/10 text-primary border-primary/20" 
+                            leave.leave_reason_id === 8
+                              ? "bg-primary/10 text-primary border-primary/20"
                               : "bg-blue-500/10 text-blue-600 border-blue-500/20"
                           )}>
                             {leave.leave_reason_id === 8 ? "DOKTOR SEVK" : "İSTİRAHAT"}

@@ -133,7 +133,7 @@ export default function Leaves() {
             <span className="text-[9px] font-bold text-success uppercase tracking-[0.2em]">Onaylananlar</span>
           </div>
           <div className="bg-primary/5 border border-primary/10 p-4 rounded-2xl flex flex-col items-center justify-center gap-1 text-center">
-            <span className="text-2xl font-black text-primary">14.5</span>
+            <span className="text-2xl font-black text-primary">-.-</span>
             <span className="text-[9px] font-bold text-primary uppercase tracking-[0.2em]">Kalan Bakiyem</span>
           </div>
         </div>

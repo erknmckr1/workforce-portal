@@ -16,7 +16,7 @@ function UpcomingEventsWidget() {
       try {
         const res = await apiClient.get("/calendar");
         const all: CalendarEvent[] = Array.isArray(res.data?.data) ? res.data.data : [];
-        
+
         const today = startOfDay(new Date());
         const monthStart = startOfMonth(today);
         const monthEnd = endOfMonth(today);
@@ -44,11 +44,11 @@ function UpcomingEventsWidget() {
   // Etkinlik türüne göre ikon
   const getIcon = (type: string) => {
     switch (type) {
-      case "SALARY":      return <Banknote size={14} className="text-success" />;
-      case "HOLIDAY":     return <PartyPopper size={14} className="text-warning" />;
+      case "SALARY": return <Banknote size={14} className="text-success" />;
+      case "HOLIDAY": return <PartyPopper size={14} className="text-warning" />;
       case "CLOSURE":
       case "CLOSURE_HALF": return <AlertTriangle size={14} className="text-destructive" />;
-      default:            return <CalendarDays size={14} className="text-muted-foreground" />;
+      default: return <CalendarDays size={14} className="text-muted-foreground" />;
     }
   };
 
@@ -138,11 +138,11 @@ interface CurrencyRate {
 }
 
 const TRACKED = [
-  { key: "gram-altin", label: "Gram Altın",    flag: "🪙" },
-  { key: "USD",        label: "ABD Doları",  flag: "🇺🇸" },
-  { key: "EUR",        label: "Euro",         flag: "🇪🇺" },
-  { key: "GBP",        label: "Sterlin",      flag: "🇬🇧" },
-  { key: "CHF",        label: "İsviçre Frangı", flag: "🇨🇭" },
+  { key: "gram-altin", label: "Gram Altın", flag: "🪙" },
+  { key: "USD", label: "ABD Doları", flag: "🇺🇸" },
+  { key: "EUR", label: "Euro", flag: "🇪🇺" },
+  { key: "GBP", label: "Sterlin", flag: "🇬🇧" },
+  { key: "CHF", label: "İsviçre Frangı", flag: "🇨🇭" },
   { key: "gram-gumus", label: "Gümüş (Gram)", flag: "⚪" },
 ];
 
@@ -277,44 +277,44 @@ export default function Dashboard() {
 
   return (
     <div className="flex flex-col h-full lg:h-[calc(100vh-160px)] gap-6 animate-in fade-in slide-in-from-bottom-2 duration-500 lg:overflow-hidden">
-      
+
       {/* ÜST BÖLÜM: Sabit Kalacak Kısım */}
       <div className="flex flex-col gap-6 shrink-0">
-        <PageHeader 
+        <PageHeader
           title="Portal Özeti"
           description={<>Merhaba <span className="text-primary font-bold mx-1">{user?.name}</span>, bugün her şey yolunda görünüyor.</>}
         />
 
         {/* Hızlı İstatistik Kartları */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard 
-          title="Kalan İzin" 
-          value="14 Gün" 
-          icon={Calendar} 
-          trend="+2 Gün (Yıllık)"
-          color="bg-blue-500"
-        />
-        <StatCard 
-          title="Mesai Süresi" 
-          value="168s" 
-          icon={Clock} 
-          trend="Bu Ay Toplam"
-          color="bg-orange-500"
-        />
-        <StatCard 
-          title="Durum" 
-          value="Aktif Çalışıyor" 
-          icon={UserCheck} 
-          trend="08:30 Giriş"
-          color="bg-green-500"
-        />
-        <StatCard 
-          title="Modüller" 
-          value="4 Aktif" 
-          icon={LayoutDashboard} 
-          trend="Erişim Yetkisi"
-          color="bg-purple-500"
-        />
+          <StatCard
+            title=""
+            value=""
+            icon={Calendar}
+            trend=""
+            color="bg-blue-500"
+          />
+          <StatCard
+            title=""
+            value=""
+            icon={Clock}
+            trend="Bu Ay Toplam"
+            color="bg-orange-500"
+          />
+          <StatCard
+            title="Durum"
+            value="Aktif Çalışıyor"
+            icon={UserCheck}
+            trend="08:30 Giriş"
+            color="bg-green-500"
+          />
+          <StatCard
+            title=""
+            value=""
+            icon={LayoutDashboard}
+            trend=""
+            color="bg-purple-500"
+          />
         </div>
       </div>
 
