@@ -15,8 +15,7 @@ import {
   Stethoscope,
   MonitorSmartphone,
   Wrench,
-  CalendarRange,
-  ShieldAlert
+  CalendarRange
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/authStore";

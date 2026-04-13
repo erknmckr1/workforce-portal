@@ -11,13 +11,12 @@ import { useLookups } from "@/hooks/useLookups";
 import type { LookupSection, LookupDepartment } from "@/hooks/useLookups";
 import { toast } from "sonner";
 
-const ApproverSelect = memo(function ApproverSelect({ value, onChange, disabled, personnel, placeholder, getRoleName }: {
+const ApproverSelect = memo(function ApproverSelect({ value, onChange, disabled, personnel, placeholder }: {
   value: string | undefined,
   onChange: (v: string) => void,
   disabled: boolean,
   personnel: Personnel[],
-  placeholder: string,
-  getRoleName: (id: number) => string
+  placeholder: string
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -124,11 +123,10 @@ const ApproverSelect = memo(function ApproverSelect({ value, onChange, disabled,
   );
 });
 
-const SectionRow = memo(({ section, personnel, getRoleName, onAssign, isPending }: {
+const SectionRow = memo(({ section, personnel, onAssign, isPending }: {
   section: LookupSection,
   count?: number,
   personnel: Personnel[],
-  getRoleName: (id: number) => string,
   onAssign: (id: number, val: string) => void,
   isPending: boolean
 }) => {
@@ -148,7 +146,6 @@ const SectionRow = memo(({ section, personnel, getRoleName, onAssign, isPending 
           onChange={(val: string) => onAssign(Number(section.id), val)}
           disabled={isPending}
           personnel={personnel}
-          getRoleName={getRoleName}
           placeholder="Müdür Ata..."
         />
       </div>
@@ -156,12 +153,11 @@ const SectionRow = memo(({ section, personnel, getRoleName, onAssign, isPending 
   );
 });
 
-const DepartmentRow = memo(({ dept, sectionName, personnel, getRoleName, onAssign, isPending }: {
+const DepartmentRow = memo(({ dept, sectionName, personnel, onAssign, isPending }: {
   dept: LookupDepartment,
   count?: number,
   sectionName: string,
   personnel: Personnel[],
-  getRoleName: (id: number) => string,
   onAssign: (id: number, val: string) => void,
   isPending: boolean
 }) => {
@@ -184,7 +180,6 @@ const DepartmentRow = memo(({ dept, sectionName, personnel, getRoleName, onAssig
           onChange={(val: string) => onAssign(Number(dept.id), val)}
           disabled={isPending}
           personnel={personnel}
-          getRoleName={getRoleName}
           placeholder="Şef Ata..."
         />
       </div>
@@ -207,7 +202,7 @@ export default function Approvals() {
 
   const personnel = useMemo(() => personnelResponse?.data || [], [personnelResponse]);
 
-  const { sectionMap, roleMap, sections, departments, eligibleApprovers } = useMemo(() => {
+  const { sectionMap, sections, departments, eligibleApprovers } = useMemo(() => {
     const sMap = new Map<number, string>();
     const rMap = new Map<number, string>();
     const sArray = lookups?.sections || [];
@@ -240,7 +235,6 @@ export default function Approvals() {
   }, [departments, debouncedSearchTerm]);
 
   const getSectionName = useCallback((secId: number) => sectionMap.get(secId) || "Bölüm Belirtilmemiş", [sectionMap]);
-  const getRoleName = useCallback((roleId: number) => roleMap.get(roleId) || "-", [roleMap]);
 
   const handleSectionAssign = useCallback((id: number, manager_id: string) => {
     updateSectionManagerMutation.mutate({ id, manager_id }, {
@@ -323,7 +317,6 @@ export default function Approvals() {
                 key={section.id}
                 section={section}
                 personnel={eligibleApprovers}
-                getRoleName={getRoleName}
                 onAssign={handleSectionAssign}
                 isPending={updateSectionManagerMutation.isPending}
               />
@@ -349,7 +342,6 @@ export default function Approvals() {
                 dept={dept}
                 sectionName={getSectionName(Number(dept.id))}
                 personnel={eligibleApprovers}
-                getRoleName={getRoleName}
                 onAssign={handleDepartmentAssign}
                 isPending={updateDepartmentSupervisorMutation.isPending}
               />

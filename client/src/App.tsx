@@ -16,7 +16,6 @@ import Infirmary from "./pages/Infirmary";
 import KioskPage from "./pages/KioskPage";
 import CompanyCalendarManager from "./pages/CompanyCalendarManager";
 import YearlyCalendarPage from "./pages/YearlyCalendarPage";
-import PasswordResetManagement from "./pages/PasswordResetManagement";
 import { ThemeProvider } from "./components/theme-provider";
 import { ConfirmProvider } from "@/providers/ConfirmProvider";
 import "./App.css";

@@ -22,7 +22,7 @@ async function analyzeSectionDepartmentRelationship() {
 
       
         
-        let currentSecId = null;
+        let currentSecId: any = null;
         results.forEach((row: any) => {
             if (row.sec_id !== currentSecId) {
               

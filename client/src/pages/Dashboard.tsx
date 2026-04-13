@@ -6,6 +6,16 @@ import { useEffect, useState } from "react";
 import apiClient from "@/lib/api";
 import { format, isAfter, startOfDay, startOfMonth, endOfMonth } from "date-fns";
 
+interface CalendarEvent {
+  id: number;
+  event_date: string;
+  event_type: string;
+  title: string;
+  description: string;
+  is_half_day: boolean;
+  color_code: string;
+}
+
 // Bu Ayki Etkinlikler Widget
 function UpcomingEventsWidget() {
   const [events, setEvents] = useState<CalendarEvent[]>([]);

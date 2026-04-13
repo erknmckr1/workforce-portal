@@ -26,8 +26,8 @@ export function CreateLeaveModal({
   const { user } = useAuthStore();
 
   const activeUserId = targetUser?.id_dec || user?.id_dec || "";
-  const activeUserPhone = targetUser?.phone || user?.phone || "";
-  const activeUserAddress = targetUser?.address || user?.address || "";
+  const activeUserPhone = targetUser?.phone || (user as any)?.phone || "";
+  const activeUserAddress = targetUser?.address || (user as any)?.address || "";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
