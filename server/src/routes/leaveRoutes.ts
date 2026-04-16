@@ -7,11 +7,15 @@ import {
     rejectLeave,
     cancelLeave,
     updateLeave,
-    confirmExit
+    confirmExit,
+    handleEmailAction
 } from "../controllers/leaveController";
 import { requireKioskOrAuth } from "../middlewares/kioskMiddleware";
 
 const router = Router();
+
+// --- E-posta Aksiyonu (Auth İstemez, Token yeterlidir) ---
+router.get("/email-action", handleEmailAction);
 
 // --- İzin İşlemleri (Kiosk Anahtarı veya Giriş Bileti Şart!) ---
 router.get("/lookups", requireKioskOrAuth, getLeaveLookups);

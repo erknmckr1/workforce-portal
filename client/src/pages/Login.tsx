@@ -16,7 +16,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { User, ArrowRight, ShieldCheck, Zap } from "lucide-react";
+import { User, ArrowRight } from "lucide-react";
 import { AxiosError } from "axios";
 import type { ControllerRenderProps } from "react-hook-form";
 import { toast } from "sonner";
@@ -226,39 +226,6 @@ export default function Login() {
             className="w-full h-full object-cover scale-105"
           />
 
-        </div>
-
-        {/* İçerik Kartı */}
-        <div className="relative z-10 w-full max-w-2xl p-12 space-y-12">
-          {/* Üst Kısım: Slogan ve Başlık */}
-          <div className="space-y-6">
-            <p className="text-xl text-card font-medium leading-relaxed max-w-lg border-l-2 border-card pl-6">
-               Süreçlerinizi dijitalleştirin, verimliliği en üst seviyeye taşıyın.
-            </p>
-          </div>
-
-          {/* İstatistikler / Özellikler: Elit Kartlar */}
-          <div className="grid grid-cols-2 gap-6">
-            <div className="group p-8 rounded-[2rem] bg-card/10 border border-border/50 backdrop-blur-2xl transition-all hover:bg-card/20 hover:border-primary/30">
-              <div className="w-14 h-14 rounded-2xl bg-primary/20 flex items-center justify-center text-primary mb-6 transition-transform group-hover:scale-110">
-                <Zap size={28} strokeWidth={2.5} />
-              </div>
-              <h4 className="text-foreground font-black text-xl tracking-tight mb-2">Performans</h4>
-              <p className="text-card/70 text-sm font-medium leading-snug">
-                Karmaşık süreçleri saniyeler içinde çözen akıllı algoritmalar.
-              </p>
-            </div>
-
-            <div className="group p-8 rounded-[2rem] bg-card/10 border border-border/50 backdrop-blur-2xl transition-all hover:bg-card/20 hover:border-primary/30">
-              <div className="w-14 h-14 rounded-2xl bg-primary/20 flex items-center justify-center text-muted-foreground mb-6 transition-transform group-hover:scale-110 group-hover:text-primary">
-                <ShieldCheck size={28} strokeWidth={2.5} />
-              </div>
-              <h4 className="text-foreground font-black text-xl tracking-tight mb-2">Güven</h4>
-              <p className="text-card/70 text-sm font-medium leading-snug">
-                En üst segment güvenlik protokolleri ile verileriniz koruma altında.
-              </p>
-            </div>
-          </div>
         </div>
       </div>
     </div>
