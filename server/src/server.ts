@@ -9,6 +9,8 @@ import leaveRoutes from "./routes/leaveRoutes";
 import notificationRoutes from "./routes/notificationRoutes";
 import calendarRoutes from "./routes/calendarRoutes";
 import ratesRoutes from "./routes/ratesRoutes";
+import path from "path";
+import fs from "fs";
 
 dotenv.config();
 
@@ -47,6 +49,13 @@ app.use("/api/leave", leaveRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/calendar", calendarRoutes);
 app.use("/api/rates", ratesRoutes);
+
+// Fotoğrafları frontend için /photos adresi ile dışarı aç
+const photoPath = process.env.PHOTO_STORAGE_PATH || path.join("C:", "Users", "ecakir", "Desktop", "PersonelFotograflari");
+if (!fs.existsSync(photoPath)) {
+    fs.mkdirSync(photoPath, { recursive: true });
+}
+app.use("/photos", express.static(photoPath));
 
 // DB bağlantısı ve sunucu başlatma
 const startServer = async () => {

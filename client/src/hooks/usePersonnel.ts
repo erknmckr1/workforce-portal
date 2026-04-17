@@ -26,6 +26,8 @@ export interface Personnel {
   leave_balance: number;
   route?: string;
   stop_name?: string;
+  photo_url?: string | null;
+  photo_data?: string | null;
   is_active: number;
   Role?: LookupItem;
   Section?: LookupItem;

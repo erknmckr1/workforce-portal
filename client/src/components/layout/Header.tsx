@@ -167,8 +167,16 @@ export default function Header({ onMenuClick }: HeaderProps) {
               </span>
             </div>
             <div className="relative">
-              <div className="w-9 h-9 lg:w-10 lg:h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-sm group-hover:shadow-md transition-all">
-                <UserIcon size={20} strokeWidth={2.5} />
+              <div className="w-9 h-9 lg:w-10 lg:h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-sm group-hover:shadow-md transition-all overflow-hidden relative">
+                {user?.photo_url ? (
+                  <img 
+                    src={`http://localhost:3003/photos/${user.photo_url}`} 
+                    alt="Profil" 
+                    className="w-full h-full object-cover" 
+                  />
+                ) : (
+                  <UserIcon size={20} strokeWidth={2.5} />
+                )}
               </div>
               <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-green-500 border-2 border-background" />
             </div>

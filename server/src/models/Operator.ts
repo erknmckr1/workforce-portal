@@ -21,6 +21,7 @@ export class Operator extends Model {
     public leave_balance!: number;
     public route?: string;
     public stop_name?: string;
+    public photo_url?: string;
     public is_active!: number;
 }
 
@@ -45,6 +46,7 @@ Operator.init(
         leave_balance: { type: DataTypes.DECIMAL(5, 2), defaultValue: 0 },
         route: { type: DataTypes.STRING(255), allowNull: true },
         stop_name: { type: DataTypes.STRING(255), allowNull: true },
+        photo_url: { type: DataTypes.STRING(255), allowNull: true },
         is_active: { type: DataTypes.INTEGER, defaultValue: 1 },
     },
     { 

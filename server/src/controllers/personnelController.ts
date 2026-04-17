@@ -2,6 +2,38 @@ import { Request, Response } from "express";
 import { Operator, Role, Section, Department, JobTitle } from "../models";
 import bcrypt from "bcryptjs";
 import { Op } from "sequelize";
+import fs from "fs";
+import path from "path";
+
+// Gelen base64 resmi masaüstü klasörüne kaydeder ve dosya adını döner
+const savePhotoToDisk = (photoData: string, personnelId: string): string | null => {
+    try {
+        if (!photoData || !photoData.startsWith("data:image")) return null;
+        
+        const matches = photoData.match(/^data:image\/([A-Za-z-+\/]+);base64,(.+)$/);
+        if (!matches || matches.length !== 3) return null;
+        
+        let ext = matches[1];
+        if (ext === 'jpeg') ext = 'jpg';
+        
+        const photoBuffer = Buffer.from(matches[2], 'base64');
+        const fileName = `${personnelId}_${Date.now()}.${ext}`;
+        
+        const saveDir = process.env.PHOTO_STORAGE_PATH || 'C:\\Users\\ecakir\\Desktop\\PersonelFotograflari';
+        
+        if (!fs.existsSync(saveDir)) {
+            fs.mkdirSync(saveDir, { recursive: true });
+        }
+        
+        const filePath = path.join(saveDir, fileName);
+        fs.writeFileSync(filePath, photoBuffer);
+        
+        return fileName;
+    } catch (err) {
+        console.error("Fotoğraf kaydedilemedi:", err);
+        return null;
+    }
+};
 
 // Tüm aktif personeli getir (is_active = 1) - Sayfalama ve Arama Desteği ile
 export const getAllPersonnel = async (req: Request, res: Response): Promise<Response> => {
@@ -72,7 +104,7 @@ export const createPersonnel = async (req: Request, res: Response): Promise<Resp
             id_dec, id_hex, name, surname, nick_name, short_name, 
             password, email, gender, address, role_id, 
             section, department, title, leave_balance, route, stop_name,
-            auth1, auth2
+            auth1, auth2, photo_data
         } = req.body;
 
         // Gerekli alan kontrolü
@@ -88,6 +120,12 @@ export const createPersonnel = async (req: Request, res: Response): Promise<Resp
 
         // Şifre hash'leme
         const hashedPassword = password ? await bcrypt.hash(password, 10) : await bcrypt.hash("123456", 10);
+
+        // Fotoğraf Kaydetme
+        let finalPhotoName = null;
+        if (photo_data) {
+            finalPhotoName = savePhotoToDisk(photo_data, id_dec);
+        }
 
         const newOperator = await Operator.create({
             id_dec,
@@ -109,6 +147,7 @@ export const createPersonnel = async (req: Request, res: Response): Promise<Resp
             leave_balance: leave_balance || 0,
             route: route || null,
             stop_name: stop_name || null,
+            photo_url: finalPhotoName,
             is_active: 1
         });
 
@@ -140,6 +179,16 @@ export const updatePersonnel = async (req: Request, res: Response): Promise<Resp
         // Güvenlik ve çakışma riski için kritik verilerin (Birincil Anahtar) güncellenmesini engelle
         delete updateData.id_dec;
         delete updateData.id_hex;
+
+        // Fotoğraf Güncelleme
+        if (updateData.photo_data) {
+            const savedName = savePhotoToDisk(updateData.photo_data, id_dec as string);
+            if (savedName) updateData.photo_url = savedName;
+            delete updateData.photo_data;
+        } else if (updateData.photo_data === null) {
+            updateData.photo_url = null; // Fotoğrafı silmişse
+            delete updateData.photo_data;
+        }
 
         // SQL Server (Tedious) hatalarını (özellikle Foreign Key) engellemek için boş stringleri null'a çeviriyoruz
         for (const key in updateData) {

@@ -290,10 +290,21 @@ export default function Dashboard() {
 
       {/* ÜST BÖLÜM: Sabit Kalacak Kısım */}
       <div className="flex flex-col gap-6 shrink-0">
-        <PageHeader
-          title="Portal Özeti"
-          description={<>Merhaba <span className="text-primary font-bold mx-1">{user?.name}</span>, bugün her şey yolunda görünüyor.</>}
-        />
+        <div className="flex items-center gap-4">
+          {user?.photo_url && (
+            <div className="w-16 h-16 shrink-0 rounded-[1.5rem] bg-muted border-2 border-primary/20 overflow-hidden shadow-lg shadow-primary/10">
+              <img 
+                src={`${apiClient.defaults.baseURL?.replace('/api', '')}/photos/${user.photo_url}`} 
+                alt="Profil" 
+                className="w-full h-full object-cover" 
+              />
+            </div>
+          )}
+          <PageHeader
+            title="Portal Özeti"
+            description={<>Merhaba <span className="text-primary font-bold mx-1">{user?.name}</span>, bugün her şey yolunda görünüyor.</>}
+          />
+        </div>
 
         {/* Hızlı İstatistik Kartları */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

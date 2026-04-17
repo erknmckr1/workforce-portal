@@ -7,6 +7,7 @@ interface User {
   role: string;
   permissions: string[];
   leave_balance: number;
+  photo_url?: string;
 }
 
 interface AuthState {

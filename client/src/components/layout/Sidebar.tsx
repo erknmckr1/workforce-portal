@@ -15,7 +15,7 @@ import {
   Stethoscope,
   MonitorSmartphone,
   Wrench,
-  CalendarRange
+  CalendarRange,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/authStore";
@@ -28,51 +28,56 @@ const menuItems = [
     title: "Panel",
     icon: LayoutDashboard,
     path: "/",
-    roles: ["Admin", "Müdür", "Şef", "Personel", "İK", "Revir"]
+    roles: ["Admin", "Müdür", "Şef", "Personel", "İK", "Revir"],
   },
   {
     title: "İzinlerim",
     icon: CalendarDays,
     path: "/leaves",
-    roles: ["Admin", "Müdür", "Şef", "Personel", "İK", "Revir", "Güvenlik"]
+    roles: ["Admin", "Müdür", "Şef", "Personel", "İK", "Revir", "Güvenlik"],
   },
   {
     title: "Onay Bekleyenler",
     icon: ClipboardCheck,
     path: "/leave-approvals",
-    roles: ["Admin", "Müdür", "Şef", "İK"]
+    roles: ["Admin", "Müdür", "Şef", "İK"],
   },
   {
     title: "Personel Yönetimi",
     icon: Users,
     path: "/management",
-    roles: ["Admin", "İK"]
+    roles: ["Admin", "İK"],
   },
   {
     title: "Güvenlik Paneli",
     icon: ShieldCheck,
     path: "/security",
-    roles: ["Admin", "Güvenlik"]
+    roles: ["Admin", "Güvenlik"],
   },
   {
     title: "Raporlar",
     icon: FileText,
     path: "/reports",
-    roles: ["Admin", "İK", "Müdür"]
+    roles: ["Admin", "İK", "Müdür"],
   },
   {
     title: "Revir İşlemleri",
     icon: Stethoscope,
     path: "/infirmary",
-    roles: ["Admin", "Revir"]
+    roles: ["Admin", "Revir"],
   },
   {
     title: "Araçlar",
     icon: Wrench,
     roles: ["Admin", "İK", "Müdür", "Şef", "Personel", "Revir", "Güvenlik"],
     children: [
-      { title: "Senelik Plan", path: "/yearly-plan", icon: CalendarRange, roles: ["Admin", "İK", "Müdür", "Şef", "Personel", "Revir", "Güvenlik"] }
-    ]
+      {
+        title: "Senelik Plan",
+        path: "/yearly-plan",
+        icon: CalendarRange,
+        roles: ["Admin", "İK", "Müdür", "Şef", "Personel", "Revir", "Güvenlik"],
+      },
+    ],
   },
   {
     title: "Ayarlar",
@@ -81,9 +86,17 @@ const menuItems = [
     children: [
       { title: "Genel Ayarlar", path: "/settings/general" },
       { title: "Onay Hiyerarşisi", path: "/settings/approvals" },
-      { title: "Takvim Yönetimi", path: "/calendar-manager", roles: ["Admin", "İK"] },
-      { title: "Şifre Talepleri", path: "/password-resets", roles: ["Admin", "İK"] }
-    ]
+      {
+        title: "Takvim Yönetimi",
+        path: "/calendar-manager",
+        roles: ["Admin", "İK"],
+      },
+      {
+        title: "Şifre Talepleri",
+        path: "/password-resets",
+        roles: ["Admin", "İK"],
+      },
+    ],
   },
 ];
 
@@ -94,12 +107,21 @@ interface SidebarProps {
   onCollapse: (val: boolean) => void;
 }
 
-export default function Sidebar({ isOpen, onToggle, collapsed, onCollapse }: SidebarProps) {
+export default function Sidebar({
+  isOpen,
+  onToggle,
+  collapsed,
+  onCollapse,
+}: SidebarProps) {
   const location = useLocation();
   const { user, logout } = useAuthStore();
   const [expandedMenu, setExpandedMenu] = useState<string | null>(
-    (location.pathname.startsWith("/settings") || location.pathname.startsWith("/calendar-manager")) ? "Ayarlar" :
-    location.pathname.startsWith("/yearly-plan") ? "Araçlar" : null
+    location.pathname.startsWith("/settings") ||
+      location.pathname.startsWith("/calendar-manager")
+      ? "Ayarlar"
+      : location.pathname.startsWith("/yearly-plan")
+        ? "Araçlar"
+        : null,
   );
 
   const handleLogout = async () => {
@@ -108,7 +130,7 @@ export default function Sidebar({ isOpen, onToggle, collapsed, onCollapse }: Sid
       logout();
       toast.success("Güvenli çıkış yapıldı.");
     } catch (error) {
-      console.log(error)
+      console.log(error);
       toast.error("Çıkış yapılırken bir hata oluştu.");
     }
   };
@@ -119,7 +141,7 @@ export default function Sidebar({ isOpen, onToggle, collapsed, onCollapse }: Sid
       <div
         className={cn(
           "fixed inset-0 bg-background/80 backdrop-blur-sm z-40 lg:hidden transition-opacity duration-300",
-          isOpen ? "opacity-100" : "opacity-0 pointer-events-none"
+          isOpen ? "opacity-100" : "opacity-0 pointer-events-none",
         )}
         onClick={onToggle}
       />
@@ -128,7 +150,7 @@ export default function Sidebar({ isOpen, onToggle, collapsed, onCollapse }: Sid
         className={cn(
           "fixed inset-y-0 left-0 z-50 flex flex-col h-screen bg-card border-r border-border transition-all duration-300 ease-in-out lg:relative",
           collapsed ? "w-[80px]" : "w-[280px]",
-          isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+          isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
         )}
       >
         {/* Logo Alanı */}
@@ -137,15 +159,14 @@ export default function Sidebar({ isOpen, onToggle, collapsed, onCollapse }: Sid
             <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center shrink-0 shadow-lg shadow-primary/20">
               <Briefcase className="text-primary-foreground" size={20} />
             </div>
-            <div className={cn(
-              "flex flex-col transition-opacity duration-300",
-              collapsed ? "lg:opacity-0" : "opacity-100"
-            )}>
+            <div
+              className={cn(
+                "flex flex-col transition-opacity duration-300",
+                collapsed ? "lg:opacity-0" : "opacity-100",
+              )}
+            >
               <span className="font-black text-lg tracking-tighter text-foreground leading-none">
                 Midas
-              </span>
-              <span className="text-[10px] font-bold tracking-[0.2em] uppercase text-muted-foreground mt-1">
-                Workforce
               </span>
             </div>
           </div>
@@ -162,11 +183,13 @@ export default function Sidebar({ isOpen, onToggle, collapsed, onCollapse }: Sid
         {/* Menü Öğeleri */}
         <nav className="flex-1 overflow-y-auto py-6 px-4 space-y-2 custom-scrollbar">
           {menuItems
-            .filter(item => item.roles.includes(user?.role || ""))
+            .filter((item) => item.roles.includes(user?.role || ""))
             .map((item) => {
               const hasChildren = !!item.children;
               const isActive = hasChildren
-                ? item.children!.some(child => location.pathname === child.path)
+                ? item.children!.some(
+                    (child) => location.pathname === child.path,
+                  )
                 : location.pathname === item.path;
               const isExpanded = expandedMenu === item.title;
               const Icon = item.icon;
@@ -183,36 +206,66 @@ export default function Sidebar({ isOpen, onToggle, collapsed, onCollapse }: Sid
                         "flex items-center gap-4 px-4 h-12 w-full rounded-xl transition-all group relative overflow-hidden",
                         isActive && !isExpanded
                           ? "bg-primary/10 text-primary"
-                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground",
                       )}
                     >
-                      <Icon size={20} className={cn("shrink-0 transition-transform", isActive ? "text-primary" : "group-hover:scale-110")} />
-                      <span className={cn(
-                        "font-bold text-sm tracking-tight transition-all text-left flex-1",
-                        collapsed ? "lg:opacity-0 lg:w-0" : "opacity-100 w-auto"
-                      )}>
+                      <Icon
+                        size={20}
+                        className={cn(
+                          "shrink-0 transition-transform",
+                          isActive ? "text-primary" : "group-hover:scale-110",
+                        )}
+                      />
+                      <span
+                        className={cn(
+                          "font-bold text-sm tracking-tight transition-all text-left flex-1",
+                          collapsed
+                            ? "lg:opacity-0 lg:w-0"
+                            : "opacity-100 w-auto",
+                        )}
+                      >
                         {item.title}
                       </span>
                       {!collapsed && (
-                        <ChevronDown size={16} className={cn("transition-transform text-muted-foreground group-hover:text-foreground", isExpanded ? "rotate-180" : "rotate-0")} />
+                        <ChevronDown
+                          size={16}
+                          className={cn(
+                            "transition-transform text-muted-foreground group-hover:text-foreground",
+                            isExpanded ? "rotate-180" : "rotate-0",
+                          )}
+                        />
                       )}
                     </button>
                   ) : (
                     <Link
                       to={item.path!}
-                      onClick={() => { if (window.innerWidth < 1024) onToggle(); }}
+                      onClick={() => {
+                        if (window.innerWidth < 1024) onToggle();
+                      }}
                       className={cn(
                         "flex items-center gap-4 px-4 h-12 rounded-xl transition-all group relative overflow-hidden",
                         isActive
                           ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20"
-                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground",
                       )}
                     >
-                      <Icon size={20} className={cn("shrink-0", isActive ? "scale-110" : "group-hover:scale-110 transition-transform")} />
-                      <span className={cn(
-                        "font-bold text-sm tracking-tight transition-all",
-                        collapsed ? "lg:opacity-0 lg:w-0" : "opacity-100 w-auto"
-                      )}>
+                      <Icon
+                        size={20}
+                        className={cn(
+                          "shrink-0",
+                          isActive
+                            ? "scale-110"
+                            : "group-hover:scale-110 transition-transform",
+                        )}
+                      />
+                      <span
+                        className={cn(
+                          "font-bold text-sm tracking-tight transition-all",
+                          collapsed
+                            ? "lg:opacity-0 lg:w-0"
+                            : "opacity-100 w-auto",
+                        )}
+                      >
                         {item.title}
                       </span>
 
@@ -224,29 +277,36 @@ export default function Sidebar({ isOpen, onToggle, collapsed, onCollapse }: Sid
 
                   {hasChildren && isExpanded && !collapsed && (
                     <div className="flex flex-col space-y-1 pl-12 pr-2 animate-in slide-in-from-top-2 duration-200">
-                      {item.children!
-                        .filter(child => !('roles' in child) || (child as any).roles.includes(user?.role || ""))
-                        .map(child => {
-                        const isChildActive = location.pathname === child.path;
-                        return (
-                          <Link
-                            key={child.path}
-                            to={child.path}
-                            onClick={() => { if (window.innerWidth < 1024) onToggle(); }}
-                            className={cn(
-                              "flex items-center h-10 px-4 rounded-xl text-sm font-bold transition-all relative overflow-hidden",
-                              isChildActive
-                                ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
-                                : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                            )}
-                          >
-                            <span>{child.title}</span>
-                            {isChildActive && (
-                              <div className="absolute left-0 w-1 h-4 bg-primary-foreground rounded-r-full" />
-                            )}
-                          </Link>
-                        );
-                      })}
+                      {item
+                        .children!.filter(
+                          (child) =>
+                            !("roles" in child) ||
+                            (child as any).roles.includes(user?.role || ""),
+                        )
+                        .map((child) => {
+                          const isChildActive =
+                            location.pathname === child.path;
+                          return (
+                            <Link
+                              key={child.path}
+                              to={child.path}
+                              onClick={() => {
+                                if (window.innerWidth < 1024) onToggle();
+                              }}
+                              className={cn(
+                                "flex items-center h-10 px-4 rounded-xl text-sm font-bold transition-all relative overflow-hidden",
+                                isChildActive
+                                  ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
+                                  : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                              )}
+                            >
+                              <span>{child.title}</span>
+                              {isChildActive && (
+                                <div className="absolute left-0 w-1 h-4 bg-primary-foreground rounded-r-full" />
+                              )}
+                            </Link>
+                          );
+                        })}
                     </div>
                   )}
                 </div>
@@ -261,14 +321,19 @@ export default function Sidebar({ isOpen, onToggle, collapsed, onCollapse }: Sid
             onClick={() => useModuleStore.getState().openPopup()}
             className={cn(
               "flex items-center gap-4 px-4 h-12 w-full rounded-xl transition-all  bg-orange-500/10 hover:bg-orange-500 text-foreground hover:text-card group",
-              collapsed ? "lg:justify-center" : ""
+              collapsed ? "lg:justify-center" : "",
             )}
           >
-            <MonitorSmartphone size={20} className="shrink-0 group-hover:scale-110 transition-transform" />
-            <span className={cn(
-              "font-bold text-sm tracking-tight",
-              collapsed ? "lg:hidden" : "block"
-            )}>
+            <MonitorSmartphone
+              size={20}
+              className="shrink-0 group-hover:scale-110 transition-transform"
+            />
+            <span
+              className={cn(
+                "font-bold text-sm tracking-tight",
+                collapsed ? "lg:hidden" : "block",
+              )}
+            >
               Kiosk Ekranı
             </span>
           </button>
@@ -278,14 +343,16 @@ export default function Sidebar({ isOpen, onToggle, collapsed, onCollapse }: Sid
             onClick={handleLogout}
             className={cn(
               "flex items-center gap-4 px-4 h-12 w-full rounded-xl transition-all text-muted-foreground hover:bg-destructive/10 hover:text-destructive active:scale-95",
-              collapsed ? "lg:justify-center" : ""
+              collapsed ? "lg:justify-center" : "",
             )}
           >
             <LogOut size={20} className="shrink-0" />
-            <span className={cn(
-              "font-bold text-sm tracking-tight",
-              collapsed ? "lg:hidden" : "block"
-            )}>
+            <span
+              className={cn(
+                "font-bold text-sm tracking-tight",
+                collapsed ? "lg:hidden" : "block",
+              )}
+            >
               Oturumu Kapat
             </span>
           </button>
@@ -296,7 +363,13 @@ export default function Sidebar({ isOpen, onToggle, collapsed, onCollapse }: Sid
           onClick={() => onCollapse(!collapsed)}
           className="absolute -right-3 top-10 w-6 h-6 rounded-full bg-background border border-border hidden lg:flex items-center justify-center hover:bg-primary hover:text-primary-foreground transition-colors shadow-sm z-50"
         >
-          <ChevronLeft size={14} className={cn("transition-transform", collapsed ? "rotate-180" : "rotate-0")} />
+          <ChevronLeft
+            size={14}
+            className={cn(
+              "transition-transform",
+              collapsed ? "rotate-180" : "rotate-0",
+            )}
+          />
         </button>
       </aside>
     </>
