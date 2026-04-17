@@ -77,6 +77,12 @@ const menuItems = [
         icon: CalendarRange,
         roles: ["Admin", "İK", "Müdür", "Şef", "Personel", "Revir", "Güvenlik"],
       },
+      {
+        title: "Yemek Menüsü",
+        path: "/food-menu",
+        icon: FileText,
+        roles: ["Admin", "İK", "Müdür", "Şef", "Personel", "Revir", "Güvenlik"],
+      },
     ],
   },
   {
@@ -95,6 +101,11 @@ const menuItems = [
         title: "Şifre Talepleri",
         path: "/password-resets",
         roles: ["Admin", "İK"],
+      },
+      {
+        title: "Yemek Yönetimi",
+        path: "/settings/food-menu",
+        roles: ["Admin"],
       },
     ],
   },

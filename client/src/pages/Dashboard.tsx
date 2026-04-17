@@ -1,10 +1,31 @@
 import { useAuthStore } from "../store/authStore";
-import { LayoutDashboard, Calendar, Clock, UserCheck, CalendarDays, Banknote, AlertTriangle, PartyPopper, TrendingUp, TrendingDown, RefreshCw } from "lucide-react";
+import {
+  LayoutDashboard,
+  Calendar,
+  Clock,
+  UserCheck,
+  CalendarDays,
+  Banknote,
+  AlertTriangle,
+  PartyPopper,
+  TrendingUp,
+  TrendingDown,
+  RefreshCw,
+  UtensilsCrossed,
+} from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { useEffect, useState } from "react";
 import apiClient from "@/lib/api";
-import { format, isAfter, startOfDay, startOfMonth, endOfMonth } from "date-fns";
+import {
+  format,
+  isAfter,
+  startOfDay,
+  startOfMonth,
+  endOfMonth,
+} from "date-fns";
+import { useFoodMenu } from "@/hooks/useFoodMenu";
+import { tr } from "date-fns/locale";
 
 interface CalendarEvent {
   id: number;
@@ -25,7 +46,9 @@ function UpcomingEventsWidget() {
     const fetchEvents = async () => {
       try {
         const res = await apiClient.get("/calendar");
-        const all: CalendarEvent[] = Array.isArray(res.data?.data) ? res.data.data : [];
+        const all: CalendarEvent[] = Array.isArray(res.data?.data)
+          ? res.data.data
+          : [];
 
         const today = startOfDay(new Date());
         const monthStart = startOfMonth(today);
@@ -33,9 +56,11 @@ function UpcomingEventsWidget() {
 
         // Bu ay içindeki ve henüz geçmemiş etkinlikleri filtrele
         const filtered = all
-          .filter(e => {
+          .filter((e) => {
             const d = new Date(e.event_date);
-            return d >= monthStart && d <= monthEnd && !isAfter(today, d) === false
+            return d >= monthStart &&
+              d <= monthEnd &&
+              !isAfter(today, d) === false
               ? false
               : d >= today && d <= monthEnd;
           })
@@ -54,11 +79,15 @@ function UpcomingEventsWidget() {
   // Etkinlik türüne göre ikon
   const getIcon = (type: string) => {
     switch (type) {
-      case "SALARY": return <Banknote size={14} className="text-success" />;
-      case "HOLIDAY": return <PartyPopper size={14} className="text-warning" />;
+      case "SALARY":
+        return <Banknote size={14} className="text-success" />;
+      case "HOLIDAY":
+        return <PartyPopper size={14} className="text-warning" />;
       case "CLOSURE":
-      case "CLOSURE_HALF": return <AlertTriangle size={14} className="text-destructive" />;
-      default: return <CalendarDays size={14} className="text-muted-foreground" />;
+      case "CLOSURE_HALF":
+        return <AlertTriangle size={14} className="text-destructive" />;
+      default:
+        return <CalendarDays size={14} className="text-muted-foreground" />;
     }
   };
 
@@ -74,7 +103,9 @@ function UpcomingEventsWidget() {
           </div>
           <div>
             <h3 className="font-black text-sm text-foreground">Bu Ay</h3>
-            <p className="text-[10px] text-muted-foreground capitalize">{monthName}</p>
+            <p className="text-[10px] text-muted-foreground capitalize">
+              {monthName}
+            </p>
           </div>
         </div>
         <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground py-1 px-2 bg-muted rounded-md">
@@ -94,15 +125,18 @@ function UpcomingEventsWidget() {
             <p className="text-xs font-bold">Bu ay için etkinlik yok</p>
           </div>
         ) : (
-          events.map(event => {
+          events.map((event) => {
             const date = new Date(event.event_date);
-            const isToday = format(date, "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd");
+            const isToday =
+              format(date, "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd");
             return (
               <div
                 key={event.id}
                 className={cn(
                   "flex items-center gap-3 p-2.5 rounded-xl transition-colors",
-                  isToday ? "bg-primary/10 border border-primary/20" : "hover:bg-muted/50"
+                  isToday
+                    ? "bg-primary/10 border border-primary/20"
+                    : "hover:bg-muted/50",
                 )}
               >
                 {/* Tarih Kutusu */}
@@ -122,12 +156,22 @@ function UpcomingEventsWidget() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5">
                     {getIcon(event.event_type)}
-                    <p className="text-xs font-bold text-foreground truncate">{event.title}</p>
+                    <p className="text-xs font-bold text-foreground truncate">
+                      {event.title}
+                    </p>
                   </div>
                   <p className="text-[10px] text-muted-foreground mt-0.5">
                     {format(date, "EEEE")}
-                    {event.is_half_day && <span className="ml-1 text-warning font-bold">· Yarım Gün</span>}
-                    {isToday && <span className="ml-1 text-primary font-bold">· Bugün!</span>}
+                    {event.is_half_day && (
+                      <span className="ml-1 text-warning font-bold">
+                        · Yarım Gün
+                      </span>
+                    )}
+                    {isToday && (
+                      <span className="ml-1 text-primary font-bold">
+                        · Bugün!
+                      </span>
+                    )}
                   </p>
                 </div>
               </div>
@@ -194,15 +238,19 @@ function CurrencyWidget() {
             <TrendingUp size={16} className="text-success" />
           </div>
           <div>
-            <h3 className="font-black text-sm text-foreground">Döviz & Altın</h3>
-            <p className="text-[10px] text-muted-foreground">Nadir Döviz / Kapalıçarşı</p>
+            <h3 className="font-black text-sm text-foreground">
+              Döviz & Altın
+            </h3>
+            <p className="text-[10px] text-muted-foreground">
+              Nadir Döviz / Kapalıçarşı
+            </p>
           </div>
         </div>
         <button
           onClick={() => fetchRates(true)}
           className={cn(
             "text-[9px] font-black uppercase tracking-widest text-muted-foreground py-1 px-2 bg-muted rounded-md flex items-center gap-1 hover:text-foreground transition-colors",
-            refreshing && "animate-spin opacity-50 pointer-events-none"
+            refreshing && "animate-spin opacity-50 pointer-events-none",
           )}
         >
           <RefreshCw size={10} />
@@ -214,8 +262,11 @@ function CurrencyWidget() {
       <div className="flex-1 overflow-y-auto p-3 space-y-1.5 custom-scrollbar">
         {loading ? (
           <div className="space-y-2 pt-2">
-            {TRACKED.map(c => (
-              <div key={c.key} className="flex items-center gap-3 p-2.5 rounded-xl animate-pulse">
+            {TRACKED.map((c) => (
+              <div
+                key={c.key}
+                className="flex items-center gap-3 p-2.5 rounded-xl animate-pulse"
+              >
                 <div className="w-8 h-8 bg-muted rounded-lg shrink-0" />
                 <div className="flex-1 space-y-1">
                   <div className="h-3 bg-muted rounded w-20" />
@@ -231,7 +282,7 @@ function CurrencyWidget() {
             <p className="text-xs font-bold">Veri alınamadı</p>
           </div>
         ) : (
-          TRACKED.map(currency => {
+          TRACKED.map((currency) => {
             const rate = rates[currency.key] as CurrencyRate | undefined;
             if (!rate) return null;
 
@@ -251,12 +302,18 @@ function CurrencyWidget() {
 
                 {/* İsim */}
                 <div className="flex-1 min-w-0">
-                  <p className="text-[11px] font-black text-foreground truncate uppercase tracking-tight">{currency.label}</p>
+                  <p className="text-[11px] font-black text-foreground truncate uppercase tracking-tight">
+                    {currency.label}
+                  </p>
                   <div className="flex items-center gap-2 mt-0.5">
-                    <span className={cn(
-                      "text-[9px] font-black px-1 rounded flex items-center gap-0.5",
-                      isPositive ? "text-success bg-success/10" : "text-destructive bg-destructive/10"
-                    )}>
+                    <span
+                      className={cn(
+                        "text-[9px] font-black px-1 rounded flex items-center gap-0.5",
+                        isPositive
+                          ? "text-success bg-success/10"
+                          : "text-destructive bg-destructive/10",
+                      )}
+                    >
                       {isPositive ? "▲" : "▼"} {degisimText}
                     </span>
                   </div>
@@ -265,12 +322,20 @@ function CurrencyWidget() {
                 {/* Alış & Satış */}
                 <div className="flex gap-4 shrink-0 pr-1 text-right">
                   <div>
-                    <p className="text-[8px] font-black text-muted-foreground uppercase tracking-widest leading-none mb-1">Alış</p>
-                    <p className="text-xs font-black text-foreground tabular-nums">{rate.Alış}</p>
+                    <p className="text-[8px] font-black text-muted-foreground uppercase tracking-widest leading-none mb-1">
+                      Alış
+                    </p>
+                    <p className="text-xs font-black text-foreground tabular-nums">
+                      {rate.Alış}
+                    </p>
                   </div>
                   <div>
-                    <p className="text-[8px] font-black text-muted-foreground uppercase tracking-widest leading-none mb-1">Satış</p>
-                    <p className="text-xs font-black text-foreground tabular-nums">{rate.Satış}</p>
+                    <p className="text-[8px] font-black text-muted-foreground uppercase tracking-widest leading-none mb-1">
+                      Satış
+                    </p>
+                    <p className="text-xs font-black text-foreground tabular-nums">
+                      {rate.Satış}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -282,27 +347,98 @@ function CurrencyWidget() {
   );
 }
 
+function TodaysMenuWidget() {
+  const { todayQuery } = useFoodMenu();
+  const menu = todayQuery.data;
+
+  return (
+    <div className="h-full rounded-2xl bg-card border border-border flex flex-col overflow-hidden group">
+      <div className="flex items-center justify-between p-4 border-b border-border shrink-0 ">
+        <div className="flex items-center gap-2">
+          <div className="p-2 rounded-xl bg-primary text-primary-foreground shadow-lg shadow-primary/20">
+            <UtensilsCrossed size={16} />
+          </div>
+          <div>
+            <h3 className="font-black text-sm text-foreground">Günün Menüsü</h3>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-widest">
+              {format(new Date(), "d MMMM EEEE", { locale: tr })}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+        {todayQuery.isLoading ? (
+          <div className="flex items-center justify-center h-full">
+            <RefreshCw
+              className="animate-spin text-primary opacity-20"
+              size={32}
+            />
+          </div>
+        ) : !menu || menu.parsedItems.every((i) => i.trim() === "") ? (
+          <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground opacity-30 italic">
+            <UtensilsCrossed size={32} />
+            <p className="text-xs font-bold">Menü henüz girilmemiş</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2 h-full">
+            {menu.parsedItems.map(
+              (item, idx) =>
+                item.trim() !== "" && (
+                  <div
+                    key={idx}
+                    className="flex flex-col items-center justify-center gap-1.5 p-2 rounded-xl    transition-all text-center group"
+                  >
+                    <span className="text-lg transition-all transform group-hover:scale-110">
+                      {["🍜", "🍗", "🍚", "🥗", "🍰", "🥛", "🥐"][idx] || "🍽️"}
+                    </span>
+                    <p className="text-[10px] font-bold text-foreground leading-tight line-clamp-2">
+                      {item}
+                    </p>
+                  </div>
+                ),
+            )}
+          </div>
+        )}
+      </div>
+
+      <div className="p-3 bg-muted/30 border-t border-border mt-auto">
+        <p className="text-[9px] font-black text-center text-muted-foreground uppercase tracking-[0.2em]">
+          Afiyet Olsun!
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const { user } = useAuthStore();
 
   return (
     <div className="flex flex-col h-full lg:h-[calc(100vh-160px)] gap-6 animate-in fade-in slide-in-from-bottom-2 duration-500 lg:overflow-hidden">
-
       {/* ÜST BÖLÜM: Sabit Kalacak Kısım */}
       <div className="flex flex-col gap-6 shrink-0">
         <div className="flex items-center gap-4">
           {user?.photo_url && (
             <div className="w-16 h-16 shrink-0 rounded-[1.5rem] bg-muted border-2 border-primary/20 overflow-hidden shadow-lg shadow-primary/10">
-              <img 
-                src={`${apiClient.defaults.baseURL?.replace('/api', '')}/photos/${user.photo_url}`} 
-                alt="Profil" 
-                className="w-full h-full object-cover" 
+              <img
+                src={`${apiClient.defaults.baseURL?.replace("/api", "")}/photos/${user.photo_url}`}
+                alt="Profil"
+                className="w-full h-full object-cover"
               />
             </div>
           )}
           <PageHeader
             title="Portal Özeti"
-            description={<>Merhaba <span className="text-primary font-bold mx-1">{user?.name}</span>, bugün her şey yolunda görünüyor.</>}
+            description={
+              <>
+                Merhaba{" "}
+                <span className="text-primary font-bold mx-1">
+                  {user?.name}
+                </span>
+                , bugün her şey yolunda görünüyor.
+              </>
+            }
           />
         </div>
 
@@ -344,15 +480,17 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-3 lg:grid-rows-2 gap-4 h-auto lg:h-full">
           {/* Üst Satır: Aktivite (2) + Etkinlikler (1) */}
           <div className="lg:col-span-2 min-h-[300px] lg:h-full rounded-2xl bg-card border border-border flex items-center justify-center border-dashed">
-            <span className="text-muted-foreground font-bold italic opacity-30 text-sm">Aktivite Akışı Grafiği Yakında...</span>
+            <span className="text-muted-foreground font-bold italic opacity-30 text-sm">
+              Aktivite Akışı Grafiği Yakında...
+            </span>
           </div>
           <div className="min-h-[400px] lg:h-full">
             <UpcomingEventsWidget />
           </div>
 
-          {/* Alt Satır: Placeholder (2) + Döviz (1) */}
-          <div className="lg:col-span-2 min-h-[300px] lg:h-full rounded-2xl bg-card border border-border flex items-center justify-center border-dashed">
-            <span className="text-muted-foreground font-bold italic opacity-30 text-sm">Gelişmiş İstatistikler Yakında...</span>
+          {/* Alt Satır: Yemek Menüsü (2) + Döviz (1) */}
+          <div className="lg:col-span-2 min-h-[300px] lg:h-full">
+            <TodaysMenuWidget />
           </div>
           <div className="min-h-[400px] lg:h-full">
             <CurrencyWidget />
@@ -383,9 +521,15 @@ function StatCard({ title, value, icon: Icon, trend, color }: StatCardProps) {
         </span>
       </div>
       <div>
-        <h3 className="text-muted-foreground text-[10px] font-black uppercase tracking-[0.15em] mb-1">{title}</h3>
-        <p className="text-2xl font-black text-foreground tracking-tighter">{value}</p>
-        <p className="text-[10px] font-bold text-muted-foreground/60 mt-1 italic">{trend}</p>
+        <h3 className="text-muted-foreground text-[10px] font-black uppercase tracking-[0.15em] mb-1">
+          {title}
+        </h3>
+        <p className="text-2xl font-black text-foreground tracking-tighter">
+          {value}
+        </p>
+        <p className="text-[10px] font-bold text-muted-foreground/60 mt-1 italic">
+          {trend}
+        </p>
       </div>
     </div>
   );

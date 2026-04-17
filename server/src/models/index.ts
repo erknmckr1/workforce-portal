@@ -8,6 +8,7 @@ import { LeaveActivityLog } from "./LeaveActivityLog";
 import Notification from "./Notification";
 import { CompanyCalendar } from "./CompanyCalendar";
 import { PasswordResetRequest } from "./PasswordResetRequest";
+import { FoodMenu } from "./FoodMenu";
 
 // --- Lookups & Operator Associations ---
 Section.hasMany(Department, { foreignKey: "section_id" });
@@ -92,5 +93,6 @@ export {
     LeaveActivityLog,
     Notification,
     CompanyCalendar,
-    PasswordResetRequest
+    PasswordResetRequest,
+    FoodMenu
 };

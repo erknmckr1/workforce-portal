@@ -16,6 +16,8 @@ import Infirmary from "./pages/Infirmary";
 import KioskPage from "./pages/KioskPage";
 import CompanyCalendarManager from "./pages/CompanyCalendarManager";
 import YearlyCalendarPage from "./pages/YearlyCalendarPage";
+import FoodMenuPage from "./pages/FoodMenuPage";
+import FoodMenuManager from "./pages/settings/FoodMenuManager";
 import { ThemeProvider } from "./components/theme-provider";
 import { ConfirmProvider } from "@/providers/ConfirmProvider";
 import "./App.css";
@@ -133,6 +135,7 @@ function App() {
                 <Route path="settings" element={<Navigate to="/settings/general" replace />} />
                 <Route path="settings/general" element={<SettingsIndex />} />
                 <Route path="settings/approvals" element={<Approvals />} />
+                <Route path="settings/food-menu" element={<FoodMenuManager />} />
               </Route>
               {/* Takvim Yönetimi - Sadece Admin & İK */}
               <Route element={<ProtectedRoute allowedRoles={["Admin", "İK"]} />}>
@@ -142,6 +145,10 @@ function App() {
               {/* Senelik Plan - Tüm personel görebilir */}
               <Route element={<ProtectedRoute allowedRoles={["Admin", "İK", "Müdür", "Şef", "Personel", "Revir", "Güvenlik"]} />}>
                 <Route path="yearly-plan" element={<YearlyCalendarPage />} />
+              </Route>
+              
+              <Route element={<ProtectedRoute allowedRoles={["Admin", "İK", "Müdür", "Şef", "Personel", "Revir", "Güvenlik"]} />}>
+                <Route path="food-menu" element={<FoodMenuPage />} />
               </Route>
 
               {/* 404 Yönlendirme */}
