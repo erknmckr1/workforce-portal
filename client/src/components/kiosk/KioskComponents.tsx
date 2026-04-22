@@ -31,7 +31,7 @@ export function KioskLogin() {
       
       if (foundUser) {
         setUser(foundUser);
-        toast.success(`Hoş geldiniz, ${foundUser.name}`);
+        toast.success(`Hoş geldiniz, ${foundUser.name}. Kalan İzniniz: ${foundUser.leave_balance || 0} Gün`);
       } else {
         toast.error("Bu ID'ye ait personel bulunamadı.");
       }
@@ -107,9 +107,12 @@ export function KioskUserProfile() {
           </span>
         </div>
         
-        <div className="flex flex-col items-center p-4 rounded-2xl bg-orange-500/10 border border-orange-500/20 text-orange-600">
-          <span className="text-[10px] font-black uppercase tracking-widest mb-1">Yıllık İzin Bakiyesi</span>
-          <span className="font-black text-3xl">{user.leave_balance || 0} <span className="text-sm">Gün</span></span>
+        <div className="flex flex-col items-center p-4 rounded-3xl bg-emerald-500/10 border-2 border-emerald-500/20 text-emerald-600 shadow-sm">
+          <span className="text-[10px] font-black uppercase tracking-[0.2em] mb-1 opacity-70">Güncel İzin Bakiyesi</span>
+          <div className="flex items-baseline gap-1">
+             <span className="font-black text-5xl tracking-tighter">{user.leave_balance || 0}</span>
+             <span className="font-black text-sm uppercase">Gün</span>
+          </div>
         </div>
       </div>
 

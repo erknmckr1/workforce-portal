@@ -170,6 +170,9 @@ export default function PersonnelManagement() {
               <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground whitespace-nowrap">
                 Durum
               </th>
+              <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground whitespace-nowrap">
+                Kalan İzin
+              </th>
               <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground text-right whitespace-nowrap">
                 İşlemler
               </th>
@@ -178,7 +181,7 @@ export default function PersonnelManagement() {
           <tbody className="divide-y divide-border/50">
             {loading ? (
               <tr>
-                <td colSpan={6} className="px-8 py-32 text-center">
+                <td colSpan={7} className="px-8 py-32 text-center">
                   <div className="flex flex-col items-center gap-4">
                     <div className="w-12 h-12 border-[6px] border-primary border-t-transparent rounded-full animate-spin"></div>
                     <span className="text-muted-foreground font-black text-xl tracking-tighter">
@@ -190,7 +193,7 @@ export default function PersonnelManagement() {
             ) : personnel.length === 0 ? (
               <tr>
                 <td
-                  colSpan={6}
+                  colSpan={7}
                   className="px-8 py-32 text-center text-muted-foreground font-bold italic text-lg"
                 >
                   Kriterlere uygun personel bulunamadı.
@@ -398,20 +401,31 @@ const PersonnelRow = memo(
         <td className="px-6 py-3">
           <div className="flex items-center gap-3">
             <div className="flex flex-col">
-              <span
-                className={cn(
-                  "text-xs font-black tracking-tight",
-                  p.leave_balance > 0 ? "text-green-500" : "text-destructive",
-                )}
-              >
-                {p.leave_balance} Gün İzin
+              <span className="text-[10px] font-black uppercase tracking-wider text-foreground">
+                {p.route || "Servis Yok"}
               </span>
-              {p.route && (
+              {p.stop_name && (
                 <span className="text-[9px] font-bold text-muted-foreground/60 mt-0.5">
-                  {p.route} / {p.stop_name || "---"}
+                  {p.stop_name}
                 </span>
               )}
             </div>
+          </div>
+        </td>
+        <td className="px-6 py-3">
+          <div className="flex items-center gap-2">
+            <div className={cn(
+               "h-2 w-2 rounded-full",
+               p.leave_balance > 5 ? "bg-emerald-500" : p.leave_balance > 0 ? "bg-orange-500" : "bg-destructive"
+            )} />
+            <span
+              className={cn(
+                "text-xs font-black tracking-tight",
+                p.leave_balance > 5 ? "text-emerald-600 dark:text-emerald-400" : p.leave_balance > 0 ? "text-orange-600 dark:text-orange-400" : "text-destructive",
+              )}
+            >
+              {p.leave_balance} Gün
+            </span>
           </div>
         </td>
         <td className="px-6 py-3 text-right">

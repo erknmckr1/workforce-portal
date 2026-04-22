@@ -18,6 +18,7 @@ export class Operator extends Model {
     public title?: number;
     public auth1?: string;
     public auth2?: string;
+    public tc_no?: string;
     public leave_balance!: number;
     public route?: string;
     public stop_name?: string;
@@ -43,6 +44,7 @@ Operator.init(
         title: { type: DataTypes.INTEGER, allowNull: true },
         auth1: { type: DataTypes.STRING(255), allowNull: true },
         auth2: { type: DataTypes.STRING(255), allowNull: true },
+        tc_no: { type: DataTypes.STRING(11), allowNull: true, unique: true },
         leave_balance: { type: DataTypes.DECIMAL(5, 2), defaultValue: 0 },
         route: { type: DataTypes.STRING(255), allowNull: true },
         stop_name: { type: DataTypes.STRING(255), allowNull: true },

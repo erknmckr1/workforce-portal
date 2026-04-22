@@ -1,4 +1,5 @@
 import { Router } from "express";
+import multer from "multer";
 import { 
     getAllPersonnel, 
     createPersonnel, 
@@ -7,10 +8,13 @@ import {
     getPersonnelLookups,
     updateSectionManager,
     updateDepartmentSupervisor,
-    syncAllApprovals
+    syncAllApprovals,
+    syncLeaveBalances,
+    syncLeaveBalancesLocal
 } from "../controllers/personnelController";
 
 const router = Router();
+const upload = multer({ storage: multer.memoryStorage() });
 
 // Yardımcı verileri (roles, sections vs) getir
 router.get("/lookups", getPersonnelLookups);
@@ -20,6 +24,10 @@ router.get("/", getAllPersonnel);
 
 // Yeni personel kaydet
 router.post("/", createPersonnel);
+
+// Excel'den İzin Bakiyesi Senkronizasyonu
+router.post("/sync-leaves", upload.single("file"), syncLeaveBalances);
+router.post("/sync-leaves-local", syncLeaveBalancesLocal);
 
 // Hiyerarşi (Approvals) işlemleri
 router.post("/sync-approvals", syncAllApprovals);

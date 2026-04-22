@@ -1,7 +1,6 @@
 import { useAuthStore } from "../store/authStore";
 import {
   LayoutDashboard,
-  Calendar,
   Clock,
   UserCheck,
   CalendarDays,
@@ -12,6 +11,7 @@ import {
   TrendingDown,
   RefreshCw,
   UtensilsCrossed,
+  Palmtree
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -445,11 +445,11 @@ export default function Dashboard() {
         {/* Hızlı İstatistik Kartları */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
-            title=""
-            value=""
-            icon={Calendar}
-            trend=""
-            color="bg-blue-500"
+            title="Kalan Yıllık İzin"
+            value={`${user?.leave_balance || 0} Gün`}
+            icon={Palmtree}
+            trend="Güncel Bakiye"
+            color="bg-emerald-500"
           />
           <StatCard
             title=""

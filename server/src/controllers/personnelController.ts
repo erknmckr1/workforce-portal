@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import { Op } from "sequelize";
 import fs from "fs";
 import path from "path";
+import * as XLSX from "xlsx";
 
 // Gelen base64 resmi masaüstü klasörüne kaydeder ve dosya adını döner
 const savePhotoToDisk = (photoData: string, personnelId: string): string | null => {
@@ -310,5 +311,123 @@ export const syncAllApprovals = async (req: Request, res: Response): Promise<Res
     } catch(err) {
         console.error("SyncAllApprovals Hatası:", err);
         return res.status(500).json({ message: "Senkronizasyon işlemi sırasında hata oluştu" });
+    }
+};
+
+// Excel'den toplu izin bakiyesi güncelle
+export const syncLeaveBalances = async (req: Request, res: Response): Promise<Response> => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ message: "Lütfen bir Excel dosyası yükleyin." });
+        }
+
+        // --- ARŞİVLEME İŞLEMİ ---
+        // Masaüstünde bir klasör oluşturup dosyayı oraya yedekleyelim
+        const desktopDir = path.join('C:', 'Users', 'ecakir', 'Desktop', 'Yuklenen_Izin_Dosyalari');
+        if (!fs.existsSync(desktopDir)) {
+            fs.mkdirSync(desktopDir, { recursive: true });
+        }
+
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const fileName = `izin_guncelleme_${timestamp}.xlsx`;
+        const archivePath = path.join(desktopDir, fileName);
+        
+        // Dosyayı diske yaz
+        fs.writeFileSync(archivePath, req.file.buffer);
+        // -------------------------
+
+        const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
+        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+        const rows: any[] = XLSX.utils.sheet_to_json(worksheet);
+
+        let updateCount = 0;
+        let notFoundCount = 0;
+        let unchangedCount = 0;
+
+        for (const row of rows) {
+            const excelTc = String(row["TC NO"] || "").trim();
+            const excelBalance = parseFloat(row["KALAN İZİN"] || "0");
+
+            if (!excelTc) continue;
+
+            const operator = await Operator.findOne({ where: { tc_no: excelTc } });
+
+            if (operator) {
+                if (Number(operator.leave_balance) !== excelBalance) {
+                    await operator.update({ leave_balance: excelBalance });
+                    updateCount++;
+                } else {
+                    unchangedCount++;
+                }
+            } else {
+                notFoundCount++;
+            }
+        }
+
+        return res.status(200).json({
+            message: "İşlem tamamlandı.",
+            summary: {
+                totalRows: rows.length,
+                updated: updateCount,
+                notFound: notFoundCount,
+                unchanged: unchangedCount
+            }
+        });
+    } catch (error) {
+        console.error("SyncLeaveBalances Hatası:", error);
+        return res.status(500).json({ message: "Excel işlenirken bir hata oluştu." });
+    }
+};
+
+// Sunucu üzerindeki sabit dosyadan izin bakiyesi senkronize et
+export const syncLeaveBalancesLocal = async (req: Request, res: Response): Promise<Response> => {
+    try {
+        const filePath = process.env.LEAVE_EXCEL_PATH || 'C:\\Users\\ecakir\\Desktop\\yillik_izin_takip_2025.xlsx';
+        
+        if (!fs.existsSync(filePath)) {
+            return res.status(404).json({ message: `Belirtilen konumda dosya bulunamadı: ${filePath}` });
+        }
+
+        const workbook = XLSX.readFile(filePath);
+        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+        const rows: any[] = XLSX.utils.sheet_to_json(worksheet);
+
+        let updateCount = 0;
+        let notFoundCount = 0;
+        let unchangedCount = 0;
+
+        for (const row of rows) {
+            const excelTc = String(row["TC NO"] || "").trim();
+            const excelBalance = parseFloat(row["KALAN İZİN"] || "0");
+
+            if (!excelTc) continue;
+
+            const operator = await Operator.findOne({ where: { tc_no: excelTc } });
+
+            if (operator) {
+                if (Number(operator.leave_balance) !== excelBalance) {
+                    await operator.update({ leave_balance: excelBalance });
+                    updateCount++;
+                } else {
+                    unchangedCount++;
+                }
+            } else {
+                notFoundCount++;
+            }
+        }
+
+        return res.status(200).json({
+            message: "Sunucu dosyasından senkronizasyon tamamlandı.",
+            summary: {
+                totalRows: rows.length,
+                updated: updateCount,
+                notFound: notFoundCount,
+                unchanged: unchangedCount,
+                path: filePath
+            }
+        });
+    } catch (error) {
+        console.error("SyncLeaveBalancesLocal Hatası:", error);
+        return res.status(500).json({ message: "Dosya okunurken bir hata oluştu." });
     }
 };

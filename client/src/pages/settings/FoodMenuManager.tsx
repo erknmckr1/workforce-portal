@@ -8,7 +8,6 @@ import {
   ArrowLeft,
   ArrowRight,
   Table as TableIcon,
-  FileSpreadsheet,
   Download,
   Upload,
 } from "lucide-react";
@@ -321,7 +320,7 @@ export default function FoodMenuManager() {
                 )}
               </div>
               <CardContent className="p-4 space-y-2">
-                {ITEM_LABELS.map((label, idx) => {
+                {ITEM_LABELS.map((_, idx) => {
                    const itemValue = localMenu[dateKey]?.[idx] || "";
                    return (
                     <div key={idx} className="flex items-center gap-2 group/item">
