@@ -53,7 +53,7 @@ app.use("/api/rates", ratesRoutes);
 app.use("/api/food-menu", foodMenuRoutes);
 
 // Fotoğrafları frontend için /photos adresi ile dışarı aç
-const photoPath = process.env.PHOTO_STORAGE_PATH || path.join("C:", "Users", "ecakir", "Desktop", "PersonelFotograflari");
+const photoPath = process.env.PHOTO_STORAGE_PATH || path.join(process.env.USERPROFILE || 'C:', 'Desktop', 'PersonelFotograflari');
 if (!fs.existsSync(photoPath)) {
     fs.mkdirSync(photoPath, { recursive: true });
 }

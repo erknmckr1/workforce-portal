@@ -4,11 +4,10 @@ import { requireAuth } from "../middlewares/authMiddleware";
 
 const router = Router();
 
-// Panel ve uygulamadaki herkesin takvimi okuyabilmesi için GET rotası açık bırakılabilir veya requireAuth eklenebilir. 
-// Genel bir yapı kurduğumuz için ve dashboard'da göstereceğimizden public veya requireAuth yapabiliriz. Biz şimdilik Login Olanlar okuyabilsin diyoruz.
-router.get("/", requireAuth, getCalendarEvents);
+// Takvimi herkes (giriş yapmayanlar dahil) ana sayfada görebilsin diye GET rotası herkese açık.
+router.get("/", getCalendarEvents);
 
-// Korumalı Rotalar - Sadece Admin yetkisi olanlar ekleme ve silme yapabilir. (Şimdilik auth kontrolü yetiyor, admin kontrolü middleware eklenebilir).
+// Korumalı Rotalar - Sadece Login olanlar/Adminler ekleme ve silme yapabilir.
 router.post("/", requireAuth, createCalendarEvent);
 router.delete("/:id", requireAuth, deleteCalendarEvent);
 

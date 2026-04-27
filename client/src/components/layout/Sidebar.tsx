@@ -27,7 +27,7 @@ const menuItems = [
   {
     title: "Panel",
     icon: LayoutDashboard,
-    path: "/",
+    path: "/panel",
     roles: ["Admin", "Müdür", "Şef", "Personel", "İK", "Revir"],
   },
   {
@@ -90,8 +90,16 @@ const menuItems = [
     icon: Settings,
     roles: ["Admin", "İK"],
     children: [
-      { title: "Genel Ayarlar", path: "/settings/general" },
-      { title: "Onay Hiyerarşisi", path: "/settings/approvals" },
+      { 
+        title: "Genel Ayarlar", 
+        path: "/settings/general",
+        roles: ["Admin"]
+      },
+      { 
+        title: "Onay Hiyerarşisi", 
+        path: "/settings/approvals",
+        roles: ["Admin"]
+      },
       {
         title: "Takvim Yönetimi",
         path: "/calendar-manager",

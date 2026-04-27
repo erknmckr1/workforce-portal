@@ -323,7 +323,7 @@ export const syncLeaveBalances = async (req: Request, res: Response): Promise<Re
 
         // --- ARŞİVLEME İŞLEMİ ---
         // Masaüstünde bir klasör oluşturup dosyayı oraya yedekleyelim
-        const desktopDir = path.join('C:', 'Users', 'ecakir', 'Desktop', 'Yuklenen_Izin_Dosyalari');
+        const desktopDir = path.join(process.env.USERPROFILE || 'C:', 'Desktop', 'Yuklenen_Izin_Dosyalari');
         if (!fs.existsSync(desktopDir)) {
             fs.mkdirSync(desktopDir, { recursive: true });
         }

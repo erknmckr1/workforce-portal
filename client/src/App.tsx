@@ -18,6 +18,7 @@ import CompanyCalendarManager from "./pages/CompanyCalendarManager";
 import YearlyCalendarPage from "./pages/YearlyCalendarPage";
 import FoodMenuPage from "./pages/FoodMenuPage";
 import FoodMenuManager from "./pages/settings/FoodMenuManager";
+import Home from "./pages/Home";
 import { ThemeProvider } from "./components/theme-provider";
 import { ConfirmProvider } from "@/providers/ConfirmProvider";
 import "./App.css";
@@ -82,22 +83,24 @@ function App() {
           <Toaster position="top-center" richColors />
           <ConfirmProvider>
           <Routes>
-            {/* Giriş yapmamışsa Login'e yönlendir */}
+            {/* 1. Herkese Açık Ana Sayfa (Intranet) */}
+            <Route path="/" element={<Home />} />
+
+            {/* 2. Giriş Sayfası */}
             <Route
               path="/login"
-              element={!isAuthenticated ? <Login /> : <Navigate to="/" />}
+              element={!isAuthenticated ? <Login /> : <Navigate to="/panel" />}
             />
 
             <Route path="/kiosk-terminal" element={<KioskPage />} />
 
-            {/* Korumalı Rotalar (Layout ile birlikte) */}
+            {/* 3. Korumalı Rotalar (Layout ile birlikte) */}
             <Route
-              path="/"
               element={isAuthenticated ? <MainLayout /> : <Navigate to="/login" />}
             >
-              {/* Dashboard (Güvenlik Hariç) */}
+              {/* Panel (Eski Dashboard) */}
               <Route element={<ProtectedRoute allowedRoles={["Admin", "Müdür", "Şef", "Personel", "İK", "Revir"]} />}>
-                <Route index element={<Dashboard />} />
+                <Route path="panel" element={<Dashboard />} />
               </Route>
 
               {/* İzinlerim (Herkes Görebilir) */}
@@ -130,11 +133,15 @@ function App() {
                 <Route path="reports" element={<div className="p-4 border-2 border-dashed rounded-3xl">Raporlar Sayfası Yakında...</div>} />
               </Route>
               
-              {/* Sistem Ayarları Düz Routing */}
-              <Route element={<ProtectedRoute allowedRoles={["Admin", "İK"]} />}>
+              {/* Sistem Ayarları Düz Routing - Sadece Admin */}
+              <Route element={<ProtectedRoute allowedRoles={["Admin"]} />}>
                 <Route path="settings" element={<Navigate to="/settings/general" replace />} />
                 <Route path="settings/general" element={<SettingsIndex />} />
                 <Route path="settings/approvals" element={<Approvals />} />
+              </Route>
+              
+              {/* Yemek Menüsü Yönetimi - Admin ve İK */}
+              <Route element={<ProtectedRoute allowedRoles={["Admin", "İK"]} />}>
                 <Route path="settings/food-menu" element={<FoodMenuManager />} />
               </Route>
               {/* Takvim Yönetimi - Sadece Admin & İK */}
