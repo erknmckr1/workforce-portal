@@ -393,7 +393,11 @@ const Home = () => {
             <section className="relative aspect-21/9 bg-muted rounded-sm border border-border overflow-hidden shadow-sm group">
               {newsItems && newsItems.length > 0 ? (
                 <>
-                  <a href={newsItems[activeNews].link} target="_blank" rel="noreferrer">
+                  <a
+                    href={newsItems[activeNews].link}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
                     <img
                       src={
                         newsItems[activeNews].thumbnail ||
@@ -411,9 +415,12 @@ const Home = () => {
                       <h2 className="text-2xl font-black tracking-tighter leading-tight mb-2 uppercase italic line-clamp-2">
                         {newsItems[activeNews].title}
                       </h2>
-                      <div className="text-xs font-medium opacity-80 line-clamp-1" 
-                           dangerouslySetInnerHTML={{ __html: newsItems[activeNews].description }}>
-                      </div>
+                      <div
+                        className="text-xs font-medium opacity-80 line-clamp-1"
+                        dangerouslySetInnerHTML={{
+                          __html: newsItems[activeNews].description,
+                        }}
+                      ></div>
                     </div>
                   </a>
                   <div className="absolute bottom-6 right-6 flex gap-2">
@@ -422,7 +429,9 @@ const Home = () => {
                         key={idx}
                         onClick={() => setActiveNews(idx)}
                         className={`w-2 h-2 rounded-full transition-all ${
-                          idx === activeNews ? "bg-foreground w-4" : "bg-foreground/30"
+                          idx === activeNews
+                            ? "bg-foreground w-4"
+                            : "bg-foreground/30"
                         }`}
                       ></button>
                     ))}
@@ -520,9 +529,9 @@ const Home = () => {
                       >
                         <div className="w-12 h-12 bg-muted shrink-0 flex items-center justify-center rounded border border-border overflow-hidden">
                           {news.thumbnail || news.enclosure?.link ? (
-                            <img 
-                              src={news.thumbnail || news.enclosure?.link} 
-                              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
+                            <img
+                              src={news.thumbnail || news.enclosure?.link}
+                              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                               alt="news"
                             />
                           ) : (
@@ -535,7 +544,9 @@ const Home = () => {
                               {news.category}
                             </span>
                             <span className="text-[10px] font-medium text-muted-foreground uppercase">
-                              {new Date(news.pubDate).toLocaleDateString("tr-TR")}
+                              {new Date(news.pubDate).toLocaleDateString(
+                                "tr-TR",
+                              )}
                             </span>
                           </div>
                           <h4 className="text-sm font-bold text-foreground group-hover:text-info transition-colors tracking-tight line-clamp-2">

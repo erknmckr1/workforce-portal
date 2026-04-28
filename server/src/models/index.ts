@@ -9,6 +9,8 @@ import Notification from "./Notification";
 import { CompanyCalendar } from "./CompanyCalendar";
 import { PasswordResetRequest } from "./PasswordResetRequest";
 import { FoodMenu } from "./FoodMenu";
+import { SapOrder } from "./SapOrder";
+
 
 // --- Lookups & Operator Associations ---
 Section.hasMany(Department, { foreignKey: "section_id" });
@@ -75,7 +77,6 @@ Notification.belongsTo(LeaveRecord, { as: "Leave", foreignKey: "related_id" });
 PasswordResetRequest.belongsTo(Operator, { as: "User", foreignKey: "user_id" });
 Operator.hasMany(PasswordResetRequest, { foreignKey: "user_id" });
 PasswordResetRequest.belongsTo(Operator, { as: "Handler", foreignKey: "handled_by" });
-
 export {
     sequelize,
     Section,
@@ -94,5 +95,6 @@ export {
     Notification,
     CompanyCalendar,
     PasswordResetRequest,
-    FoodMenu
+    FoodMenu,
+    SapOrder
 };

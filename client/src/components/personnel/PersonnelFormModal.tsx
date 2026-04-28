@@ -215,8 +215,9 @@ export function PersonnelFormModal({
     setIsCameraOpen(false);
 
     if (editingPersonnel) {
+      const apiBaseUrl = import.meta.env.VITE_API_BASE_URL.replace("/api", "");
       const photoPath = editingPersonnel.photo_url 
-        ? `http://localhost:3003/photos/${editingPersonnel.photo_url}` 
+        ? `${apiBaseUrl}/photos/${editingPersonnel.photo_url}` 
         : null;
       setPhoto(photoPath);
 

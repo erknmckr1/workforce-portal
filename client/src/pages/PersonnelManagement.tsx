@@ -337,7 +337,7 @@ const PersonnelRow = memo(
             <div className="w-10 h-10 shrink-0 rounded-xl bg-linear-to-br from-primary/20 to-primary/5 border border-primary/20 flex items-center justify-center text-primary font-black text-sm shadow-inner group-hover:scale-110 transition-transform overflow-hidden relative">
               {p.photo_url ? (
                 <img
-                  src={`http://localhost:3003/photos/${p.photo_url}`}
+                  src={`${import.meta.env.VITE_API_BASE_URL.replace("/api", "")}/photos/${p.photo_url}`}
                   alt={`${p.name}`}
                   className="w-full h-full object-cover"
                 />

@@ -10,6 +10,7 @@ import notificationRoutes from "./routes/notificationRoutes";
 import calendarRoutes from "./routes/calendarRoutes";
 import ratesRoutes from "./routes/ratesRoutes";
 import foodMenuRoutes from "./routes/foodMenuRoutes";
+import mesRoutes from "./routes/mesRoutes";
 import path from "path";
 import fs from "fs";
 
@@ -51,6 +52,7 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/api/calendar", calendarRoutes);
 app.use("/api/rates", ratesRoutes);
 app.use("/api/food-menu", foodMenuRoutes);
+app.use("/api/mes", mesRoutes);
 
 // Fotoğrafları frontend için /photos adresi ile dışarı aç
 const photoPath = process.env.PHOTO_STORAGE_PATH || path.join(process.env.USERPROFILE || 'C:', 'Desktop', 'PersonelFotograflari');

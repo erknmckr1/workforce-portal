@@ -189,7 +189,7 @@ export function PersonnelDetailModal({
             <div className="w-20 h-20 rounded-[2rem] bg-primary text-primary-foreground flex items-center justify-center text-3xl font-black shadow-lg shadow-primary/20 uppercase overflow-hidden relative border border-primary/20">
               {personnel?.photo_url ? (
                 <img
-                  src={`http://localhost:3003/photos/${personnel.photo_url}`}
+                  src={`${import.meta.env.VITE_API_BASE_URL.replace("/api", "")}/photos/${personnel.photo_url}`}
                   alt={`${personnel.name}`}
                   className="w-full h-full object-cover"
                 />

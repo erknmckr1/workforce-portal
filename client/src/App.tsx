@@ -19,6 +19,7 @@ import YearlyCalendarPage from "./pages/YearlyCalendarPage";
 import FoodMenuPage from "./pages/FoodMenuPage";
 import FoodMenuManager from "./pages/settings/FoodMenuManager";
 import Home from "./pages/Home";
+import UretimTerminal from "./pages/UretimTerminal";
 import { ThemeProvider } from "./components/theme-provider";
 import { ConfirmProvider } from "@/providers/ConfirmProvider";
 import "./App.css";
@@ -93,6 +94,9 @@ function App() {
             />
 
             <Route path="/kiosk-terminal" element={<KioskPage />} />
+            
+            {/* 2.5 MES Terminal (Üretim Ekranları) - Tam Ekran */}
+            <Route path="/uretim/:section/:areaName" element={<UretimTerminal />} />
 
             {/* 3. Korumalı Rotalar (Layout ile birlikte) */}
             <Route

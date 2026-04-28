@@ -170,7 +170,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
               <div className="w-9 h-9 lg:w-10 lg:h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-sm group-hover:shadow-md transition-all overflow-hidden relative">
                 {user?.photo_url ? (
                   <img 
-                    src={`http://localhost:3003/photos/${user.photo_url}`} 
+                    src={`${import.meta.env.VITE_API_BASE_URL.replace("/api", "")}/photos/${user.photo_url}`} 
                     alt="Profil" 
                     className="w-full h-full object-cover" 
                   />
