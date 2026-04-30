@@ -12,7 +12,10 @@ import { WorkLog } from "../models/WorkLog";
 import { WorkLogPause } from "../models/WorkLogPause";
 import { WorkLogRepair } from "../models/WorkLogRepair";
 import { OperatorBreak } from "../models/OperatorBreak";
-import { Op } from "sequelize";
+import { Op, QueryTypes } from "sequelize";
+import timecureSequelize from "../config/timecureDatabase";
+import sapSequelize from "../config/mesDatabase";
+import ExternalMovement from "../models/ExternalMovement";
 
 export const getSapOrder = async (req: Request, res: Response) => {
   const { orderId } = req.params;
@@ -330,8 +333,8 @@ export const getWorkLogs = async (req: Request, res: Response) => {
         area_name: areaName as string,
         [Op.or]: [
           { status: 1, operator_id: operatorId as string }, // Sadece aktif kullanıcının devam eden işleri
-          { status: { [Op.in]: [2, 9] } }                   // Durdurulmuş veya mola nedeniyle bekleyen tüm işler
-        ]
+          { status: { [Op.in]: [2, 9] } }, // Durdurulmuş veya mola nedeniyle bekleyen tüm işler
+        ],
       },
       include: [
         { model: Status, as: "StatusDetail" },
@@ -600,5 +603,49 @@ export const getActiveBreaks = async (req: Request, res: Response) => {
     return res
       .status(500)
       .json({ message: "Mola verileri çekilirken hata oluştu." });
+  }
+};
+
+export const getFactoryEntryTime = async (req: Request, res: Response) => {
+  try {
+    const { externalId } = req.query;
+
+    if (!externalId) {
+      return res.status(200).json({ entryTime: null });
+    }
+
+    const todayStart = new Date().setHours(0, 0, 0, 0);
+
+    // 1. Bugünkü en son giriş
+    const lastEntry = await ExternalMovement.findOne({
+      where: {
+        KisiId: externalId,
+        KabulGirisCikis: 1,
+        Zaman: { [Op.gte]: todayStart },
+      },
+      order: [["Zaman", "DESC"]],
+      attributes: ["Zaman"],
+    });
+
+    // 2. Bir önceki günün en son çıkışı (Bugünden küçük olan en son çıkış)
+    const lastExit = await ExternalMovement.findOne({
+      where: {
+        KisiId: externalId,
+        KabulGirisCikis: 2,
+        Zaman: { [Op.lt]: todayStart },
+      },
+      order: [["Zaman", "DESC"]],
+      attributes: ["Zaman"],
+    });
+
+    return res.status(200).json({
+      entryTime: lastEntry ? lastEntry.Zaman : null,
+      exitTime: lastExit ? lastExit.Zaman : null,
+    });
+  } catch (error) {
+    console.error("getFactoryEntryTime Error:", error);
+    return res
+      .status(500)
+      .json({ message: "Giriş saati alınırken hata oluştu." });
   }
 };

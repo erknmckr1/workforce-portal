@@ -67,7 +67,8 @@ export const standardLogin = async (req: Request, res: Response): Promise<any> =
                 role: user.Role?.name,
                 permissions: permissionsList,
                 leave_balance: user.leave_balance,
-                photo_url: user.photo_url
+                photo_url: user.photo_url,
+                external_id: user.external_id
             }
         });
     } catch (error) {
@@ -114,7 +115,8 @@ export const checkAuth = async (req: Request, res: Response): Promise<any> => {
                 role: user.Role?.name,
                 permissions: permissionsList,
                 leave_balance: user.leave_balance,
-                photo_url: user.photo_url
+                photo_url: user.photo_url,
+                external_id: user.external_id
             }
         });
     } catch (error) {

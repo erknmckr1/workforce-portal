@@ -8,6 +8,7 @@ interface User {
   permissions: string[];
   leave_balance: number;
   photo_url?: string;
+  external_id?: number;
 }
 
 interface AuthState {

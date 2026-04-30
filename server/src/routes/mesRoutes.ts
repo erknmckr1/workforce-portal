@@ -33,5 +33,6 @@ router.post("/finish-work", MesController.finishWork);
 router.post("/start-break", MesController.startBreak);
 router.post("/end-break", MesController.endBreak);
 router.get("/active-breaks", MesController.getActiveBreaks);
+router.get("/get-factory-entry", MesController.getFactoryEntryTime);
 
 export default router;

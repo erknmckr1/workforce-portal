@@ -208,7 +208,9 @@ const UretimTerminal = () => {
   const { data: activeBreaks } = useQuery({
     queryKey: ["activeBreaks", areaName],
     queryFn: async () => {
-      const res = await apiClient.get(`/mes/active-breaks?areaName=${areaName}`);
+      const res = await apiClient.get(
+        `/mes/active-breaks?areaName=${areaName}`,
+      );
       return res.data;
     },
     refetchInterval: 30000, // 30 saniyede bir otomatik yenile
@@ -303,6 +305,7 @@ const UretimTerminal = () => {
         handleSearch={handleSearch}
         isSearching={isSearching}
         currentTime={currentTime}
+        externalId={user?.external_id}
       />
 
       {/* MAIN LAYOUT */}
@@ -383,8 +386,10 @@ const UretimTerminal = () => {
                     })
                   ) : (
                     <div className="h-full flex flex-col items-center justify-center gap-3 text-muted-foreground/30 py-8">
-                       <RotateCw size={48} className="opacity-10" />
-                       <span className="font-black text-xs uppercase tracking-widest">Mola Verisi Yok</span>
+                      <RotateCw size={48} className="opacity-10" />
+                      <span className="font-black text-xs uppercase tracking-widest">
+                        Mola Verisi Yok
+                      </span>
                     </div>
                   )}
                 </div>

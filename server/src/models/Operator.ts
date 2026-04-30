@@ -24,6 +24,7 @@ export class Operator extends Model {
     public stop_name?: string;
     public photo_url?: string;
     public is_active!: number;
+    public external_id?: number;
 }
 
 Operator.init(
@@ -50,6 +51,7 @@ Operator.init(
         stop_name: { type: DataTypes.STRING(255), allowNull: true },
         photo_url: { type: DataTypes.STRING(255), allowNull: true },
         is_active: { type: DataTypes.INTEGER, defaultValue: 1 },
+        external_id: { type: DataTypes.INTEGER, allowNull: true },
     },
     { 
         sequelize, 
