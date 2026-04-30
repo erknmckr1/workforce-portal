@@ -11,7 +11,10 @@ import TerminalHeader from "../components/terminal/TerminalHeader";
 import TerminalLoginModal from "../components/terminal/TerminalLoginModal";
 import FinishWorkModal from "../components/terminal/FinishWorkModal";
 import StopWorkModal from "../components/terminal/StopWorkModal";
+import FoodMenuModal from "../components/terminal/FoodMenuModal";
 import { useAuthStore } from "../store/authStore";
+import KioskPage from "./KioskPage";
+import { useModuleStore } from "../store/moduleStore";
 import type { MesProcess, SapOrder, WorkLog } from "../types/mes";
 import { toast } from "sonner";
 
@@ -31,6 +34,9 @@ const UretimTerminal = () => {
   const [selectedJob, setSelectedJob] = useState<string | null>(null);
   const [isFinishModalOpen, setIsFinishModalOpen] = useState(false);
   const [isStopModalOpen, setIsStopModalOpen] = useState(false);
+  const [isKioskOpen, setIsKioskOpen] = useState(false);
+  const [isFoodMenuOpen, setIsFoodMenuOpen] = useState(false);
+  const { closePopup } = useModuleStore();
   const [selectedProcessId, setSelectedProcessId] = useState<string | null>(
     null,
   );
@@ -160,23 +166,44 @@ const UretimTerminal = () => {
 
   return (
     <div className="h-screen w-screen bg-background text-foreground flex flex-col overflow-hidden font-sans select-none">
+      {/* Kiosk Overlay */}
+      {isKioskOpen && (
+        <div className="fixed inset-0 z-100 animate-in fade-in duration-300">
+          <KioskPage />
+          {/* Kiosk'u kapatmak için bir çıkış butonu ekliyoruz */}
+          <button
+            onClick={() => {
+              setIsKioskOpen(false);
+              closePopup();
+            }}
+            className="fixed top-2 right-0 z-110 bg-destructive text-destructive-foreground px-6 py-3 rounded-xl font-black uppercase tracking-widest shadow-2xl hover:scale-105 active:scale-95 transition-all"
+          >
+            Terminal'e Dön
+          </button>
+        </div>
+      )}
+
       {/* Login Modal Overlay */}
       {!isAuthenticated && (
         <TerminalLoginModal onLoginSuccess={handleLoginSuccess} />
       )}
 
-      <FinishWorkModal 
+      <FinishWorkModal
         isOpen={isFinishModalOpen}
         onClose={() => setIsFinishModalOpen(false)}
         selectedJob={selectedJob}
         onJobDeselect={() => setSelectedJob(null)}
       />
 
-      <StopWorkModal 
+      <StopWorkModal
         isOpen={isStopModalOpen}
         onClose={() => setIsStopModalOpen(false)}
         selectedJob={selectedJob}
         onJobDeselect={() => setSelectedJob(null)}
+      />
+      <FoodMenuModal 
+        isOpen={isFoodMenuOpen}
+        onClose={() => setIsFoodMenuOpen(false)}
       />
 
       <TerminalHeader
@@ -193,7 +220,12 @@ const UretimTerminal = () => {
       <div className="flex flex-1 overflow-hidden relative">
         <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.03] pointer-events-none" />
 
-        <TerminalLeftSide operator={user} onLogout={handleLogout} />
+        <TerminalLeftSide
+          operator={user}
+          onLogout={handleLogout}
+          onOpenKiosk={() => setIsKioskOpen(true)}
+          onOpenFoodMenu={() => setIsFoodMenuOpen(true)}
+        />
 
         <main className="flex-1 flex flex-col relative z-10">
           <div className="h-[65%] flex">
@@ -202,8 +234,8 @@ const UretimTerminal = () => {
               selectedJob={selectedJob}
               onSelectJob={setSelectedJob}
             />
-            <TerminalRightSide 
-              selectedJob={selectedJob} 
+            <TerminalRightSide
+              selectedJob={selectedJob}
               onJobDeselect={() => setSelectedJob(null)}
               onOpenFinishModal={() => setIsFinishModalOpen(true)}
               onOpenStopModal={() => setIsStopModalOpen(true)}

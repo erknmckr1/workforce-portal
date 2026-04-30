@@ -64,6 +64,15 @@ const TerminalHeader: React.FC<TerminalHeaderProps> = ({
           </div>
         </div>
 
+        {/* RELOAD BUTTON */}
+        <button
+          onClick={() => window.location.reload()}
+          className="p-3 bg-secondary hover:bg-accent rounded-xl border border-border transition-all duration-300 group active:scale-90"
+          title="Sayfayı Yenile"
+        >
+          <RefreshCcw size={20} className="text-muted-foreground group-hover:text-emerald-500 transition-colors" />
+        </button>
+
         {/* THEME TOGGLE */}
         <button
           onClick={() => setTheme(theme === "dark" ? "light" : "dark")}

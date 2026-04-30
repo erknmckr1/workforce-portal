@@ -7,15 +7,19 @@ type User = NonNullable<ReturnType<typeof useAuthStore.getState>["user"]>;
 interface TerminalLeftSideProps {
   operator: User | null;
   onLogout: () => void;
+  onOpenKiosk: () => void;
+  onOpenFoodMenu: () => void;
 }
 
 const TerminalLeftSide: React.FC<TerminalLeftSideProps> = ({
   operator,
   onLogout,
+  onOpenKiosk,
+  onOpenFoodMenu,
 }) => {
   const apiBaseUrl = import.meta.env.VITE_API_BASE_URL.replace("/api", "");
-  const photoUrl = operator?.photo_url 
-    ? `${apiBaseUrl}/photos/${operator.photo_url}` 
+  const photoUrl = operator?.photo_url
+    ? `${apiBaseUrl}/photos/${operator.photo_url}`
     : null;
 
   return (
@@ -57,7 +61,7 @@ const TerminalLeftSide: React.FC<TerminalLeftSideProps> = ({
           size={18}
           className="group-hover:-translate-x-1 transition-transform"
         />
-        <span className="text-xs uppercase tracking-wider">Güvenli Çıkış</span>
+        <span className="text-xs py-4 uppercase tracking-wider">Çıkış</span>
       </button>
 
       <div className="flex-1"></div>
@@ -71,7 +75,11 @@ const TerminalLeftSide: React.FC<TerminalLeftSideProps> = ({
         ].map((btn, i) => (
           <button
             key={i}
-            className={`w-full font-bold py-3.5 rounded-lg shadow-md transition-all duration-300 text-[11px] uppercase tracking-widest border border-border active:scale-95
+            onClick={() => {
+              if (btn.label === "İzin Girişi") onOpenKiosk();
+              if (btn.label === "Yemek Menüsü") onOpenFoodMenu();
+            }}
+            className={`w-full font-bold py-6 rounded-lg shadow-md transition-all duration-300 text-[11px] uppercase tracking-widest border border-border active:scale-95
               ${btn.variant === "info" ? "bg-secondary hover:bg-info hover:text-info-foreground" : ""}
               ${btn.variant === "warning" ? "bg-secondary hover:bg-warning hover:text-warning-foreground" : ""}
               ${btn.variant === "success" ? "bg-secondary hover:bg-success hover:text-success-foreground" : ""}

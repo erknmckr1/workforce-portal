@@ -11,7 +11,11 @@ export const getMonthlyMenu = async (req: Request, res: Response): Promise<Respo
         }
 
         const startDate = `${year}-${month}-01`;
-        const endDate = new Date(parseInt(year as string), parseInt(month as string), 0).toISOString().split('T')[0];
+        
+        // Ayın son gününü yerel saatle hesaplayalım
+        const endOfMo = new Date(parseInt(year as string), parseInt(month as string), 0);
+        const offset = endOfMo.getTimezoneOffset();
+        const endDate = new Date(endOfMo.getTime() - (offset * 60 * 1000)).toISOString().split('T')[0];
 
         const menu = await FoodMenu.findAll({
             where: {
@@ -88,9 +92,13 @@ export const bulkUpdateMenu = async (req: Request, res: Response): Promise<Respo
 // Bugünün menüsünü getir (Dashboard için)
 export const getTodayMenu = async (req: Request, res: Response): Promise<Response> => {
     try {
-        const today = new Date().toISOString().split('T')[0];
+        // toISOString() yerine yerel tarihi YYYY-MM-DD formatında alalım
+        const now = new Date();
+        const offset = now.getTimezoneOffset();
+        const localToday = new Date(now.getTime() - (offset * 60 * 1000)).toISOString().split('T')[0];
+
         const menu = await FoodMenu.findOne({
-            where: { menu_date: today }
+            where: { menu_date: localToday }
         });
 
         if (!menu) {
