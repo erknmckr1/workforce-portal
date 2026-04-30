@@ -66,6 +66,8 @@ const TerminalJobTable: React.FC<TerminalJobTableProps> = ({
                       ? "bg-success border-transparent hover:bg-success"
                       : job.status === 2
                       ? "bg-destructive border-transparent hover:bg-destructive"
+                      : job.status === 9
+                      ? "bg-destructive border-transparent hover:bg-destructive"
                       : "bg-card/40 border-transparent hover:bg-secondary/40"
                   }
                 `}

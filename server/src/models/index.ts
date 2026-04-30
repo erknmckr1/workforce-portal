@@ -15,8 +15,9 @@ import { MesStopReason } from "./MesStopReason";
 import { MesProcess } from "./MesProcess";
 import { WorkLog } from "./WorkLog";
 import { WorkLogPause } from "./WorkLogPause";
+import { WorkLogRepair } from "./WorkLogRepair";
+import { OperatorBreak } from "./OperatorBreak";
 import { Status } from "./Status";
-
 
 // --- Lookups & Operator Associations ---
 Section.hasMany(Department, { foreignKey: "section_id" });
@@ -93,6 +94,11 @@ Notification.belongsTo(LeaveRecord, { as: "Leave", foreignKey: "related_id" });
 PasswordResetRequest.belongsTo(Operator, { as: "User", foreignKey: "user_id" });
 Operator.hasMany(PasswordResetRequest, { foreignKey: "user_id" });
 PasswordResetRequest.belongsTo(Operator, { as: "Handler", foreignKey: "handled_by" });
+
+// --- Break Associations ---
+OperatorBreak.belongsTo(Operator, { as: "Operator", foreignKey: "operator_id", targetKey: "id_dec" });
+Operator.hasMany(OperatorBreak, { foreignKey: "operator_id", sourceKey: "id_dec" });
+
 export {
     sequelize,
     Section,
@@ -118,5 +124,7 @@ export {
     MesProcess,
     WorkLog,
     WorkLogPause,
+    WorkLogRepair,
+    OperatorBreak,
     Status
 };

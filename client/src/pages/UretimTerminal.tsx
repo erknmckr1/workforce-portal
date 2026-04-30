@@ -12,11 +12,26 @@ import TerminalLoginModal from "../components/terminal/TerminalLoginModal";
 import FinishWorkModal from "../components/terminal/FinishWorkModal";
 import StopWorkModal from "../components/terminal/StopWorkModal";
 import FoodMenuModal from "../components/terminal/FoodMenuModal";
+import BreakModal from "../components/terminal/BreakModal";
 import { useAuthStore } from "../store/authStore";
 import KioskPage from "./KioskPage";
 import { useModuleStore } from "../store/moduleStore";
 import type { MesProcess, SapOrder, WorkLog } from "../types/mes";
 import { toast } from "sonner";
+import { RotateCw } from "lucide-react";
+
+interface OperatorBreak {
+  id: number;
+  operator_id: string;
+  area_name?: string;
+  break_reason: string;
+  start_date: string;
+  Operator?: {
+    name: string;
+    surname: string;
+    id_dec: string;
+  };
+}
 
 const UretimTerminal = () => {
   const { section, areaName } = useParams<{
@@ -36,12 +51,52 @@ const UretimTerminal = () => {
   const [isStopModalOpen, setIsStopModalOpen] = useState(false);
   const [isKioskOpen, setIsKioskOpen] = useState(false);
   const [isFoodMenuOpen, setIsFoodMenuOpen] = useState(false);
+  const [isBreakModalOpen, setIsBreakModalOpen] = useState(false);
   const { closePopup } = useModuleStore();
   const [selectedProcessId, setSelectedProcessId] = useState<string | null>(
     null,
   );
   const [currentTime, setCurrentTime] = useState(new Date());
   const [searchOrderId, setSearchOrderId] = useState("");
+
+  //! Mola Başlatma Mutasyonu
+  const startBreakMutation = useMutation({
+    mutationFn: async (breakData: {
+      operator_id: string;
+      break_reason: string;
+      area_name?: string;
+    }) => {
+      const res = await apiClient.post("/mes/start-break", breakData);
+      return res.data;
+    },
+    onSuccess: () => {
+      toast.success("Mola başlatıldı! Aktif işleriniz duraklatıldı.");
+      setIsBreakModalOpen(false); // Modal'ı kapat
+      queryClient.invalidateQueries({ queryKey: ["activeBreaks"] });
+      queryClient.invalidateQueries({ queryKey: ["workLogs"] });
+    },
+    onError: (error: AxiosError<{ message: string }>) => {
+      toast.error(error.response?.data?.message || "Mola başlatılamadı.");
+    },
+  });
+
+  //! Moladan Dönüş Mutasyonu
+  const endBreakMutation = useMutation({
+    mutationFn: async (operatorId: string) => {
+      const res = await apiClient.post("/mes/end-break", {
+        operator_id: operatorId,
+      });
+      return res.data;
+    },
+    onSuccess: () => {
+      toast.success("Moladan dönüldü! İşleriniz tekrar başlatıldı.");
+      queryClient.invalidateQueries({ queryKey: ["activeBreaks"] });
+      queryClient.invalidateQueries({ queryKey: ["workLogs"] });
+    },
+    onError: (error: AxiosError<{ message: string }>) => {
+      toast.error(error.response?.data?.message || "Moladan dönülemedi.");
+    },
+  });
 
   // Saat güncelleme
   useEffect(() => {
@@ -138,13 +193,26 @@ const UretimTerminal = () => {
   });
 
   const { data: workLogs } = useQuery<WorkLog[]>({
-    queryKey: ["workLogs", areaName],
+    queryKey: ["workLogs", areaName, user?.id_dec],
     queryFn: async () => {
       if (!areaName) return [];
-      const res = await apiClient.get(`/mes/work-logs?areaName=${areaName}`);
+      const res = await apiClient.get(
+        `/mes/work-logs?areaName=${areaName}&operatorId=${user?.id_dec}`,
+      );
       return res.data;
     },
     enabled: isAuthenticated && !!areaName,
+  });
+
+  //! Aktif Molaları Çekecek Query
+  const { data: activeBreaks } = useQuery({
+    queryKey: ["activeBreaks", areaName],
+    queryFn: async () => {
+      const res = await apiClient.get(`/mes/active-breaks?areaName=${areaName}`);
+      return res.data;
+    },
+    refetchInterval: 30000, // 30 saniyede bir otomatik yenile
+    enabled: isAuthenticated,
   });
 
   //* Backend'den gelen WorkLog verisini Tablo formatına (Job) çeviriyoruz
@@ -152,7 +220,9 @@ const UretimTerminal = () => {
     workLogs?.map((log: WorkLog) => ({
       id: String(log.id),
       operatorId: log.operator_id,
-      operatorName: log.operator_id, // TODO: Operatör ismi eklenebilir
+      operatorName: log.Operator
+        ? `${log.Operator.name} ${log.Operator.surname}`
+        : log.operator_id,
       orderId: log.order_no,
       oldCode: "-",
       processId: log.process_id,
@@ -201,9 +271,28 @@ const UretimTerminal = () => {
         selectedJob={selectedJob}
         onJobDeselect={() => setSelectedJob(null)}
       />
-      <FoodMenuModal 
+      <FoodMenuModal
         isOpen={isFoodMenuOpen}
         onClose={() => setIsFoodMenuOpen(false)}
+      />
+
+      <BreakModal
+        isOpen={isBreakModalOpen}
+        onClose={() => setIsBreakModalOpen(false)}
+        operator={
+          user
+            ? { id_dec: user.id_dec, full_name: `${user.name} ${user.surname}` }
+            : null
+        }
+        onConfirm={(reason) => {
+          if (user) {
+            startBreakMutation.mutate({
+              operator_id: user.id_dec,
+              break_reason: reason,
+              area_name: areaName, // Hangi terminalden mola verildiği bilgisini gönderiyoruz
+            });
+          }
+        }}
       />
 
       <TerminalHeader
@@ -225,6 +314,10 @@ const UretimTerminal = () => {
           onLogout={handleLogout}
           onOpenKiosk={() => setIsKioskOpen(true)}
           onOpenFoodMenu={() => setIsFoodMenuOpen(true)}
+          onOpenBreak={() => setIsBreakModalOpen(true)}
+          onEndBreak={() => {
+            if (user) endBreakMutation.mutate(user.id_dec);
+          }}
         />
 
         <main className="flex-1 flex flex-col relative z-10">
@@ -251,8 +344,49 @@ const UretimTerminal = () => {
                   <div className="w-24 text-center">Süre</div>
                   <div className="w-24 text-center">Durum</div>
                 </div>
-                <div className="flex-1 flex items-center justify-center text-muted-foreground/50 font-bold text-xs uppercase tracking-tighter">
-                  Mola Verisi Yok
+                <div className="flex-1 overflow-y-auto custom-scrollbar">
+                  {activeBreaks && activeBreaks.length > 0 ? (
+                    activeBreaks.map((mola: OperatorBreak) => {
+                      const startTime = new Date(mola.start_date);
+                      const diffInMin = Math.floor(
+                        (currentTime.getTime() - startTime.getTime()) / 60000,
+                      );
+
+                      return (
+                        <div
+                          key={mola.id}
+                          className="flex items-center p-3 border-b border-border/50 hover:bg-secondary/30 transition-colors"
+                        >
+                          <div className="flex-1 flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-lg bg-mds/20 flex items-center justify-center text-mds font-black text-xs">
+                              {mola.Operator?.name?.[0]}
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-xs font-black uppercase">
+                                {mola.Operator?.name} {mola.Operator?.surname}
+                              </span>
+                              <span className="text-[9px] text-muted-foreground font-bold uppercase tracking-wider">
+                                {mola.break_reason}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="w-24 text-center font-mono text-xs font-black text-amber-500 tabular-nums">
+                            {diffInMin} DK
+                          </div>
+                          <div className="w-24 flex justify-center">
+                            <div className="bg-amber-500/10 text-amber-500 text-[9px] font-black px-2 py-1 rounded uppercase tracking-tighter border border-amber-500/20 animate-pulse">
+                              Molada
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="h-full flex flex-col items-center justify-center gap-3 text-muted-foreground/30 py-8">
+                       <RotateCw size={48} className="opacity-10" />
+                       <span className="font-black text-xs uppercase tracking-widest">Mola Verisi Yok</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

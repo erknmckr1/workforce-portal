@@ -29,4 +29,9 @@ router.post("/restart-work", MesController.restartWork);
 // Mevcut işi bitirecek rota
 router.post("/finish-work", MesController.finishWork);
 
+// Mola İşlemleri
+router.post("/start-break", MesController.startBreak);
+router.post("/end-break", MesController.endBreak);
+router.get("/active-breaks", MesController.getActiveBreaks);
+
 export default router;

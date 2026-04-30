@@ -5,10 +5,13 @@ import {
   MesRepairReason,
   MesStopReason,
   Status,
+  Operator,
+  Department,
 } from "../models";
 import { WorkLog } from "../models/WorkLog";
 import { WorkLogPause } from "../models/WorkLogPause";
 import { WorkLogRepair } from "../models/WorkLogRepair";
+import { OperatorBreak } from "../models/OperatorBreak";
 import { Op } from "sequelize";
 
 export const getSapOrder = async (req: Request, res: Response) => {
@@ -316,7 +319,7 @@ export const stopWork = async (req: Request, res: Response) => {
 
 export const getWorkLogs = async (req: Request, res: Response) => {
   try {
-    const { areaName } = req.query;
+    const { areaName, operatorId } = req.query;
 
     if (!areaName) {
       return res.status(400).json({ message: "Bölüm adı (areaName) gerekli." });
@@ -325,9 +328,15 @@ export const getWorkLogs = async (req: Request, res: Response) => {
     const workLogs = await WorkLog.findAll({
       where: {
         area_name: areaName as string,
-        status: { [Op.in]: [1, 2] },
+        [Op.or]: [
+          { status: 1, operator_id: operatorId as string }, // Sadece aktif kullanıcının devam eden işleri
+          { status: { [Op.in]: [2, 9] } }                   // Durdurulmuş veya mola nedeniyle bekleyen tüm işler
+        ]
       },
-      include: [{ model: Status, as: "StatusDetail" }],
+      include: [
+        { model: Status, as: "StatusDetail" },
+        { model: Operator, as: "Operator", attributes: ["name", "surname"] },
+      ],
       order: [["start_date", "DESC"]],
     });
 
@@ -450,5 +459,146 @@ export const finishWork = async (req: Request, res: Response) => {
     return res.status(500).json({
       message: "İş sonlandırılırken sunucu tarafında bir hata oluştu.",
     });
+  }
+};
+
+export const startBreak = async (req: Request, res: Response) => {
+  try {
+    const { operator_id, break_reason, area_name } = req.body;
+
+    if (!operator_id || !break_reason) {
+      return res
+        .status(400)
+        .json({ message: "Operatör ve mola nedeni gerekli." });
+    }
+
+    // 1. Aktif bir mola var mı kontrol et
+    const activeBreak = await OperatorBreak.findOne({
+      where: { operator_id, status: 1 },
+    });
+
+    if (activeBreak) {
+      return res
+        .status(400)
+        .json({ message: "Zaten aktif bir molanız bulunuyor." });
+    }
+
+    // 2. Molayı başlat
+    const newBreak = await OperatorBreak.create({
+      operator_id,
+      break_reason,
+      area_name, // Terminal bilgisi eklendi
+      start_date: new Date(),
+      status: 1,
+    });
+
+    // 3. Operatörün aktif (status=1) işlerini bul ve durumunu 9 (Mola) yap
+    const activeWorkLogs = await WorkLog.findAll({
+      where: {
+        operator_id,
+        status: 1,
+      },
+    });
+
+    for (const log of activeWorkLogs) {
+      // Her bir iş için otomatik duruş kaydı oluştur
+      await WorkLogPause.create({
+        work_log_id: log.id,
+        stop_reason_id: "MOLA",
+        operator_id,
+        pause_start: new Date(),
+      });
+
+      await log.update({ status: 9 });
+    }
+
+    return res.status(200).json({
+      message: "Mola başlatıldı ve aktif işleriniz duraklatıldı.",
+      data: newBreak,
+    });
+  } catch (error) {
+    console.error("startBreak Error:", error);
+    return res.status(500).json({ message: "Mola başlatılırken hata oluştu." });
+  }
+};
+
+export const endBreak = async (req: Request, res: Response) => {
+  try {
+    const { operator_id } = req.body;
+
+    if (!operator_id) {
+      return res.status(400).json({ message: "Operatör ID gerekli." });
+    }
+
+    const activeBreak = await OperatorBreak.findOne({
+      where: { operator_id, status: 1 },
+    });
+
+    if (!activeBreak) {
+      return res.status(400).json({ message: "Aktif mola kaydı bulunamadı." });
+    }
+
+    // 1. Molayı bitir
+    await activeBreak.update({
+      end_date: new Date(),
+      status: 2, // Tamamlandı
+    });
+
+    // 2. Mola nedeniyle duran (status=9) işleri bul ve geri başlat
+    const pausedWorkLogs = await WorkLog.findAll({
+      where: {
+        operator_id,
+        status: 9,
+      },
+    });
+
+    for (const log of pausedWorkLogs) {
+      // Açık mola duruş kaydını kapat
+      const openPause = await WorkLogPause.findOne({
+        where: { work_log_id: log.id, pause_end: null },
+        order: [["pause_start", "DESC"]],
+      });
+
+      if (openPause) {
+        await openPause.update({ pause_end: new Date() });
+      }
+
+      await log.update({ status: 1 });
+    }
+
+    return res.status(200).json({
+      message: "Mola bitti ve işleriniz kaldığı yerden devam ediyor.",
+    });
+  } catch (error) {
+    console.error("endBreak Error:", error);
+    return res.status(500).json({ message: "Moladan dönerken hata oluştu." });
+  }
+};
+
+export const getActiveBreaks = async (req: Request, res: Response) => {
+  try {
+    const { areaName } = req.query;
+
+    const activeBreaks = await OperatorBreak.findAll({
+      where: {
+        status: 1,
+        ...(areaName && { area_name: String(areaName) }), // Doğrudan area_name üzerinden filtrele
+      },
+      include: [
+        {
+          model: Operator,
+          as: "Operator",
+          attributes: ["name", "surname", "id_dec"],
+        },
+      ],
+      order: [["start_date", "DESC"]],
+    });
+
+    return res.status(200).json(activeBreaks);
+  } catch (error) {
+    console.error("getActiveBreaks Error:", error);
+    return res
+      .status(500)
+      .json({ message: "Mola verileri çekilirken hata oluştu." });
   }
 };

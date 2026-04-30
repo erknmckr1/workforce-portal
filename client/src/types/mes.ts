@@ -36,6 +36,10 @@ export interface WorkLog {
     name: string;
     color_code: string;
   };
+  Operator?: {
+    name: string;
+    surname: string;
+  };
   start_date: string;
 }
 

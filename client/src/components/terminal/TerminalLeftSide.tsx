@@ -9,6 +9,8 @@ interface TerminalLeftSideProps {
   onLogout: () => void;
   onOpenKiosk: () => void;
   onOpenFoodMenu: () => void;
+  onOpenBreak: () => void;
+  onEndBreak: () => void;
 }
 
 const TerminalLeftSide: React.FC<TerminalLeftSideProps> = ({
@@ -16,6 +18,8 @@ const TerminalLeftSide: React.FC<TerminalLeftSideProps> = ({
   onLogout,
   onOpenKiosk,
   onOpenFoodMenu,
+  onOpenBreak,
+  onEndBreak,
 }) => {
   const apiBaseUrl = import.meta.env.VITE_API_BASE_URL.replace("/api", "");
   const photoUrl = operator?.photo_url
@@ -78,6 +82,8 @@ const TerminalLeftSide: React.FC<TerminalLeftSideProps> = ({
             onClick={() => {
               if (btn.label === "İzin Girişi") onOpenKiosk();
               if (btn.label === "Yemek Menüsü") onOpenFoodMenu();
+              if (btn.label === "Araya Çık") onOpenBreak();
+              if (btn.label === "Moladan Dön") onEndBreak();
             }}
             className={`w-full font-bold py-6 rounded-lg shadow-md transition-all duration-300 text-[11px] uppercase tracking-widest border border-border active:scale-95
               ${btn.variant === "info" ? "bg-secondary hover:bg-info hover:text-info-foreground" : ""}
