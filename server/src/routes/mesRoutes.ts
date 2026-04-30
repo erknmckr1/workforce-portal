@@ -26,4 +26,7 @@ router.get("/work-logs", MesController.getWorkLogs);
 // Mevcut işi yeniden başlatacak rota
 router.post("/restart-work", MesController.restartWork);
 
+// Mevcut işi bitirecek rota
+router.post("/finish-work", MesController.finishWork);
+
 export default router;

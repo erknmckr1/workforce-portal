@@ -9,6 +9,8 @@ import TerminalJobTable from "../components/terminal/TerminalJobTable";
 import type { Job } from "../components/terminal/TerminalJobTable";
 import TerminalHeader from "../components/terminal/TerminalHeader";
 import TerminalLoginModal from "../components/terminal/TerminalLoginModal";
+import FinishWorkModal from "../components/terminal/FinishWorkModal";
+import StopWorkModal from "../components/terminal/StopWorkModal";
 import { useAuthStore } from "../store/authStore";
 import type { MesProcess, SapOrder, WorkLog } from "../types/mes";
 import { toast } from "sonner";
@@ -27,6 +29,8 @@ const UretimTerminal = () => {
   } = useAuthStore();
   const queryClient = useQueryClient();
   const [selectedJob, setSelectedJob] = useState<string | null>(null);
+  const [isFinishModalOpen, setIsFinishModalOpen] = useState(false);
+  const [isStopModalOpen, setIsStopModalOpen] = useState(false);
   const [selectedProcessId, setSelectedProcessId] = useState<string | null>(
     null,
   );
@@ -161,6 +165,20 @@ const UretimTerminal = () => {
         <TerminalLoginModal onLoginSuccess={handleLoginSuccess} />
       )}
 
+      <FinishWorkModal 
+        isOpen={isFinishModalOpen}
+        onClose={() => setIsFinishModalOpen(false)}
+        selectedJob={selectedJob}
+        onJobDeselect={() => setSelectedJob(null)}
+      />
+
+      <StopWorkModal 
+        isOpen={isStopModalOpen}
+        onClose={() => setIsStopModalOpen(false)}
+        selectedJob={selectedJob}
+        onJobDeselect={() => setSelectedJob(null)}
+      />
+
       <TerminalHeader
         areaName={areaName}
         section={section}
@@ -186,7 +204,9 @@ const UretimTerminal = () => {
             />
             <TerminalRightSide 
               selectedJob={selectedJob} 
-              onJobDeselect={() => setSelectedJob(null)} 
+              onJobDeselect={() => setSelectedJob(null)}
+              onOpenFinishModal={() => setIsFinishModalOpen(true)}
+              onOpenStopModal={() => setIsStopModalOpen(true)}
             />
           </div>
 

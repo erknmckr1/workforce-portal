@@ -1,7 +1,14 @@
 import { Request, Response } from "express";
-import { SapOrder, MesProcess, MesRepairReason, MesStopReason, Status } from "../models";
+import {
+  SapOrder,
+  MesProcess,
+  MesRepairReason,
+  MesStopReason,
+  Status,
+} from "../models";
 import { WorkLog } from "../models/WorkLog";
 import { WorkLogPause } from "../models/WorkLogPause";
+import { WorkLogRepair } from "../models/WorkLogRepair";
 import { Op } from "sequelize";
 
 export const getSapOrder = async (req: Request, res: Response) => {
@@ -64,7 +71,9 @@ export const getRepairReasonsByArea = async (
 
   try {
     if (!areaName || !section) {
-      return res.status(400).json({ message: "Bölüm (areaName) ve alt bölüm (section) gerekli." });
+      return res
+        .status(400)
+        .json({ message: "Bölüm (areaName) ve alt bölüm (section) gerekli." });
     }
 
     const reasons = await MesRepairReason.findAll({
@@ -192,7 +201,7 @@ export const startWork = async (req: Request, res: Response) => {
       const activeKaliteJob = await WorkLog.findOne({
         where: {
           order_no,
-          status: { [Op.in]: [1, 2, 4] },
+          status: { [Op.in]: [1, 2] },
         },
       });
       if (activeKaliteJob) {
@@ -232,7 +241,9 @@ export const cancelWork = async (req: Request, res: Response) => {
   try {
     const { workLogId, operatorId, cancelReasonId } = req.body;
     if (!workLogId || !operatorId) {
-      return res.status(400).json({ message: "Sipariş ID'si ve Operatör ID'si gerekli." });
+      return res
+        .status(400)
+        .json({ message: "Sipariş ID'si ve Operatör ID'si gerekli." });
     }
     const workLog = await WorkLog.findOne({
       where: {
@@ -252,20 +263,20 @@ export const cancelWork = async (req: Request, res: Response) => {
     return res.status(200).json({ message: "İş başarıyla iptal edildi." });
   } catch (error) {
     console.error("cancelWork Error:", error);
-    return res
-      .status(500)
-      .json({
-        message: "İş iptal edilirken sunucu tarafında bir hata oluştu.",
-      });
+    return res.status(500).json({
+      message: "İş iptal edilirken sunucu tarafında bir hata oluştu.",
+    });
   }
 };
 
 export const stopWork = async (req: Request, res: Response) => {
   try {
     const { workLogId, operatorId, stopReasonId } = req.body;
-    
+
     if (!workLogId || !operatorId || !stopReasonId) {
-      return res.status(400).json({ message: "Sipariş ID, Operatör ID ve Duruş Nedeni gerekli." });
+      return res
+        .status(400)
+        .json({ message: "Sipariş ID, Operatör ID ve Duruş Nedeni gerekli." });
     }
 
     const workLog = await WorkLog.findOne({
@@ -276,7 +287,10 @@ export const stopWork = async (req: Request, res: Response) => {
     });
 
     if (!workLog) {
-      return res.status(404).json({ message: "Durdurulacak aktif iş bulunamadı. (Sadece statüsü 'Başladı' olan işler durdurulabilir)" });
+      return res.status(404).json({
+        message:
+          "Durdurulacak aktif iş bulunamadı. (Sadece statüsü 'Başladı' olan işler durdurulabilir)",
+      });
     }
 
     // Duruş kaydını logluyoruz
@@ -330,7 +344,9 @@ export const restartWork = async (req: Request, res: Response) => {
   try {
     const { workLogId, operatorId } = req.body;
     if (!workLogId || !operatorId) {
-      return res.status(400).json({ message: "Sipariş ID'si ve Operatör ID'si gerekli." });
+      return res
+        .status(400)
+        .json({ message: "Sipariş ID'si ve Operatör ID'si gerekli." });
     }
     const workLog = await WorkLog.findOne({
       where: {
@@ -339,7 +355,9 @@ export const restartWork = async (req: Request, res: Response) => {
       },
     });
     if (!workLog) {
-      return res.status(404).json({ message: "Yeniden başlatılacak durdurulmuş iş bulunamadı." });
+      return res
+        .status(404)
+        .json({ message: "Yeniden başlatılacak durdurulmuş iş bulunamadı." });
     }
 
     // Açık olan (henüz bitmemiş) son duruş kaydını bul ve kapat
@@ -361,7 +379,9 @@ export const restartWork = async (req: Request, res: Response) => {
       operator_id: operatorId, // İşi devralan başka bir operatörse onu güncelle
     });
 
-    return res.status(200).json({ message: "İş başarıyla yeniden başlatıldı." });
+    return res
+      .status(200)
+      .json({ message: "İş başarıyla yeniden başlatıldı." });
   } catch (error) {
     console.error("restartWork Error:", error);
     return res
@@ -370,3 +390,65 @@ export const restartWork = async (req: Request, res: Response) => {
   }
 };
 
+export const finishWork = async (req: Request, res: Response) => {
+  const {
+    operator_id,
+    work_log_id,
+    produced_qty_gr,
+    finish_description,
+    additional_data,
+  } = req.body;
+
+  if (!operator_id || !work_log_id) {
+    return res.status(400).json({ message: "Operatör ve iş kaydı gerekli." });
+  }
+
+  try {
+    const workLog = await WorkLog.findOne({
+      where: {
+        id: work_log_id,
+        status: [1, 2], // Hem aktif hem de duraklatılmış işler bitirilebilmeli
+      },
+    });
+
+    if (!workLog) {
+      return res.status(404).json({
+        message: "Bitirilecek aktif veya duraklatılmış iş kaydı bulunamadı.",
+      });
+    }
+
+    await workLog.update({
+      status: 4, // 4: Tamamlandı
+      end_date: new Date(),
+      produced_qty_gr,
+      finish_description,
+      additional_data,
+    });
+
+    // --- YENİ: Tamir Detaylarını Ayrı Tabloya Kaydet ---
+    if (
+      additional_data?.repair_details &&
+      Array.isArray(additional_data.repair_details)
+    ) {
+      const repairRows = additional_data.repair_details.map((repair: any) => ({
+        work_log_id: workLog.id,
+        repair_reason_id: repair.reasonId,
+        repair_reason_name: repair.reasonName,
+        qty: repair.qty,
+        target_department: additional_data.target_department || null,
+      }));
+
+      if (repairRows.length > 0) {
+        await WorkLogRepair.bulkCreate(repairRows);
+      }
+    }
+    // --------------------------------------------------
+
+    return res.status(200).json({ message: "İş başarıyla tamamlandı." });
+  } catch (error) {
+    console.error("finishWork Error:", error);
+    return res.status(500).json({
+      message: "İş sonlandırılırken sunucu tarafında bir hata oluştu.",
+    });
+  }
+};
