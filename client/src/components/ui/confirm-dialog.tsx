@@ -6,7 +6,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, Info } from "lucide-react";
+import { AlertTriangle, Info, CheckCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface ConfirmDialogProps {
@@ -17,7 +17,7 @@ interface ConfirmDialogProps {
   description: string;
   confirmText?: string;
   cancelText?: string;
-  variant?: "destructive" | "default";
+  variant?: "destructive" | "default" | "success";
   isLoading?: boolean;
 }
 
@@ -38,9 +38,13 @@ export function ConfirmDialog({
         <DialogHeader className="flex flex-col items-center text-center sm:text-center space-y-4 pt-2">
           <div className={cn(
             "w-20 h-20 rounded-[1.75rem] flex items-center justify-center shadow-inner",
-            variant === "destructive" ? "bg-destructive/10 text-destructive border border-destructive/20" : "bg-primary/10 text-primary border border-primary/20"
+            variant === "destructive" ? "bg-destructive/10 text-destructive border border-destructive/20" : 
+            variant === "success" ? "bg-success/10 text-success border border-success/20" :
+            "bg-primary/10 text-primary border border-primary/20"
           )}>
-            {variant === "destructive" ? <AlertTriangle size={40} /> : <Info size={40} />}
+            {variant === "destructive" ? <AlertTriangle size={40} /> : 
+             variant === "success" ? <CheckCircle size={40} /> : 
+             <Info size={40} />}
           </div>
           <DialogTitle className="text-2xl font-black tracking-tighter">{title}</DialogTitle>
           <DialogDescription className="text-base text-muted-foreground font-bold mt-2">
@@ -66,6 +70,8 @@ export function ConfirmDialog({
               "flex-1 h-14 rounded-[1.25rem] font-black text-lg text-white shadow-xl transition-all active:scale-95",
               variant === "destructive"
                 ? "bg-destructive hover:bg-destructive/90 shadow-destructive/20"
+                : variant === "success"
+                ? "bg-success hover:bg-success/90 shadow-success/20 text-white"
                 : "bg-primary hover:bg-primary/90 shadow-primary/20"
             )}
           >

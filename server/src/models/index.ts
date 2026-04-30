@@ -10,6 +10,12 @@ import { CompanyCalendar } from "./CompanyCalendar";
 import { PasswordResetRequest } from "./PasswordResetRequest";
 import { FoodMenu } from "./FoodMenu";
 import { SapOrder } from "./SapOrder";
+import { MesRepairReason } from "./MesRepairReason";
+import { MesStopReason } from "./MesStopReason";
+import { MesProcess } from "./MesProcess";
+import { WorkLog } from "./WorkLog";
+import { WorkLogPause } from "./WorkLogPause";
+import { Status } from "./Status";
 
 
 // --- Lookups & Operator Associations ---
@@ -33,6 +39,16 @@ JobTitle.hasMany(Operator, { foreignKey: "title" });
 
 Operator.belongsTo(Operator, { as: "Auth1", foreignKey: "auth1" });
 Operator.belongsTo(Operator, { as: "Auth2", foreignKey: "auth2" });
+
+// --- WorkLog Associations ---
+WorkLog.belongsTo(Operator, { as: "Operator", foreignKey: "operator_id", targetKey: "id_dec" });
+Operator.hasMany(WorkLog, { foreignKey: "operator_id", sourceKey: "id_dec" });
+
+WorkLog.belongsTo(Status, { as: "StatusDetail", foreignKey: "status", targetKey: "id" });
+Status.hasMany(WorkLog, { foreignKey: "status", sourceKey: "id" });
+
+WorkLog.hasMany(WorkLogPause, { as: "Pauses", foreignKey: "work_log_id" });
+WorkLogPause.belongsTo(WorkLog, { foreignKey: "work_log_id" });
 
 // --- LeaveRecord Associations ---
 LeaveRecord.belongsTo(Operator, { as: "User", foreignKey: "user_id" });
@@ -96,5 +112,11 @@ export {
     CompanyCalendar,
     PasswordResetRequest,
     FoodMenu,
-    SapOrder
+    SapOrder,
+    MesRepairReason,
+    MesStopReason,
+    MesProcess,
+    WorkLog,
+    WorkLogPause,
+    Status
 };

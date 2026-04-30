@@ -7,7 +7,7 @@ export interface ConfirmOptions {
   description: string;
   confirmText?: string;
   cancelText?: string;
-  variant?: 'default' | 'destructive';
+  variant?: 'default' | 'destructive' | 'success';
 }
 
 export interface ConfirmContextType {

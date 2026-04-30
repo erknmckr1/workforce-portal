@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { AxiosError } from "axios";
 import apiClient from "../lib/api";
 import TerminalLeftSide from "../components/terminal/TerminalLeftSide";
 import TerminalRightSide from "../components/terminal/TerminalRightSide";
@@ -9,6 +10,8 @@ import type { Job } from "../components/terminal/TerminalJobTable";
 import TerminalHeader from "../components/terminal/TerminalHeader";
 import TerminalLoginModal from "../components/terminal/TerminalLoginModal";
 import { useAuthStore } from "../store/authStore";
+import type { MesProcess, SapOrder, WorkLog } from "../types/mes";
+import { toast } from "sonner";
 
 const UretimTerminal = () => {
   const { section, areaName } = useParams<{
@@ -22,7 +25,11 @@ const UretimTerminal = () => {
     login: globalLogin,
     logout: globalLogout,
   } = useAuthStore();
+  const queryClient = useQueryClient();
   const [selectedJob, setSelectedJob] = useState<string | null>(null);
+  const [selectedProcessId, setSelectedProcessId] = useState<string | null>(
+    null,
+  );
   const [currentTime, setCurrentTime] = useState(new Date());
   const [searchOrderId, setSearchOrderId] = useState("");
 
@@ -32,26 +39,75 @@ const UretimTerminal = () => {
     return () => clearInterval(timer);
   }, []);
 
-  // SAP Sipariş Sorgulama (TanStack Query)
-  const { isFetching: isSearching, refetch: fetchOrder } = useQuery({
-    queryKey: ["sap-order", searchOrderId],
-    queryFn: async () => {
-      if (!searchOrderId) return null;
-      const res = await apiClient.get(`/mes/order/${searchOrderId}`);
+  //! SAP Sipariş Sorgulama (TanStack Query)
+  const { isFetching: isSearching, refetch: fetchOrder } =
+    useQuery<SapOrder | null>({
+      queryKey: ["sap-order", searchOrderId],
+      queryFn: async () => {
+        if (!searchOrderId) return null;
+        const res = await apiClient.get(`/mes/order/${searchOrderId}`);
+        return res.data;
+      },
+      enabled: false, // fonksiyonu elle çağırmak için false yapıyoruz. searchOrderId değiştiğinde otomatik çalışmaz.
+    });
+
+  //! İş Başlatma (TanStack Query Mutation)
+  const startWorkMutation = useMutation({
+    mutationFn: async (workData: Record<string, unknown>) => {
+      const res = await apiClient.post("/mes/start-work", workData);
       return res.data;
     },
-    enabled: false, // fonksiyonu elle çağırmak için false yapıyoruz. searchOrderId değiştiğinde otomatik çalışmaz.
+    onSuccess: (data) => {
+      toast.success("İş başarıyla başlatıldı!");
+      console.log(data);
+      setSearchOrderId(""); // Barkod inputunu bir sonraki okutma için temizle
+
+      // İşlem bitince aktif işler tablosunu otomatik yenile!
+      queryClient.invalidateQueries({ queryKey: ["workLogs", areaName] });
+    },
+    onError: (error: AxiosError<{ message: string }>) => {
+      toast.error(
+        error.response?.data?.message || "İş başlatılırken hata oluştu!",
+      );
+      setSearchOrderId(""); // Hata olsa da inputu temizle
+    },
   });
 
-  const handleSearch = (e: React.KeyboardEvent) => {
+  const handleSearch = async (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && searchOrderId) {
-      fetchOrder();
+      if (!selectedProcessId) {
+        toast.error("LÜTFEN ÖNCE YAPACAĞINIZ İŞLEMİ (PROSES) SEÇİNİZ!");
+        setSearchOrderId("");
+        return;
+      }
+
+      // Önce SAP'den siparişi sorgula
+      const result = await fetchOrder();
+
+      if (result.data) {
+        // Sipariş bulunduysa ve proses seçiliyse, OTOMATİK İŞ BAŞLAT
+        const selectedProcess = processes?.find(
+          (p) => p.process_id === selectedProcessId,
+        );
+
+        startWorkMutation.mutate({
+          operator_id: user?.id_dec,
+          order_no: searchOrderId,
+          section_id: section,
+          area_name: areaName,
+          process_id: selectedProcessId,
+          process_name: selectedProcess?.process_name,
+        });
+      } else {
+        // Sipariş SAP'de yoksa
+        toast.error("Böyle bir sipariş numarası bulunamadı!");
+        setSearchOrderId("");
+      }
     }
   };
 
-  const handleLoginSuccess = (userData: any) => {
-    // Burada any kullanmak zorundayız çünkü backend'den gelen veri store User tipiyle tam eşleşmeyebilir
-    // Ancak login fonksiyonu User bekliyor.
+  const handleLoginSuccess = (userData: Parameters<typeof globalLogin>[0]) => {
+    // Burada any yerine globalLogin'in beklediği parametre tipini kullanıyoruz
     globalLogin(userData);
   };
 
@@ -59,31 +115,44 @@ const UretimTerminal = () => {
     globalLogout();
   };
 
-  // Mock Data
-  const mockJobs: Job[] = [
-    {
-      id: "079103",
-      operatorId: "1234567890",
-      operatorName: "Ahmet Yılmaz",
-      orderId: "3365214",
-      oldCode: "K-201",
-      processId: "000001",
-      section: "montaj",
-      process: "Kalite Kontrol",
-      quantity: "150",
+  //! process listesini cekecek query
+  const { isFetching: isFetchingProcesses, data: processes } = useQuery<
+    MesProcess[]
+  >({
+    queryKey: ["processes", areaName],
+    queryFn: async () => {
+      if (!areaName) return [];
+      const res = await apiClient.get(`/mes/processes?areaName=${areaName}`);
+      return res.data;
     },
-    {
-      id: "079104",
-      operatorId: "9876543210",
-      operatorName: "Mehmet Demir",
-      orderId: "3365215",
-      oldCode: "L-302",
-      processId: "000002",
-      section: "montaj",
-      process: "Montaj",
-      quantity: "200",
+  });
+
+  const { data: workLogs } = useQuery<WorkLog[]>({
+    queryKey: ["workLogs", areaName],
+    queryFn: async () => {
+      if (!areaName) return [];
+      const res = await apiClient.get(`/mes/work-logs?areaName=${areaName}`);
+      return res.data;
     },
-  ];
+    enabled: isAuthenticated && !!areaName,
+  });
+
+  //* Backend'den gelen WorkLog verisini Tablo formatına (Job) çeviriyoruz
+  const activeJobs: Job[] =
+    workLogs?.map((log: WorkLog) => ({
+      id: String(log.id),
+      operatorId: log.operator_id,
+      operatorName: log.operator_id, // TODO: Operatör ismi eklenebilir
+      orderId: log.order_no,
+      oldCode: "-",
+      processId: log.process_id,
+      section: log.area_name,
+      process: log.process_name,
+      quantity: "-",
+      status: log.status,
+      statusName: log.StatusDetail?.name || "Bilinmiyor",
+      statusColor: log.StatusDetail?.color_code || "#6b7280", // Gri (Varsayılan)
+    })) || [];
 
   return (
     <div className="h-screen w-screen bg-background text-foreground flex flex-col overflow-hidden font-sans select-none">
@@ -111,16 +180,19 @@ const UretimTerminal = () => {
         <main className="flex-1 flex flex-col relative z-10">
           <div className="h-[65%] flex">
             <TerminalJobTable
-              jobs={mockJobs}
+              jobs={activeJobs}
               selectedJob={selectedJob}
               onSelectJob={setSelectedJob}
             />
-            <TerminalRightSide />
+            <TerminalRightSide 
+              selectedJob={selectedJob} 
+              onJobDeselect={() => setSelectedJob(null)} 
+            />
           </div>
 
           {/* BOTTOM SECTION */}
           <div className="h-[35%] flex bg-card border-t border-border">
-            <div className="w-[40%] p-4 border-r border-border">
+            <div className="w-[50%] p-4 border-r border-border">
               <div className="w-full h-full bg-secondary/20 border border-border rounded-xl overflow-hidden flex flex-col">
                 <div className="bg-secondary/80 p-2 flex text-[10px] font-black text-muted-foreground uppercase tracking-widest">
                   <div className="flex-1 px-2">Operator</div>
@@ -133,15 +205,39 @@ const UretimTerminal = () => {
               </div>
             </div>
 
-            <div className="w-[60%] p-4">
-              <div className="w-full h-full bg-secondary/20 border border-border rounded-xl flex items-center justify-center">
-                <div className="text-center">
-                  <p className="text-muted-foreground text-[10px] font-black uppercase tracking-[0.3em] mb-2">
-                    Seçili İş Detayları
-                  </p>
-                  <p className="text-muted-foreground/40 font-bold text-sm italic">
-                    Henüz bir iş seçilmedi.
-                  </p>
+            <div className="w-[50%] p-4">
+              <div className="w-full h-full bg-secondary/20 border border-border rounded-xl flex flex-col overflow-hidden">
+                <div className="bg-secondary/80 p-2 text-[10px] font-black text-muted-foreground uppercase tracking-widest text-center border-b border-border">
+                  İşlem (Proses) Seçimi
+                </div>
+                <div className="flex-1 overflow-y-auto p-2 scrollbar-thin scrollbar-thumb-border">
+                  {isFetchingProcesses ? (
+                    <div className="h-full flex items-center justify-center text-xs animate-pulse text-muted-foreground">
+                      Prosesler yükleniyor...
+                    </div>
+                  ) : processes && processes.length > 0 ? (
+                    <div className="grid grid-cols-2 gap-2">
+                      {processes.map((proc) => (
+                        <button
+                          key={proc.process_id}
+                          onClick={() => setSelectedProcessId(proc.process_id)}
+                          className={`p-3 rounded-lg border text-left transition-all ${
+                            selectedProcessId === proc.process_id
+                              ? "bg-primary border-primary text-primary-foreground shadow-lg shadow-primary/20 scale-[1.02]"
+                              : "bg-background/50 border-border hover:border-primary/50 text-muted-foreground"
+                          }`}
+                        >
+                          <div className="text-lg font-black leading-tight">
+                            {proc.process_name}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="h-full flex items-center justify-center text-muted-foreground/40 font-bold text-sm italic">
+                      Bu bölüm için proses bulunamadı.
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
