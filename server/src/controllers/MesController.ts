@@ -16,6 +16,26 @@ import { Op, QueryTypes } from "sequelize";
 import timecureSequelize from "../config/timecureDatabase";
 import sapSequelize from "../config/mesDatabase";
 import ExternalMovement from "../models/ExternalMovement";
+import fs from "fs";
+import path from "path";
+
+// Dosya listesi için basit bir cache yapısı
+let fileCache: { files: string[]; lastUpdate: number } = {
+  files: [],
+  lastUpdate: 0,
+};
+const CACHE_DURATION = 5 * 60 * 1000; // 5 dakika
+
+export const isOperatorOnBreak = async (operator_id: string) => {
+  const activeBreak = await OperatorBreak.findOne({
+    where: {
+      operator_id: operator_id,
+      status: 1, // Aktif mola
+      end_date: { [Op.is]: null },
+    },
+  });
+  return !!activeBreak;
+};
 
 export const getSapOrder = async (req: Request, res: Response) => {
   const { orderId } = req.params;
@@ -136,6 +156,7 @@ export const startWork = async (req: Request, res: Response) => {
       process_id,
       process_name,
       machine_name,
+      material_no,
     } = req.body;
 
     // 1. Gerekli Alanların Kontrolü
@@ -146,7 +167,16 @@ export const startWork = async (req: Request, res: Response) => {
       });
     }
 
-    // 2. İş Kuralları (Business Rules)
+    // 2. Mola Kontrolü
+    const onBreak = await isOperatorOnBreak(operator_id);
+    if (onBreak) {
+      return res.status(403).json({
+        message:
+          "Moladayken iş başlatamazsınız. Lütfen önce molanızı bitirin.",
+      });
+    }
+
+    // 3. İş Kuralları (Business Rules)
 
     // Kural A: Cila bölümünde aynı proseste zaten aktif bir iş var mı?
     if (area_name === "cila") {
@@ -227,6 +257,7 @@ export const startWork = async (req: Request, res: Response) => {
       process_id,
       process_name,
       machine_name: machine_name || null,
+      material_no: material_no || null,
       status: 1, // 1: Başladı (STARTED)
       start_date: new Date(),
     });
@@ -250,6 +281,13 @@ export const cancelWork = async (req: Request, res: Response) => {
       return res
         .status(400)
         .json({ message: "Sipariş ID'si ve Operatör ID'si gerekli." });
+    }
+
+    // Mola Kontrolü
+    if (await isOperatorOnBreak(operatorId)) {
+      return res.status(403).json({
+        message: "Moladayken işlem yapamazsınız. Lütfen önce molanızı bitirin.",
+      });
     }
     const workLog = await WorkLog.findOne({
       where: {
@@ -283,6 +321,13 @@ export const stopWork = async (req: Request, res: Response) => {
       return res
         .status(400)
         .json({ message: "Sipariş ID, Operatör ID ve Duruş Nedeni gerekli." });
+    }
+
+    // Mola Kontrolü
+    if (await isOperatorOnBreak(operatorId)) {
+      return res.status(403).json({
+        message: "Moladayken işlem yapamazsınız. Lütfen önce molanızı bitirin.",
+      });
     }
 
     const workLog = await WorkLog.findOne({
@@ -360,19 +405,28 @@ export const restartWork = async (req: Request, res: Response) => {
         .status(400)
         .json({ message: "Sipariş ID'si ve Operatör ID'si gerekli." });
     }
+
+    // Mola Kontrolü
+    if (await isOperatorOnBreak(operatorId)) {
+      return res.status(403).json({
+        message: "Moladayken iş başlatamazsınız. Lütfen önce molanızı bitirin.",
+      });
+    }
+
     const workLog = await WorkLog.findOne({
       where: {
         id: workLogId,
-        status: 2,
+        status: { [Op.in]: [2, 9] }, // Hem durdurulmuş (2) hem de mola nedeniyle bekleyen (9) işler başlatılabilir
       },
     });
+
     if (!workLog) {
       return res
         .status(404)
         .json({ message: "Yeniden başlatılacak durdurulmuş iş bulunamadı." });
     }
 
-    // Açık olan (henüz bitmemiş) son duruş kaydını bul ve kapat
+    // --- DURUŞ KAYDINI KAPATMA (Ortak İşlem) ---
     const openPause = await WorkLogPause.findOne({
       where: {
         work_log_id: workLog.id,
@@ -385,15 +439,44 @@ export const restartWork = async (req: Request, res: Response) => {
       await openPause.update({ pause_end: new Date() });
     }
 
-    // Ana tablonun statüsünü tekrar Aktif (1) yapıyoruz ancak START_DATE EZİLMİYOR!
-    await workLog.update({
-      status: 1, // 1: Başladı (STARTED)
-      operator_id: operatorId, // İşi devralan başka bir operatörse onu güncelle
-    });
+    // --- DEVİR KONTROLÜ VE İŞLEME ---
+    if (String(workLog.operator_id) !== String(operatorId)) {
+      // 1. Mevcut kaydı "Devredildi" (5) olarak kapat
+      await workLog.update({
+        status: 5, // 5: Devredildi (Handover)
+        end_date: new Date(),
+        finish_description: `${operatorId} kodlu operatöre devredildi.`,
+      });
 
-    return res
-      .status(200)
-      .json({ message: "İş başarıyla yeniden başlatıldı." });
+      // 2. Yeni Operatör için YENİ bir kayıt oluştur
+      const newWork = await WorkLog.create({
+        operator_id: operatorId,
+        order_no: workLog.order_no,
+        section_id: workLog.section_id,
+        area_name: workLog.area_name,
+        field: workLog.field,
+        process_id: workLog.process_id,
+        process_name: workLog.process_name,
+        machine_name: workLog.machine_name,
+        material_no: workLog.material_no,
+        status: 1, // 1: Başladı
+        start_date: new Date(),
+      });
+
+      return res.status(201).json({
+        message: "İş devralındı ve yeni kayıt oluşturuldu.",
+        data: newWork,
+      });
+    } else {
+      // AYNI OPERATÖR DEVAM EDİYOR
+      await workLog.update({
+        status: 1, // 1: Başladı (STARTED)
+      });
+
+      return res
+        .status(200)
+        .json({ message: "İş başarıyla yeniden başlatıldı." });
+    }
   } catch (error) {
     console.error("restartWork Error:", error);
     return res
@@ -413,6 +496,13 @@ export const finishWork = async (req: Request, res: Response) => {
 
   if (!operator_id || !work_log_id) {
     return res.status(400).json({ message: "Operatör ve iş kaydı gerekli." });
+  }
+
+  // Mola Kontrolü
+  if (await isOperatorOnBreak(operator_id)) {
+    return res.status(403).json({
+      message: "Moladayken iş bitiremezsiniz. Lütfen önce molanızı bitirin.",
+    });
   }
 
   try {
@@ -647,5 +737,55 @@ export const getFactoryEntryTime = async (req: Request, res: Response) => {
     return res
       .status(500)
       .json({ message: "Giriş saati alınırken hata oluştu." });
+  }
+};
+
+export const getProductFile = async (req: Request, res: Response) => {
+  const { materialNo } = req.params;
+  const BASE_PATH = process.env.PRODUCT_IMAGES_PATH || "\\\\192.168.1.40\\montaj resimler\\Fason Resimleri";
+
+  if (!materialNo) {
+    return res.status(400).json({ message: "Malzeme numarası gerekli." });
+  }
+
+  try {
+    const now = Date.now();
+    let files = fileCache.files;
+
+    // Cache kontrolü veya yenileme
+    if (now - fileCache.lastUpdate > CACHE_DURATION) {
+      if (fs.existsSync(BASE_PATH)) {
+        files = fs.readdirSync(BASE_PATH);
+        fileCache = { files, lastUpdate: now };
+      } else {
+        console.warn("Resim klasörüne erişilemiyor:", BASE_PATH);
+        // Eğer klasöre erişilemiyorsa ama cache varsa eskiyi kullan, yoksa hata ver
+        if (files.length === 0) {
+          return res.status(500).json({ message: "Resim sunucusuna erişilemedi." });
+        }
+      }
+    }
+
+    const searchKey = String(materialNo).trim().toLowerCase();
+    
+    // Dosya listesi içinde ara
+    const foundFileName = files.find((file) => {
+      const fileNameLower = file.toLowerCase();
+      const hasExtension = [".jpg", ".jpeg", ".png", ".pdf"].some((ext) =>
+        fileNameLower.endsWith(ext)
+      );
+      // Tam eşleşme veya malzeme numarasını içeren ilk dosyayı bul
+      return fileNameLower.includes(searchKey) && hasExtension;
+    });
+
+    if (!foundFileName) {
+      return res.status(404).json({ message: "Görsel bulunamadı." });
+    }
+
+    const fullPath = path.join(BASE_PATH, foundFileName);
+    return res.sendFile(fullPath);
+  } catch (error) {
+    console.error("getProductFile Error:", error);
+    return res.status(500).json({ message: "Dosya sunucusunda bir hata oluştu." });
   }
 };

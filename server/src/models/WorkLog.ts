@@ -5,6 +5,7 @@ export interface WorkLogAttributes {
   id: number;
   operator_id: string; // Kim başlattı? (id_dec)
   order_no: string;    // Hangi sipariş? (SAP ORDER_ID)
+  material_no?: string | null; // Ürün Görseli için malzeme no
   
   // Konum ve Süreç Bilgileri
   section_id?: string | null;
@@ -44,6 +45,7 @@ export class WorkLog extends Model<WorkLogAttributes, WorkLogCreationAttributes>
   public id!: number;
   public operator_id!: string;
   public order_no!: string;
+  public material_no!: string | null;
   public section_id!: string | null;
   public area_name!: string | null;
   public field!: string | null;
@@ -82,6 +84,10 @@ WorkLog.init(
     order_no: {
       type: DataTypes.STRING(50),
       allowNull: false,
+    },
+    material_no: {
+      type: DataTypes.STRING(50),
+      allowNull: true,
     },
     section_id: {
       type: DataTypes.STRING,

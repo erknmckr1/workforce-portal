@@ -35,4 +35,7 @@ router.post("/end-break", MesController.endBreak);
 router.get("/active-breaks", MesController.getActiveBreaks);
 router.get("/get-factory-entry", MesController.getFactoryEntryTime);
 
+// Malzeme Görsel Rotası
+router.get("/get-product-file/:materialNo", MesController.getProductFile);
+
 export default router;

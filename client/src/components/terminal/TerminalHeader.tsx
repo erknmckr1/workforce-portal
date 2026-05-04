@@ -12,6 +12,7 @@ interface TerminalHeaderProps {
   isSearching: boolean;
   currentTime: Date;
   externalId?: number;
+  isOnBreak: boolean;
 }
 
 const TerminalHeader: React.FC<TerminalHeaderProps> = ({
@@ -23,6 +24,7 @@ const TerminalHeader: React.FC<TerminalHeaderProps> = ({
   isSearching,
   currentTime,
   externalId,
+  isOnBreak,
 }) => {
   const { theme, setTheme } = useTheme();
 
@@ -45,15 +47,16 @@ const TerminalHeader: React.FC<TerminalHeaderProps> = ({
         {/* SEARCH BAR */}
         <div className="relative ml-10 group">
           <div className="absolute inset-0 bg-amber-500/10 blur-xl opacity-0 group-focus-within:opacity-100 transition-opacity" />
-          <div className="relative flex items-center bg-secondary/50 border border-border rounded-xl px-4 py-2 w-[400px] focus-within:border-amber-500/50 transition-all focus-within:bg-secondary">
+          <div className={`relative flex items-center bg-secondary/50 border border-border rounded-xl px-4 py-2 w-[400px] focus-within:border-amber-500/50 transition-all focus-within:bg-secondary ${isOnBreak ? "opacity-50 grayscale pointer-events-none" : ""}`}>
             <Search
               className="text-muted-foreground group-focus-within:text-amber-500 transition-colors"
               size={18}
             />
             <input
               type="text"
-              placeholder="SİPARİŞ NO VEYA BARKOD OKUTUN..."
+              placeholder={isOnBreak ? "MOLADAYKEN İŞ BAŞLATILAMAZ" : "SİPARİŞ NO VEYA BARKOD OKUTUN..."}
               value={searchOrderId}
+              disabled={isOnBreak}
               onChange={(e) => setSearchOrderId(e.target.value)}
               onKeyDown={handleSearch}
               className="bg-transparent border-none focus:ring-0 text-sm font-mono tracking-widest placeholder:text-muted-foreground/30 placeholder:font-sans placeholder:tracking-normal w-full ml-3 uppercase"

@@ -13,25 +13,13 @@ import FinishWorkModal from "../components/terminal/FinishWorkModal";
 import StopWorkModal from "../components/terminal/StopWorkModal";
 import FoodMenuModal from "../components/terminal/FoodMenuModal";
 import BreakModal from "../components/terminal/BreakModal";
+import ProductImageModal from "../components/terminal/ProductImageModal";
 import { useAuthStore } from "../store/authStore";
 import KioskPage from "./KioskPage";
 import { useModuleStore } from "../store/moduleStore";
-import type { MesProcess, SapOrder, WorkLog } from "../types/mes";
+import type { MesProcess, SapOrder, WorkLog, OperatorBreak } from "../types/mes";
 import { toast } from "sonner";
 import { RotateCw } from "lucide-react";
-
-interface OperatorBreak {
-  id: number;
-  operator_id: string;
-  area_name?: string;
-  break_reason: string;
-  start_date: string;
-  Operator?: {
-    name: string;
-    surname: string;
-    id_dec: string;
-  };
-}
 
 const UretimTerminal = () => {
   const { section, areaName } = useParams<{
@@ -52,6 +40,7 @@ const UretimTerminal = () => {
   const [isKioskOpen, setIsKioskOpen] = useState(false);
   const [isFoodMenuOpen, setIsFoodMenuOpen] = useState(false);
   const [isBreakModalOpen, setIsBreakModalOpen] = useState(false);
+  const [isProductImageModalOpen, setIsProductImageModalOpen] = useState(false);
   const { closePopup } = useModuleStore();
   const [selectedProcessId, setSelectedProcessId] = useState<string | null>(
     null,
@@ -140,6 +129,11 @@ const UretimTerminal = () => {
 
   const handleSearch = async (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && searchOrderId) {
+      if (isOnBreak) {
+        toast.error("Moladayken iş başlatamazsınız!");
+        setSearchOrderId("");
+        return;
+      }
       if (!selectedProcessId) {
         toast.error("LÜTFEN ÖNCE YAPACAĞINIZ İŞLEMİ (PROSES) SEÇİNİZ!");
         setSearchOrderId("");
@@ -162,6 +156,7 @@ const UretimTerminal = () => {
           area_name: areaName,
           process_id: selectedProcessId,
           process_name: selectedProcess?.process_name,
+          material_no: result.data.MATERIAL_NO,
         });
       } else {
         // Sipariş SAP'de yoksa
@@ -205,7 +200,7 @@ const UretimTerminal = () => {
   });
 
   //! Aktif Molaları Çekecek Query
-  const { data: activeBreaks } = useQuery({
+  const { data: activeBreaks } = useQuery<OperatorBreak[]>({
     queryKey: ["activeBreaks", areaName],
     queryFn: async () => {
       const res = await apiClient.get(
@@ -215,6 +210,11 @@ const UretimTerminal = () => {
     },
     refetchInterval: 30000, // 30 saniyede bir otomatik yenile
     enabled: isAuthenticated,
+  });
+
+  //? Mevcut kullanıcının molada olup olmadığını saptıyoruz
+  const isOnBreak = !!activeBreaks?.some((b: OperatorBreak) => {
+    return String(b.operator_id) === String(user?.id_dec);
   });
 
   //* Backend'den gelen WorkLog verisini Tablo formatına (Job) çeviriyoruz
@@ -231,6 +231,7 @@ const UretimTerminal = () => {
       section: log.area_name,
       process: log.process_name,
       quantity: "-",
+      materialNo: log.material_no,
       status: log.status,
       statusName: log.StatusDetail?.name || "Bilinmiyor",
       statusColor: log.StatusDetail?.color_code || "#6b7280", // Gri (Varsayılan)
@@ -306,6 +307,7 @@ const UretimTerminal = () => {
         isSearching={isSearching}
         currentTime={currentTime}
         externalId={user?.external_id}
+        isOnBreak={isOnBreak}
       />
 
       {/* MAIN LAYOUT */}
@@ -335,6 +337,8 @@ const UretimTerminal = () => {
               onJobDeselect={() => setSelectedJob(null)}
               onOpenFinishModal={() => setIsFinishModalOpen(true)}
               onOpenStopModal={() => setIsStopModalOpen(true)}
+              onOpenProductImage={() => setIsProductImageModalOpen(true)}
+              isOnBreak={isOnBreak}
             />
           </div>
 
@@ -411,12 +415,13 @@ const UretimTerminal = () => {
                       {processes.map((proc) => (
                         <button
                           key={proc.process_id}
+                          disabled={isOnBreak}
                           onClick={() => setSelectedProcessId(proc.process_id)}
                           className={`p-3 rounded-lg border text-left transition-all ${
                             selectedProcessId === proc.process_id
                               ? "bg-primary border-primary text-primary-foreground shadow-lg shadow-primary/20 scale-[1.02]"
                               : "bg-background/50 border-border hover:border-primary/50 text-muted-foreground"
-                          }`}
+                          } ${isOnBreak ? "opacity-50 cursor-not-allowed grayscale" : ""}`}
                         >
                           <div className="text-lg font-black leading-tight">
                             {proc.process_name}
@@ -435,6 +440,11 @@ const UretimTerminal = () => {
           </div>
         </main>
       </div>
+
+      <ProductImageModal
+        isOpen={isProductImageModalOpen}
+        onClose={() => setIsProductImageModalOpen(false)}
+      />
     </div>
   );
 };

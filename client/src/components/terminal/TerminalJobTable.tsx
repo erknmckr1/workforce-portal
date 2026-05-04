@@ -10,6 +10,7 @@ export interface Job {
   section: string;
   process: string;
   quantity: string;
+  materialNo?: string;
   status?: number;
 }
 
