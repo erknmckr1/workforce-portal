@@ -171,8 +171,7 @@ export const startWork = async (req: Request, res: Response) => {
     const onBreak = await isOperatorOnBreak(operator_id);
     if (onBreak) {
       return res.status(403).json({
-        message:
-          "Moladayken iş başlatamazsınız. Lütfen önce molanızı bitirin.",
+        message: "Moladayken iş başlatamazsınız. Lütfen önce molanızı bitirin.",
       });
     }
 
@@ -742,7 +741,9 @@ export const getFactoryEntryTime = async (req: Request, res: Response) => {
 
 export const getProductFile = async (req: Request, res: Response) => {
   const { materialNo } = req.params;
-  const BASE_PATH = process.env.PRODUCT_IMAGES_PATH || "\\\\192.168.1.40\\montaj resimler\\Fason Resimleri";
+  const BASE_PATH =
+    process.env.PRODUCT_IMAGES_PATH ||
+    "\\\\192.168.1.40\\montaj resimler\\Fason Resimleri";
 
   if (!materialNo) {
     return res.status(400).json({ message: "Malzeme numarası gerekli." });
@@ -761,18 +762,20 @@ export const getProductFile = async (req: Request, res: Response) => {
         console.warn("Resim klasörüne erişilemiyor:", BASE_PATH);
         // Eğer klasöre erişilemiyorsa ama cache varsa eskiyi kullan, yoksa hata ver
         if (files.length === 0) {
-          return res.status(500).json({ message: "Resim sunucusuna erişilemedi." });
+          return res
+            .status(500)
+            .json({ message: "Resim sunucusuna erişilemedi." });
         }
       }
     }
 
     const searchKey = String(materialNo).trim().toLowerCase();
-    
+
     // Dosya listesi içinde ara
     const foundFileName = files.find((file) => {
       const fileNameLower = file.toLowerCase();
       const hasExtension = [".jpg", ".jpeg", ".png", ".pdf"].some((ext) =>
-        fileNameLower.endsWith(ext)
+        fileNameLower.endsWith(ext),
       );
       // Tam eşleşme veya malzeme numarasını içeren ilk dosyayı bul
       return fileNameLower.includes(searchKey) && hasExtension;
@@ -786,6 +789,196 @@ export const getProductFile = async (req: Request, res: Response) => {
     return res.sendFile(fullPath);
   } catch (error) {
     console.error("getProductFile Error:", error);
-    return res.status(500).json({ message: "Dosya sunucusunda bir hata oluştu." });
+    return res
+      .status(500)
+      .json({ message: "Dosya sunucusunda bir hata oluştu." });
+  }
+};
+
+// Personel Giriş-Çıkış Analiz Raporu
+export const getPersonnelMovementReport = async (
+  req: Request,
+  res: Response,
+) => {
+  const { operatorId, startDate, endDate } = req.query;
+
+  try {
+    if (!operatorId || !startDate || !endDate) {
+      return res
+        .status(400)
+        .json({
+          message: "Operator ID, başlangıç ve bitiş tarihleri gereklidir.",
+        });
+    }
+
+    const start = new Date(startDate as string);
+    start.setHours(0, 0, 0, 0);
+
+    const end = new Date(endDate as string);
+    end.setHours(23, 59, 59, 999);
+
+    // 1. Önce operatörü bulup external_id'sini (Timecure ID) alalım
+    const operator = await Operator.findOne({
+      where: { id_dec: operatorId as string },
+      attributes: ["external_id"],
+    });
+
+    if (!operator || !operator.external_id) {
+      return res
+        .status(404)
+        .json({ message: "Operatörün Timecure ID'si bulunamadı." });
+    }
+
+    // 2. Ham verileri çek (Timecure ID ile)
+    const movements = await ExternalMovement.findAll({
+      where: {
+        KisiId: operator.external_id,
+        Zaman: {
+          [Op.between]: [start, end],
+        },
+      },
+      order: [["Zaman", "ASC"]],
+    });
+
+    // Gün bazlı gruplandırma
+    const reportData: { [key: string]: any } = {};
+
+    movements.forEach((mov: any) => {
+      const dateKey = mov.Zaman.toISOString().split("T")[0]; // YYYY-MM-DD
+
+      if (!reportData[dateKey]) {
+        reportData[dateKey] = {
+          date: dateKey,
+          firstEntry: null,
+          lastExit: null,
+          totalHours: 0,
+          movements: [],
+        };
+      }
+
+      // KabulGirisCikis 1: Giriş, 2: Çıkış
+      if (
+        mov.KabulGirisCikis === 1 &&
+        (!reportData[dateKey].firstEntry ||
+          mov.Zaman < reportData[dateKey].firstEntry)
+      ) {
+        reportData[dateKey].firstEntry = mov.Zaman;
+      }
+
+      if (
+        mov.KabulGirisCikis === 2 &&
+        (!reportData[dateKey].lastExit ||
+          mov.Zaman > reportData[dateKey].lastExit)
+      ) {
+        reportData[dateKey].lastExit = mov.Zaman;
+      }
+
+      reportData[dateKey].movements.push({
+        time: mov.Zaman,
+        type: mov.KabulGirisCikis,
+      });
+    });
+
+    // Saat hesaplama
+    const finalReport = Object.values(reportData).map((day: any) => {
+      let hours = 0;
+      if (day.firstEntry && day.lastExit && day.lastExit > day.firstEntry) {
+        const diffMs = day.lastExit.getTime() - day.firstEntry.getTime();
+        hours = Math.round((diffMs / (1000 * 60 * 60)) * 100) / 100; // 2 ondalıklı saat
+      }
+
+      return {
+        ...day,
+        totalHours: hours,
+      };
+    });
+
+    return res.status(200).json(finalReport);
+  } catch (error) {
+    console.error("getPersonnelMovementReport Error:", error);
+    return res
+      .status(500)
+      .json({ message: "Rapor verileri çekilirken bir hata oluştu." });
+  }
+};
+
+/**
+ * Günlük Geç Kalanlar Raporu (Toplu)
+ * Belirli bir tarihte (varsayılan bugün) 07:45'ten sonra gelenleri listeler
+ */
+export const getLateArrivals = async (req: Request, res: Response) => {
+  try {
+    const { date, threshold } = req.query;
+    const targetDate = date ? new Date(date as string) : new Date();
+    const thresholdTime = (threshold as string) || "07:45";
+
+    const startOfDay = new Date(targetDate);
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const endOfDay = new Date(targetDate);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    // 1. Tüm personellerin o günkü ilk girişlerini bulalım
+    // Group By ile her personelin o günkü MIN(Zaman) bilgisini alıyoruz
+    const lateArrivalsRaw = await ExternalMovement.findAll({
+      attributes: [
+        "KisiId",
+        [
+          timecureSequelize.fn("MIN", timecureSequelize.col("Zaman")),
+          "firstEntry",
+        ],
+      ],
+      where: {
+        Zaman: {
+          [Op.between]: [startOfDay, endOfDay],
+        },
+        KabulGirisCikis: 1, // Sadece Giriş hareketlerini baz al
+      },
+      group: ["KisiId"],
+      raw: true,
+    });
+
+    // 2. 07:45'ten sonra olanları filtrele (UTC bazlı kesin karşılaştırma)
+    const [tH, tM] = thresholdTime.split(":").map(Number);
+    const thresholdInMinutes = tH * 60 + tM;
+
+    const lateFiltered = lateArrivalsRaw.filter((arrival: any) => {
+      const entryDate = new Date(arrival.firstEntry);
+      // UTC saat ve dakikasını alıp dakikaya çeviriyoruz
+      const entryInMinutes =
+        entryDate.getUTCHours() * 60 + entryDate.getUTCMinutes();
+
+      return entryInMinutes > thresholdInMinutes;
+    });
+
+    if (lateFiltered.length === 0) {
+      return res.json([]);
+    }
+
+    // 3. Operatör bilgilerini çek
+    const kisiIds = lateFiltered.map((l: any) => l.KisiId);
+    const operators = await Operator.findAll({
+      where: {
+        external_id: { [Op.in]: kisiIds },
+      },
+      attributes: ["id_dec", "name", "surname", "external_id"],
+      include: [{ model: Department, attributes: ["name"] }],
+    });
+
+    // 4. Verileri birleştir
+    const report = lateFiltered.map((arrival: any) => {
+      const op = operators.find((o) => o.external_id === arrival.KisiId);
+      return {
+        operatorId: op?.id_dec || "Bilinmiyor",
+        name: op ? `${op.name} ${op.surname}` : `ID: ${arrival.KisiId}`,
+        department: op?.Department?.name || "---",
+        firstEntry: arrival.firstEntry,
+      };
+    });
+
+    return res.json(report);
+  } catch (error: any) {
+    console.error("Geç kalanlar raporu hatası:", error);
+    return res.status(500).json({ message: error.message });
   }
 };

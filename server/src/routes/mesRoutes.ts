@@ -37,5 +37,7 @@ router.get("/get-factory-entry", MesController.getFactoryEntryTime);
 
 // Malzeme Görsel Rotası
 router.get("/get-product-file/:materialNo", MesController.getProductFile);
+router.get("/reports/personnel-movement", MesController.getPersonnelMovementReport);
+router.get("/reports/late-arrivals", MesController.getLateArrivals);
 
 export default router;

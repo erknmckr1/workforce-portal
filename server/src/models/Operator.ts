@@ -25,6 +25,7 @@ export class Operator extends Model {
     public photo_url?: string;
     public is_active!: number;
     public external_id?: number;
+    public Department?: any; // İlişkili departman verisi için
 }
 
 Operator.init(

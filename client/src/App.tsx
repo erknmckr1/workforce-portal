@@ -20,6 +20,8 @@ import FoodMenuPage from "./pages/FoodMenuPage";
 import FoodMenuManager from "./pages/settings/FoodMenuManager";
 import Home from "./pages/Home";
 import UretimTerminal from "./pages/UretimTerminal";
+import Reports from "./pages/Reports";
+import PersonnelMovementReport from "./pages/PersonnelMovementReport";
 import { ThemeProvider } from "./components/theme-provider";
 import { ConfirmProvider } from "@/providers/ConfirmProvider";
 import "./App.css";
@@ -134,7 +136,8 @@ function App() {
 
               {/* Raporlar */}
               <Route element={<ProtectedRoute allowedRoles={["Admin", "İK", "Müdür"]} />}>
-                <Route path="reports" element={<div className="p-4 border-2 border-dashed rounded-3xl">Raporlar Sayfası Yakında...</div>} />
+                <Route path="reports" element={<Reports />} />
+                <Route path="reports/personnel-movement" element={<PersonnelMovementReport />} />
               </Route>
               
               {/* Sistem Ayarları Düz Routing - Sadece Admin */}

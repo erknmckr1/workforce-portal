@@ -20,6 +20,29 @@ export interface MesStopReason {
   area_name: string;
 }
 
+export interface Personnel {
+  id_dec: string;
+  name: string;
+  surname: string;
+  Department?: {
+    name: string;
+  };
+}
+
+export interface MovementReportItem {
+  date: string;
+  firstEntry: string | null;
+  lastExit: string | null;
+  totalHours: number;
+}
+
+export interface LateArrivalItem {
+  operatorId: string;
+  name: string;
+  department: string;
+  firstEntry: string;
+}
+
 export interface WorkLog {
   id: number;
   operator_id: string;
