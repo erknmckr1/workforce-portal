@@ -40,4 +40,9 @@ router.get("/get-product-file/:materialNo", MesController.getProductFile);
 router.get("/reports/personnel-movement", MesController.getPersonnelMovementReport);
 router.get("/reports/late-arrivals", MesController.getLateArrivals);
 
+// Fire (Scrap) Ölçüm Rotaları
+router.get("/scrap-measurements", MesController.getScrapMeasurements);
+router.post("/scrap-measurements", MesController.submitScrapMeasurement);
+router.put("/scrap-measurements", MesController.updateScrapMeasurement);
+
 export default router;

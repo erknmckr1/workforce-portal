@@ -67,6 +67,12 @@ const menuItems = [
     roles: ["Admin", "Revir"],
   },
   {
+    title: "Üretim Ekranları",
+    icon: MonitorSmartphone,
+    path: "/mes-screens",
+    roles: ["Admin"],
+  },
+  {
     title: "Araçlar",
     icon: Wrench,
     roles: ["Admin", "İK", "Müdür", "Şef", "Personel", "Revir", "Güvenlik"],

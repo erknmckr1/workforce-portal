@@ -14,6 +14,7 @@ import StopWorkModal from "../components/terminal/StopWorkModal";
 import FoodMenuModal from "../components/terminal/FoodMenuModal";
 import BreakModal from "../components/terminal/BreakModal";
 import ProductImageModal from "../components/terminal/ProductImageModal";
+import FirePopup from "../components/terminal/FirePopup";
 import { useAuthStore } from "../store/authStore";
 import KioskPage from "./KioskPage";
 import { useModuleStore } from "../store/moduleStore";
@@ -41,6 +42,7 @@ const UretimTerminal = () => {
   const [isFoodMenuOpen, setIsFoodMenuOpen] = useState(false);
   const [isBreakModalOpen, setIsBreakModalOpen] = useState(false);
   const [isProductImageModalOpen, setIsProductImageModalOpen] = useState(false);
+  const [isFireModalOpen, setIsFireModalOpen] = useState(false);
   const { closePopup } = useModuleStore();
   const [selectedProcessId, setSelectedProcessId] = useState<string | null>(
     null,
@@ -338,6 +340,7 @@ const UretimTerminal = () => {
               onOpenFinishModal={() => setIsFinishModalOpen(true)}
               onOpenStopModal={() => setIsStopModalOpen(true)}
               onOpenProductImage={() => setIsProductImageModalOpen(true)}
+              onOpenFireModal={() => setIsFireModalOpen(true)}
               isOnBreak={isOnBreak}
             />
           </div>
@@ -445,6 +448,13 @@ const UretimTerminal = () => {
         isOpen={isProductImageModalOpen}
         onClose={() => setIsProductImageModalOpen(false)}
       />
+
+      {isFireModalOpen && areaName && (
+        <FirePopup 
+          areaName={areaName} 
+          onClose={() => setIsFireModalOpen(false)} 
+        />
+      )}
     </div>
   );
 };

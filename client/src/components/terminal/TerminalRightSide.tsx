@@ -4,6 +4,7 @@ import {
   CheckCircle2,
   XCircle,
   Image as ImageIcon,
+  Calculator,
 } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
@@ -19,6 +20,7 @@ interface TerminalRightSideProps {
   onOpenFinishModal: () => void;
   onOpenStopModal: () => void;
   onOpenProductImage: () => void;
+  onOpenFireModal: () => void;
   isOnBreak: boolean;
 }
 
@@ -28,6 +30,7 @@ const TerminalRightSide = ({
   onOpenFinishModal,
   onOpenStopModal,
   onOpenProductImage,
+  onOpenFireModal,
   isOnBreak,
 }: TerminalRightSideProps) => {
   const { areaName } = useParams<{ areaName: string }>();
@@ -203,6 +206,25 @@ const TerminalRightSide = ({
             />
             <span className="text-[10px] uppercase tracking-[0.2em]">
               Ürün Görseli
+            </span>
+          </div>
+        </button>
+      )}
+
+      {areaName === "taslama" && (
+        <button
+          onClick={onOpenFireModal}
+          disabled={isOnBreak}
+          className={`group relative w-full bg-amber-500/10 hover:bg-amber-500 text-amber-500 hover:text-foreground font-black py-6 rounded-xl transition-all duration-300 border border-amber-500/30 hover:border-amber-500 active:scale-95 overflow-hidden text-center shadow-[0_0_20px_rgba(245,158,11,0.1)] ${isOnBreak ? "opacity-50 cursor-not-allowed grayscale" : ""}`}
+        >
+          <div className="absolute inset-0 bg-linear-to-br from-amber-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+          <div className="relative flex flex-col items-center gap-2">
+            <Calculator
+              size={24}
+              className="group-hover:scale-110 transition-transform"
+            />
+            <span className="text-[10px] uppercase tracking-[0.2em]">
+              Fire Girişi
             </span>
           </div>
         </button>

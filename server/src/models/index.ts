@@ -17,6 +17,7 @@ import { WorkLog } from "./WorkLog";
 import { WorkLogPause } from "./WorkLogPause";
 import { WorkLogRepair } from "./WorkLogRepair";
 import { OperatorBreak } from "./OperatorBreak";
+import ScrapMeasurement from "./ScrapMeasurement";
 import { Status } from "./Status";
 
 // --- Lookups & Operator Associations ---
@@ -126,5 +127,6 @@ export {
     WorkLogPause,
     WorkLogRepair,
     OperatorBreak,
+    ScrapMeasurement,
     Status
 };

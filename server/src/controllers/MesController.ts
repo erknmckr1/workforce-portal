@@ -12,6 +12,7 @@ import { WorkLog } from "../models/WorkLog";
 import { WorkLogPause } from "../models/WorkLogPause";
 import { WorkLogRepair } from "../models/WorkLogRepair";
 import { OperatorBreak } from "../models/OperatorBreak";
+import ScrapMeasurement from "../models/ScrapMeasurement";
 import { Op, QueryTypes } from "sequelize";
 import timecureSequelize from "../config/timecureDatabase";
 import sapSequelize from "../config/mesDatabase";
@@ -980,5 +981,75 @@ export const getLateArrivals = async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error("Geç kalanlar raporu hatası:", error);
     return res.status(500).json({ message: error.message });
+  }
+};
+
+/**
+ * FIRE (SCRAP) MEASUREMENT ENDPOINTS
+ */
+
+export const getScrapMeasurements = async (req: Request, res: Response) => {
+  const { order_no } = req.query;
+
+  if (!order_no) {
+    return res.status(400).json({ message: "Sipariş numarası gerekli." });
+  }
+
+  try {
+    const measurements = await ScrapMeasurement.findAll({
+      where: { order_no: String(order_no) },
+      order: [["createdAt", "DESC"]],
+    });
+
+    return res.status(200).json(measurements);
+  } catch (error) {
+    console.error("getScrapMeasurements Error:", error);
+    return res.status(500).json({ message: "Ölçüm verileri çekilemedi." });
+  }
+};
+
+export const submitScrapMeasurement = async (req: Request, res: Response) => {
+  const { formState, user_id, areaName } = req.body;
+
+  try {
+    const newMeasurement = await ScrapMeasurement.create({
+      order_no: formState.orderId,
+      operator_id: user_id,
+      area_name: areaName,
+      entry_measurement: parseFloat(formState.entryGramage) || 0,
+      exit_measurement: parseFloat(formState.exitGramage) || 0,
+      gold_setting: parseFloat(formState.goldSetting) || 0,
+      gold_pure_scrap: parseFloat(formState.gold_pure_scrap) || 0,
+      measurement_diff: parseFloat(formState.diffirence) || 0,
+    });
+
+    return res.status(200).json(newMeasurement);
+  } catch (error) {
+    console.error("submitScrapMeasurement Error:", error);
+    return res.status(500).json({ message: "Ölçüm kaydedilemedi." });
+  }
+};
+
+export const updateScrapMeasurement = async (req: Request, res: Response) => {
+  const { formState, id } = req.body;
+
+  try {
+    const measurement = await ScrapMeasurement.findByPk(id);
+    if (!measurement) {
+      return res.status(404).json({ message: "Güncellenecek kayıt bulunamadı." });
+    }
+
+    await measurement.update({
+      entry_measurement: parseFloat(formState.entryGramage) || 0,
+      exit_measurement: parseFloat(formState.exitGramage) || 0,
+      gold_setting: parseFloat(formState.goldSetting) || 0,
+      gold_pure_scrap: parseFloat(formState.gold_pure_scrap) || 0,
+      measurement_diff: parseFloat(formState.diffirence) || 0,
+    });
+
+    return res.status(200).json({ message: "Kayıt güncellendi." });
+  } catch (error) {
+    console.error("updateScrapMeasurement Error:", error);
+    return res.status(500).json({ message: "Güncelleme yapılamadı." });
   }
 };

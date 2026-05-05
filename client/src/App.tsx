@@ -20,6 +20,7 @@ import FoodMenuPage from "./pages/FoodMenuPage";
 import FoodMenuManager from "./pages/settings/FoodMenuManager";
 import Home from "./pages/Home";
 import UretimTerminal from "./pages/UretimTerminal";
+import MesScreensNavigator from "./pages/MesScreensNavigator";
 import Reports from "./pages/Reports";
 import PersonnelMovementReport from "./pages/PersonnelMovementReport";
 import { ThemeProvider } from "./components/theme-provider";
@@ -163,6 +164,11 @@ function App() {
               
               <Route element={<ProtectedRoute allowedRoles={["Admin", "İK", "Müdür", "Şef", "Personel", "Revir", "Güvenlik"]} />}>
                 <Route path="food-menu" element={<FoodMenuPage />} />
+              </Route>
+
+              {/* Üretim Ekranları Gezgini */}
+              <Route element={<ProtectedRoute allowedRoles={["Admin"]} />}>
+                <Route path="mes-screens" element={<MesScreensNavigator />} />
               </Route>
 
               {/* 404 Yönlendirme */}
