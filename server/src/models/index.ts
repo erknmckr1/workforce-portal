@@ -19,6 +19,8 @@ import { WorkLogRepair } from "./WorkLogRepair";
 import { OperatorBreak } from "./OperatorBreak";
 import ScrapMeasurement from "./ScrapMeasurement";
 import { Status } from "./Status";
+import { MesMachine } from "./MesMachine";
+import { Measurement } from "./Measurement";
 
 // --- Lookups & Operator Associations ---
 Section.hasMany(Department, { foreignKey: "section_id" });
@@ -128,5 +130,7 @@ export {
     WorkLogRepair,
     OperatorBreak,
     ScrapMeasurement,
-    Status
+    Status,
+    MesMachine,
+    Measurement
 };

@@ -15,10 +15,18 @@ import FoodMenuModal from "../components/terminal/FoodMenuModal";
 import BreakModal from "../components/terminal/BreakModal";
 import ProductImageModal from "../components/terminal/ProductImageModal";
 import FirePopup from "../components/terminal/FirePopup";
+import MeasurementPopup from "../components/terminal/MeasurementPopup";
+import OperatorIdModal from "../components/terminal/OperatorIdModal";
 import { useAuthStore } from "../store/authStore";
 import KioskPage from "./KioskPage";
 import { useModuleStore } from "../store/moduleStore";
-import type { MesProcess, SapOrder, WorkLog, OperatorBreak } from "../types/mes";
+import type {
+  MesProcess,
+  SapOrder,
+  WorkLog,
+  OperatorBreak,
+  MesMachine,
+} from "../types/mes";
 import { toast } from "sonner";
 import { RotateCw } from "lucide-react";
 
@@ -35,7 +43,7 @@ const UretimTerminal = () => {
     logout: globalLogout,
   } = useAuthStore();
   const queryClient = useQueryClient();
-  const [selectedJob, setSelectedJob] = useState<string | null>(null);
+  const [selectedJobs, setSelectedJobs] = useState<string[]>([]);
   const [isFinishModalOpen, setIsFinishModalOpen] = useState(false);
   const [isStopModalOpen, setIsStopModalOpen] = useState(false);
   const [isKioskOpen, setIsKioskOpen] = useState(false);
@@ -43,12 +51,60 @@ const UretimTerminal = () => {
   const [isBreakModalOpen, setIsBreakModalOpen] = useState(false);
   const [isProductImageModalOpen, setIsProductImageModalOpen] = useState(false);
   const [isFireModalOpen, setIsFireModalOpen] = useState(false);
+  const [isMeasurementModalOpen, setIsMeasurementModalOpen] = useState(false);
   const { closePopup } = useModuleStore();
   const [selectedProcessId, setSelectedProcessId] = useState<string | null>(
     null,
   );
+  const [selectedMachineName, setSelectedMachineName] = useState<string | null>(
+    null,
+  );
+  const [activeOperatorId, setActiveOperatorId] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [searchOrderId, setSearchOrderId] = useState("");
+
+  const [operatorIdModalOpen, setOperatorIdModalOpen] = useState(false);
+  const [pendingOperatorAction, setPendingOperatorAction] = useState<{
+    resolve: (id: string) => void;
+    reject: (reason?: unknown) => void;
+  } | null>(null);
+
+  // Ekran bireysel mi ortak mı kontrolü
+  const requireOperatorAuth = async (): Promise<string> => {
+    if (areaName !== "buzlama") {
+      return user?.id_dec || "SYSTEM";
+    }
+
+    setOperatorIdModalOpen(true);
+    return new Promise((resolve, reject) => {
+      setPendingOperatorAction({ resolve, reject });
+    });
+  };
+
+  const handleOperatorIdSubmit = (id: string) => {
+    if (pendingOperatorAction) pendingOperatorAction.resolve(id);
+    setPendingOperatorAction(null);
+    setOperatorIdModalOpen(false);
+  };
+
+  const handleOperatorIdClose = () => {
+    if (pendingOperatorAction)
+      pendingOperatorAction.reject(new Error("İşlem iptal edildi"));
+    setPendingOperatorAction(null);
+    setOperatorIdModalOpen(false);
+  };
+
+  const handleSelectJob = (jobId: string) => {
+    if (areaName === "buzlama") {
+      setSelectedJobs((prev) =>
+        prev.includes(jobId)
+          ? prev.filter((id) => id !== jobId)
+          : [...prev, jobId],
+      );
+    } else {
+      setSelectedJobs([jobId]);
+    }
+  };
 
   //! Mola Başlatma Mutasyonu
   const startBreakMutation = useMutation({
@@ -142,27 +198,48 @@ const UretimTerminal = () => {
         return;
       }
 
-      // Önce SAP'den siparişi sorgula
-      const result = await fetchOrder();
+      const selectedProcess = processes?.find(
+        (p) => p.process_id === selectedProcessId,
+      );
 
-      if (result.data) {
-        // Sipariş bulunduysa ve proses seçiliyse, OTOMATİK İŞ BAŞLAT
-        const selectedProcess = processes?.find(
-          (p) => p.process_id === selectedProcessId,
-        );
+      // Makine seçimi zorunlu mu kontrolü (buzlama için zorunlu)
+      const requiresMachine =
+        machines &&
+        machines.length > 0 &&
+        machines.some((m) => m.process_name === selectedProcess?.process_name);
+      if (requiresMachine && !selectedMachineName) {
+        toast.error("BU İŞLEM İÇİN BİR MAKİNE SEÇMENİZ GEREKMEKTEDİR!");
+        setSearchOrderId("");
+        return;
+      }
 
-        startWorkMutation.mutate({
-          operator_id: user?.id_dec,
-          order_no: searchOrderId,
-          section_id: section,
-          area_name: areaName,
-          process_id: selectedProcessId,
-          process_name: selectedProcess?.process_name,
-          material_no: result.data.MATERIAL_NO,
-        });
-      } else {
-        // Sipariş SAP'de yoksa
-        toast.error("Böyle bir sipariş numarası bulunamadı!");
+      try {
+        // OPERATOR ID SORGUSU
+        const operatorId = await requireOperatorAuth();
+
+        // Önce SAP'den siparişi sorgula
+        const result = await fetchOrder();
+
+        if (result.data) {
+          // Sipariş bulunduysa ve proses seçiliyse, OTOMATİK İŞ BAŞLAT
+          startWorkMutation.mutate({
+            operator_id: operatorId,
+            order_no: searchOrderId,
+            section_id: section,
+            area_name: areaName,
+            process_id: selectedProcessId,
+            process_name: selectedProcess?.process_name,
+            machine_name: selectedMachineName,
+            material_no: result.data.MATERIAL_NO,
+          });
+        } else {
+          // Sipariş SAP'de yoksa
+          toast.error("Böyle bir sipariş numarası bulunamadı!");
+          setSearchOrderId("");
+        }
+      } catch {
+        // Kullanıcı pop-up'ı kapattı veya bir hata oldu
+        console.log("İşlem iptal edildi");
         setSearchOrderId("");
       }
     }
@@ -189,12 +266,38 @@ const UretimTerminal = () => {
     },
   });
 
-  const { data: workLogs } = useQuery<WorkLog[]>({
-    queryKey: ["workLogs", areaName, user?.id_dec],
+  //! machine listesini cekecek query
+  const { data: machines } = useQuery<MesMachine[]>({
+    queryKey: ["machines", areaName],
     queryFn: async () => {
       if (!areaName) return [];
+      const res = await apiClient.get(`/mes/machines?area_name=${areaName}`);
+      return res.data;
+    },
+    enabled: !!areaName,
+  });
+
+  // Seçili prosese ait makineleri filtrele
+  const selectedProcessDetails = processes?.find(
+    (p) => p.process_id === selectedProcessId,
+  );
+  const filteredMachines =
+    machines?.filter(
+      (m) => m.process_name === selectedProcessDetails?.process_name,
+    ) || [];
+
+  const { data: workLogs } = useQuery<WorkLog[]>({
+    queryKey: [
+      "workLogs",
+      areaName,
+      areaName === "buzlama" ? "ALL" : user?.id_dec,
+    ],
+    queryFn: async () => {
+      if (!areaName) return [];
+      const operatorParam =
+        areaName === "buzlama" ? "" : `&operatorId=${user?.id_dec}`;
       const res = await apiClient.get(
-        `/mes/work-logs?areaName=${areaName}&operatorId=${user?.id_dec}`,
+        `/mes/work-logs?areaName=${areaName}${operatorParam}`,
       );
       return res.data;
     },
@@ -214,10 +317,25 @@ const UretimTerminal = () => {
     enabled: isAuthenticated,
   });
 
-  //? Mevcut kullanıcının molada olup olmadığını saptıyoruz
-  const isOnBreak = !!activeBreaks?.some((b: OperatorBreak) => {
-    return String(b.operator_id) === String(user?.id_dec);
+  //! Aktif Operatör Bilgilerini Çekecek Query (Mola vb. durumlar için)
+  const { data: activeOperatorInfo } = useQuery({
+    queryKey: ["operator", activeOperatorId],
+    queryFn: async () => {
+      if (!activeOperatorId) return null;
+      const res = await apiClient.get(`/mes/operator/${activeOperatorId}`);
+      return res.data;
+    },
+    enabled: !!activeOperatorId,
   });
+
+  //? Mevcut kullanıcının molada olup olmadığını saptıyoruz
+  // Buzlama terminalinde butonların mola yüzünden kilitlenmesini istemiyoruz, 
+  // çünkü bir kişinin molaya çıkması diğerlerini engellememeli.
+  const isOnBreak = areaName === "buzlama" 
+    ? false 
+    : !!activeBreaks?.some((b: OperatorBreak) => {
+        return String(b.operator_id) === String(user?.id_dec);
+      });
 
   //* Backend'den gelen WorkLog verisini Tablo formatına (Job) çeviriyoruz
   const activeJobs: Job[] =
@@ -266,15 +384,17 @@ const UretimTerminal = () => {
       <FinishWorkModal
         isOpen={isFinishModalOpen}
         onClose={() => setIsFinishModalOpen(false)}
-        selectedJob={selectedJob}
-        onJobDeselect={() => setSelectedJob(null)}
+        selectedJob={selectedJobs[0] || null}
+        onJobDeselect={() => setSelectedJobs([])}
+        operatorId={activeOperatorId || undefined}
       />
 
       <StopWorkModal
         isOpen={isStopModalOpen}
         onClose={() => setIsStopModalOpen(false)}
-        selectedJob={selectedJob}
-        onJobDeselect={() => setSelectedJob(null)}
+        selectedJobs={selectedJobs}
+        onJobDeselect={() => setSelectedJobs([])}
+        operatorId={activeOperatorId || undefined}
       />
       <FoodMenuModal
         isOpen={isFoodMenuOpen}
@@ -285,14 +405,20 @@ const UretimTerminal = () => {
         isOpen={isBreakModalOpen}
         onClose={() => setIsBreakModalOpen(false)}
         operator={
-          user
+          activeOperatorInfo
+            ? { 
+                id_dec: activeOperatorInfo.id_dec, 
+                full_name: `${activeOperatorInfo.name} ${activeOperatorInfo.surname}` 
+              }
+            : user
             ? { id_dec: user.id_dec, full_name: `${user.name} ${user.surname}` }
             : null
         }
         onConfirm={(reason) => {
-          if (user) {
+          const targetOpId = activeOperatorId || user?.id_dec;
+          if (targetOpId) {
             startBreakMutation.mutate({
-              operator_id: user.id_dec,
+              operator_id: targetOpId,
               break_reason: reason,
               area_name: areaName, // Hangi terminalden mola verildiği bilgisini gönderiyoruz
             });
@@ -321,9 +447,22 @@ const UretimTerminal = () => {
           onLogout={handleLogout}
           onOpenKiosk={() => setIsKioskOpen(true)}
           onOpenFoodMenu={() => setIsFoodMenuOpen(true)}
-          onOpenBreak={() => setIsBreakModalOpen(true)}
-          onEndBreak={() => {
-            if (user) endBreakMutation.mutate(user.id_dec);
+          onOpenBreak={async () => {
+            try {
+              const opId = await requireOperatorAuth();
+              setActiveOperatorId(opId);
+              setIsBreakModalOpen(true);
+            } catch {
+              console.log("Mola başlatma iptal edildi");
+            }
+          }}
+          onEndBreak={async () => {
+            try {
+              const opId = await requireOperatorAuth();
+              endBreakMutation.mutate(opId);
+            } catch {
+              console.log("Moladan dönüş iptal edildi");
+            }
           }}
         />
 
@@ -331,17 +470,19 @@ const UretimTerminal = () => {
           <div className="h-[65%] flex">
             <TerminalJobTable
               jobs={activeJobs}
-              selectedJob={selectedJob}
-              onSelectJob={setSelectedJob}
+              selectedJobs={selectedJobs}
+              onSelectJob={handleSelectJob}
             />
             <TerminalRightSide
-              selectedJob={selectedJob}
-              onJobDeselect={() => setSelectedJob(null)}
-              onOpenFinishModal={() => setIsFinishModalOpen(true)}
-              onOpenStopModal={() => setIsStopModalOpen(true)}
+              selectedJobs={selectedJobs}
+              onJobDeselect={() => setSelectedJobs([])}
+              onOpenFinishModal={(opId: string) => { setActiveOperatorId(opId || null); setIsFinishModalOpen(true); }}
+              onOpenStopModal={(opId: string) => { setActiveOperatorId(opId || null); setIsStopModalOpen(true); }}
               onOpenProductImage={() => setIsProductImageModalOpen(true)}
-              onOpenFireModal={() => setIsFireModalOpen(true)}
+              onOpenFireModal={(opId: string) => { setActiveOperatorId(opId || null); setIsFireModalOpen(true); }}
+              onOpenMeasurementModal={(opId: string) => { setActiveOperatorId(opId || null); setIsMeasurementModalOpen(true); }}
               isOnBreak={isOnBreak}
+              requireOperatorAuth={requireOperatorAuth}
             />
           </div>
 
@@ -405,36 +546,77 @@ const UretimTerminal = () => {
 
             <div className="w-[50%] p-4">
               <div className="w-full h-full bg-secondary/20 border border-border rounded-xl flex flex-col overflow-hidden">
-                <div className="bg-secondary/80 p-2 text-[10px] font-black text-muted-foreground uppercase tracking-widest text-center border-b border-border">
-                  İşlem (Proses) Seçimi
+                <div className="bg-secondary/80 p-0 text-[10px] font-black text-muted-foreground uppercase tracking-widest text-center border-b border-border flex">
+                  <div
+                    className={`flex-1 py-2 ${filteredMachines.length > 0 ? "border-r border-border" : ""}`}
+                  >
+                    İşlem (Proses) Seçimi
+                  </div>
+                  {filteredMachines.length > 0 && (
+                    <div className="flex-1 py-2 text-info">Makine Seçimi</div>
+                  )}
                 </div>
-                <div className="flex-1 overflow-y-auto p-2 scrollbar-thin scrollbar-thumb-border">
-                  {isFetchingProcesses ? (
-                    <div className="h-full flex items-center justify-center text-xs animate-pulse text-muted-foreground">
-                      Prosesler yükleniyor...
-                    </div>
-                  ) : processes && processes.length > 0 ? (
-                    <div className="grid grid-cols-2 gap-2">
-                      {processes.map((proc) => (
-                        <button
-                          key={proc.process_id}
-                          disabled={isOnBreak}
-                          onClick={() => setSelectedProcessId(proc.process_id)}
-                          className={`p-3 rounded-lg border text-left transition-all ${
-                            selectedProcessId === proc.process_id
-                              ? "bg-primary border-primary text-primary-foreground shadow-lg shadow-primary/20 scale-[1.02]"
-                              : "bg-background/50 border-border hover:border-primary/50 text-muted-foreground"
-                          } ${isOnBreak ? "opacity-50 cursor-not-allowed grayscale" : ""}`}
-                        >
-                          <div className="text-lg font-black leading-tight">
-                            {proc.process_name}
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="h-full flex items-center justify-center text-muted-foreground/40 font-bold text-sm italic">
-                      Bu bölüm için proses bulunamadı.
+
+                <div className="flex-1 flex overflow-hidden">
+                  <div
+                    className={`flex-1 overflow-y-auto p-2  ${filteredMachines.length > 0 ? "border-r border-border" : ""}`}
+                  >
+                    {isFetchingProcesses ? (
+                      <div className="h-full flex items-center justify-center text-xs animate-pulse text-muted-foreground">
+                        Prosesler yükleniyor...
+                      </div>
+                    ) : processes && processes.length > 0 ? (
+                      <div className="grid grid-cols-2 gap-2">
+                        {processes.map((proc) => (
+                          <button
+                            key={proc.process_id}
+                            disabled={isOnBreak}
+                            onClick={() => {
+                              setSelectedProcessId(proc.process_id);
+                              setSelectedMachineName(null); // Proses değişince makineyi sıfırla
+                            }}
+                            className={`p-3 rounded-lg border text-left transition-all ${
+                              selectedProcessId === proc.process_id
+                                ? "bg-primary border-primary text-primary-foreground shadow-lg shadow-primary/20 scale-[1.02]"
+                                : "bg-background/50 border-border hover:border-primary/50 text-muted-foreground"
+                            } ${isOnBreak ? "opacity-50 cursor-not-allowed grayscale" : ""}`}
+                          >
+                            <div className="text-xl font-black leading-tight">
+                              {proc.process_name}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="h-full flex items-center justify-center text-muted-foreground/40 font-bold text-sm italic">
+                        Proses bulunamadı.
+                      </div>
+                    )}
+                  </div>
+
+                  {/* MAKİNE LİSTESİ */}
+                  {filteredMachines.length > 0 && (
+                    <div className="flex-1 overflow-y-auto p-2 scrollbar-thin scrollbar-thumb-border">
+                      <div className="grid grid-cols-2 gap-2">
+                        {filteredMachines.map((mach) => (
+                          <button
+                            key={mach.id}
+                            disabled={isOnBreak}
+                            onClick={() =>
+                              setSelectedMachineName(mach.machine_name)
+                            }
+                            className={`p-3 rounded-lg border text-center transition-all ${
+                              selectedMachineName === mach.machine_name
+                                ? "bg-info border-info text-info-foreground shadow-lg shadow-info/20 scale-[1.02]"
+                                : "bg-background/50 border-border hover:border-info/50 text-muted-foreground"
+                            } ${isOnBreak ? "opacity-50 cursor-not-allowed grayscale" : ""}`}
+                          >
+                            <div className="text-xl font-black leading-tight">
+                              {mach.machine_name}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -450,11 +632,26 @@ const UretimTerminal = () => {
       />
 
       {isFireModalOpen && areaName && (
-        <FirePopup 
-          areaName={areaName} 
-          onClose={() => setIsFireModalOpen(false)} 
+        <FirePopup
+          areaName={areaName}
+          onClose={() => setIsFireModalOpen(false)}
+          operatorId={activeOperatorId || undefined}
         />
       )}
+
+      {isMeasurementModalOpen && areaName && (
+        <MeasurementPopup
+          areaName={areaName}
+          onClose={() => setIsMeasurementModalOpen(false)}
+          operatorId={activeOperatorId || undefined}
+        />
+      )}
+
+      <OperatorIdModal
+        isOpen={operatorIdModalOpen}
+        onClose={handleOperatorIdClose}
+        onSubmit={handleOperatorIdSubmit}
+      />
     </div>
   );
 };

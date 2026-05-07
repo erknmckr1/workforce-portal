@@ -10,11 +10,12 @@ import type { MesStopReason } from "../../types/mes";
 interface StopWorkModalProps {
   isOpen: boolean;
   onClose: () => void;
-  selectedJob: string | null;
+  selectedJobs: string[];
   onJobDeselect: () => void;
+  operatorId?: string;
 }
 
-const StopWorkModal = ({ isOpen, onClose, selectedJob, onJobDeselect }: StopWorkModalProps) => {
+const StopWorkModal = ({ isOpen, onClose, selectedJobs, onJobDeselect, operatorId }: StopWorkModalProps) => {
   const { areaName, section } = useParams<{ areaName: string; section: string }>();
   const { user } = useAuthStore();
   const queryClient = useQueryClient();
@@ -32,22 +33,25 @@ const StopWorkModal = ({ isOpen, onClose, selectedJob, onJobDeselect }: StopWork
 
   const stopWorkMutation = useMutation({
     mutationFn: async (stopReasonId: string) => {
-      const res = await apiClient.post("/mes/stop-work", {
-        workLogId: selectedJob,
-        operatorId: user?.id_dec,
-        stopReasonId,
-      });
-      return res.data;
+      // Çoklu iş durdurma döngüsü
+      for (const jobId of selectedJobs) {
+        await apiClient.post("/mes/stop-work", {
+          workLogId: jobId,
+          operatorId: operatorId || user?.id_dec,
+          stopReasonId,
+        });
+      }
+      return { success: true };
     },
     onSuccess: () => {
-      toast.success("Sipariş başarıyla durduruldu!");
+      toast.success(`${selectedJobs.length} adet iş başarıyla durduruldu!`);
       onJobDeselect(); // Seçimi iptal et
       queryClient.invalidateQueries({ queryKey: ["workLogs", areaName] });
       onClose(); // Modalı kapat
     },
     onError: (error: AxiosError<{ message: string }>) => {
       toast.error(
-        error.response?.data?.message || "Sipariş durdurulurken hata oluştu!"
+        error.response?.data?.message || "İşler durdurulurken hata oluştu!"
       );
     },
   });

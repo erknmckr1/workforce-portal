@@ -5,6 +5,7 @@ const router = Router();
 
 // Sipariş No ile SAP verisini çekme
 router.get("/order/:orderId", MesController.getSapOrder);
+router.get("/operator/:id", MesController.getOperatorById);
 
 // Statik veri çekme rotaları
 router.get("/processes", MesController.getProcessesByArea);
@@ -44,5 +45,14 @@ router.get("/reports/late-arrivals", MesController.getLateArrivals);
 router.get("/scrap-measurements", MesController.getScrapMeasurements);
 router.post("/scrap-measurements", MesController.submitScrapMeasurement);
 router.put("/scrap-measurements", MesController.updateScrapMeasurement);
+
+// Makine Rotaları
+router.get("/machines", MesController.getMachines);
+
+// Ölçüm (Measurement) Rotaları
+router.get("/measure-limits/:materialNo", MesController.getMeasureLimits);
+router.get("/measurements", MesController.getMeasurements);
+router.post("/measurements", MesController.saveMeasurement);
+router.delete("/measurements/:id", MesController.deleteMeasurement);
 
 export default router;

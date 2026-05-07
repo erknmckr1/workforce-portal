@@ -15,28 +15,41 @@ import { useAuthStore } from "../../store/authStore";
 import { toast } from "sonner";
 
 interface TerminalRightSideProps {
-  selectedJob: string | null;
+  selectedJobs: string[];
   onJobDeselect: () => void;
-  onOpenFinishModal: () => void;
-  onOpenStopModal: () => void;
+  onOpenFinishModal: (opId: string) => void;
+  onOpenStopModal: (opId: string) => void;
   onOpenProductImage: () => void;
-  onOpenFireModal: () => void;
+  onOpenFireModal: (opId: string) => void;
+  onOpenMeasurementModal: (opId: string) => void;
   isOnBreak: boolean;
+  requireOperatorAuth?: () => Promise<string>;
 }
 
 const TerminalRightSide = ({
-  selectedJob,
+  selectedJobs,
   onJobDeselect,
   onOpenFinishModal,
   onOpenStopModal,
   onOpenProductImage,
   onOpenFireModal,
+  onOpenMeasurementModal,
   isOnBreak,
+  requireOperatorAuth,
 }: TerminalRightSideProps) => {
   const { areaName } = useParams<{ areaName: string }>();
   const queryClient = useQueryClient();
   const { confirm } = useConfirm();
   const { user } = useAuthStore();
+
+  const handleGuardedAction = async (actionFn: (opId: string) => void) => {
+    try {
+      const opId = requireOperatorAuth ? await requireOperatorAuth() : user?.id_dec || "SYSTEM";
+      actionFn(opId);
+    } catch {
+      console.log("Kullanıcı işlemi iptal etti veya ID girmedi.");
+    }
+  };
 
   const cancelWorkMutation = useMutation({
     mutationFn: async (workData: Record<string, unknown>) => {
@@ -56,23 +69,34 @@ const TerminalRightSide = ({
   });
 
   const handleCancelWork = async () => {
-    if (!selectedJob) {
-      toast.error("Lütfen işlem yapmak için bir iş seçin!");
+    if (selectedJobs.length === 0) {
+      toast.error("Lütfen işlem yapmak için en az bir iş seçin!");
       return;
     }
+
     const isConfirmed = await confirm({
-      title: "İşi İptal Et",
-      description:
-        "Seçili işi iptal etmek istediğinize emin misiniz? Bu işlem geri alınamaz.",
+      title: "İş İptali",
+      description: `${selectedJobs.length} adet işi iptal etmek istediğinize emin misiniz? Bu işlem geri alınamaz!`,
       confirmText: "Evet, İptal Et",
       cancelText: "Vazgeç",
       variant: "destructive",
     });
+
     if (isConfirmed) {
-      cancelWorkMutation.mutate({
-        workLogId: selectedJob,
-        operatorId: user?.id_dec,
-        cancelReasonId: "0000",
+      handleGuardedAction(async (opId) => {
+        try {
+          for (const jobId of selectedJobs) {
+            await cancelWorkMutation.mutateAsync({
+              workLogId: jobId,
+              operatorId: opId,
+              cancelReasonId: 1, // Genel iptal nedeni
+            });
+          }
+          toast.success("Tüm işler iptal edildi!");
+          onJobDeselect();
+        } catch {
+          // Hata
+        }
       });
     }
   };
@@ -95,23 +119,87 @@ const TerminalRightSide = ({
   });
 
   const handleRestartWork = async () => {
-    if (!selectedJob) {
-      toast.error("Lütfen işlem yapmak için bir iş seçin!");
+    if (selectedJobs.length === 0) {
+      toast.error("Lütfen işlem yapmak için en az bir iş seçin!");
       return;
     }
     const isConfirmed = await confirm({
       title: "İşi Yeniden Başlat",
-      description:
-        "Durdurulmuş olan bu siparişe tekrar devam etmek istediğinize emin misiniz?",
+      description: `${selectedJobs.length} adet işi yeniden başlatmak istediğinize emin misiniz?`,
       confirmText: "Evet, Başlat",
       cancelText: "Vazgeç",
       variant: "success",
     });
     if (isConfirmed) {
-      restartWorkMutation.mutate({
-        workLogId: selectedJob,
-        operatorId: user?.id_dec,
+      handleGuardedAction(async (opId) => {
+        try {
+          for (const jobId of selectedJobs) {
+            await restartWorkMutation.mutateAsync({
+              workLogId: jobId,
+              operatorId: opId,
+            });
+          }
+          toast.success("Tüm işler başarıyla başlatıldı!");
+          onJobDeselect();
+        } catch {
+          // Hata
+        }
       });
+    }
+  };
+
+  const finishWorkMutation = useMutation({
+    mutationFn: async (workData: Record<string, unknown>) => {
+      const res = await apiClient.post("/mes/finish-work", workData);
+      return res.data;
+    },
+    onSuccess: () => {
+      toast.success("İş başarıyla tamamlandı!");
+      onJobDeselect();
+      queryClient.invalidateQueries({ queryKey: ["workLogs", areaName] });
+    },
+    onError: (error: AxiosError<{ message: string }>) => {
+      toast.error(
+        error.response?.data?.message || "İş sonlandırılırken hata oluştu!",
+      );
+    },
+  });
+
+  const handleFinishWork = async () => {
+    if (selectedJobs.length === 0) {
+      toast.error("Lütfen işlem yapmak için en az bir iş seçin!");
+      return;
+    }
+
+    if (areaName === "kalite") {
+      if (selectedJobs.length > 1) {
+        toast.error("Kalite ekranında sadece tekli bitirme yapılabilir.");
+        return;
+      }
+      handleGuardedAction((opId) => onOpenFinishModal(opId));
+    } else {
+      const isConfirmed = await confirm({
+        title: "İşi Bitir",
+        description: `${selectedJobs.length} adet işi tamamlamak istediğinize emin misiniz?`,
+        confirmText: "Evet, Bitir",
+        cancelText: "Vazgeç",
+        variant: "success",
+      });
+      if (isConfirmed) {
+        handleGuardedAction(async (opId) => {
+          try {
+            for (const jobId of selectedJobs) {
+              await finishWorkMutation.mutateAsync({
+                work_log_id: jobId,
+                operator_id: opId,
+              });
+            }
+            toast.success("Tüm işler başarıyla tamamlandı!");
+          } catch {
+            // Hata
+          }
+        });
+      }
     }
   };
 
@@ -135,11 +223,7 @@ const TerminalRightSide = ({
       </button>
 
       <button
-        onClick={() =>
-          selectedJob
-            ? onOpenStopModal()
-            : toast.error("Lütfen işlem yapmak için bir iş seçin!")
-        }
+        onClick={() => handleGuardedAction((opId) => selectedJobs.length > 0 ? onOpenStopModal(opId) : toast.error("Lütfen işlem yapmak için bir iş seçin!"))}
         disabled={isOnBreak}
         className={`group relative w-full bg-secondary hover:bg-destructive text-foreground hover:text-destructive-foreground font-black py-6 rounded-xl transition-all duration-300 border border-border hover:border-destructive/50 active:scale-95 overflow-hidden text-center ${isOnBreak ? "opacity-50 cursor-not-allowed grayscale" : ""}`}
       >
@@ -156,11 +240,7 @@ const TerminalRightSide = ({
       </button>
 
       <button
-        onClick={() =>
-          selectedJob
-            ? onOpenFinishModal()
-            : toast.error("Lütfen işlem yapmak için bir iş seçin!")
-        }
+        onClick={handleFinishWork}
         disabled={isOnBreak}
         className={`group relative w-full bg-secondary hover:bg-success text-foreground hover:text-success-foreground font-black py-6 rounded-xl transition-all duration-300 border border-border hover:border-success/50 active:scale-95 overflow-hidden text-center ${isOnBreak ? "opacity-50 cursor-not-allowed grayscale" : ""}`}
       >
@@ -213,7 +293,7 @@ const TerminalRightSide = ({
 
       {areaName === "taslama" && (
         <button
-          onClick={onOpenFireModal}
+          onClick={() => handleGuardedAction((opId) => onOpenFireModal(opId))}
           disabled={isOnBreak}
           className={`group relative w-full bg-amber-500/10 hover:bg-amber-500 text-amber-500 hover:text-foreground font-black py-6 rounded-xl transition-all duration-300 border border-amber-500/30 hover:border-amber-500 active:scale-95 overflow-hidden text-center shadow-[0_0_20px_rgba(245,158,11,0.1)] ${isOnBreak ? "opacity-50 cursor-not-allowed grayscale" : ""}`}
         >
@@ -225,6 +305,25 @@ const TerminalRightSide = ({
             />
             <span className="text-[10px] uppercase tracking-[0.2em]">
               Fire Girişi
+            </span>
+          </div>
+        </button>
+      )}
+
+      {areaName === "buzlama" && (
+        <button
+          onClick={() => handleGuardedAction((opId) => onOpenMeasurementModal(opId))}
+          disabled={isOnBreak}
+          className={`group relative w-full bg-orange-500/10 hover:bg-orange-500 text-orange-500 hover:text-foreground font-black py-6 rounded-xl transition-all duration-300 border border-orange-500/30 hover:border-orange-500 active:scale-95 overflow-hidden text-center shadow-[0_0_20px_rgba(249,115,22,0.1)] ${isOnBreak ? "opacity-50 cursor-not-allowed grayscale" : ""}`}
+        >
+          <div className="absolute inset-0 bg-linear-to-br from-orange-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+          <div className="relative flex flex-col items-center gap-2">
+            <Calculator
+              size={24}
+              className="group-hover:scale-110 transition-transform"
+            />
+            <span className="text-[10px] uppercase tracking-[0.2em]">
+              Ölçüm V. Girişi
             </span>
           </div>
         </button>

@@ -13,6 +13,7 @@ interface FinishWorkModalProps {
   onClose: () => void;
   selectedJob: string | null;
   onJobDeselect: () => void;
+  operatorId?: string;
 }
 
 const FinishWorkModal = ({
@@ -20,6 +21,7 @@ const FinishWorkModal = ({
   onClose,
   selectedJob,
   onJobDeselect,
+  operatorId,
 }: FinishWorkModalProps) => {
   const { areaName, section } = useParams<{
     areaName: string;
@@ -64,7 +66,7 @@ const FinishWorkModal = ({
 
       return await apiClient.post("/mes/finish-work", {
         work_log_id: selectedJob,
-        operator_id: user?.id_dec,
+        operator_id: operatorId || user?.id_dec,
         produced_qty_gr: parseFloat(goodQty) || 0,
         finish_description: description,
         additional_data: {

@@ -13,7 +13,10 @@ import { WorkLogPause } from "../models/WorkLogPause";
 import { WorkLogRepair } from "../models/WorkLogRepair";
 import { OperatorBreak } from "../models/OperatorBreak";
 import ScrapMeasurement from "../models/ScrapMeasurement";
+import { MesMachine } from "../models/MesMachine";
+import { Measurement } from "../models/Measurement";
 import { Op, QueryTypes } from "sequelize";
+import sequelize from "../config/database";
 import timecureSequelize from "../config/timecureDatabase";
 import sapSequelize from "../config/mesDatabase";
 import ExternalMovement from "../models/ExternalMovement";
@@ -168,6 +171,14 @@ export const startWork = async (req: Request, res: Response) => {
       });
     }
 
+    // Operatör Geçerlilik Kontrolü
+    const operator = await Operator.findOne({ where: { id_dec: operator_id } });
+    if (!operator) {
+      return res.status(404).json({
+        message: `Geçersiz Operatör ID (${operator_id})! Lütfen sistemde kayıtlı bir ID giriniz.`,
+      });
+    }
+
     // 2. Mola Kontrolü
     const onBreak = await isOperatorOnBreak(operator_id);
     if (onBreak) {
@@ -283,6 +294,14 @@ export const cancelWork = async (req: Request, res: Response) => {
         .json({ message: "Sipariş ID'si ve Operatör ID'si gerekli." });
     }
 
+    // Operatör Geçerlilik Kontrolü
+    const operator = await Operator.findOne({ where: { id_dec: operatorId } });
+    if (!operator) {
+      return res.status(404).json({
+        message: `Geçersiz Operatör ID (${operatorId})! Lütfen sistemde kayıtlı bir ID giriniz.`,
+      });
+    }
+
     // Mola Kontrolü
     if (await isOperatorOnBreak(operatorId)) {
       return res.status(403).json({
@@ -321,6 +340,14 @@ export const stopWork = async (req: Request, res: Response) => {
       return res
         .status(400)
         .json({ message: "Sipariş ID, Operatör ID ve Duruş Nedeni gerekli." });
+    }
+
+    // Operatör Geçerlilik Kontrolü
+    const operator = await Operator.findOne({ where: { id_dec: operatorId } });
+    if (!operator) {
+      return res.status(404).json({
+        message: `Geçersiz Operatör ID (${operatorId})! Lütfen sistemde kayıtlı bir ID giriniz.`,
+      });
     }
 
     // Mola Kontrolü
@@ -373,14 +400,22 @@ export const getWorkLogs = async (req: Request, res: Response) => {
       return res.status(400).json({ message: "Bölüm adı (areaName) gerekli." });
     }
 
+    let whereCondition: any = {
+      area_name: areaName as string,
+    };
+
+    if (areaName === "buzlama") {
+      // Buzlama alanı ortak bir havuzdur, tüm aktif/durdurulmuş işleri gösterir
+      whereCondition.status = { [Op.in]: [1, 2, 9] };
+    } else {
+      whereCondition[Op.or] = [
+        { status: 1, operator_id: operatorId as string }, // Sadece aktif kullanıcının devam eden işleri
+        { status: { [Op.in]: [2, 9] } }, // Durdurulmuş veya mola nedeniyle bekleyen tüm işler
+      ];
+    }
+
     const workLogs = await WorkLog.findAll({
-      where: {
-        area_name: areaName as string,
-        [Op.or]: [
-          { status: 1, operator_id: operatorId as string }, // Sadece aktif kullanıcının devam eden işleri
-          { status: { [Op.in]: [2, 9] } }, // Durdurulmuş veya mola nedeniyle bekleyen tüm işler
-        ],
-      },
+      where: whereCondition,
       include: [
         { model: Status, as: "StatusDetail" },
         { model: Operator, as: "Operator", attributes: ["name", "surname"] },
@@ -404,6 +439,14 @@ export const restartWork = async (req: Request, res: Response) => {
       return res
         .status(400)
         .json({ message: "Sipariş ID'si ve Operatör ID'si gerekli." });
+    }
+
+    // Operatör Geçerlilik Kontrolü
+    const operator = await Operator.findOne({ where: { id_dec: operatorId } });
+    if (!operator) {
+      return res.status(404).json({
+        message: `Geçersiz Operatör ID (${operatorId})! Lütfen sistemde kayıtlı bir ID giriniz.`,
+      });
     }
 
     // Mola Kontrolü
@@ -498,6 +541,14 @@ export const finishWork = async (req: Request, res: Response) => {
     return res.status(400).json({ message: "Operatör ve iş kaydı gerekli." });
   }
 
+  // Operatör Geçerlilik Kontrolü
+  const operator = await Operator.findOne({ where: { id_dec: operator_id } });
+  if (!operator) {
+    return res.status(404).json({
+      message: `Geçersiz Operatör ID (${operator_id})! Lütfen sistemde kayıtlı bir ID giriniz.`,
+    });
+  }
+
   // Mola Kontrolü
   if (await isOperatorOnBreak(operator_id)) {
     return res.status(403).json({
@@ -563,6 +614,14 @@ export const startBreak = async (req: Request, res: Response) => {
       return res
         .status(400)
         .json({ message: "Operatör ve mola nedeni gerekli." });
+    }
+
+    // Operatör Geçerlilik Kontrolü
+    const operator = await Operator.findOne({ where: { id_dec: operator_id } });
+    if (!operator) {
+      return res.status(404).json({
+        message: `Geçersiz Operatör ID (${operator_id})! Lütfen sistemde kayıtlı bir ID giriniz.`,
+      });
     }
 
     // 1. Aktif bir mola var mı kontrol et
@@ -805,11 +864,9 @@ export const getPersonnelMovementReport = async (
 
   try {
     if (!operatorId || !startDate || !endDate) {
-      return res
-        .status(400)
-        .json({
-          message: "Operator ID, başlangıç ve bitiş tarihleri gereklidir.",
-        });
+      return res.status(400).json({
+        message: "Operator ID, başlangıç ve bitiş tarihleri gereklidir.",
+      });
     }
 
     const start = new Date(startDate as string);
@@ -1012,6 +1069,14 @@ export const submitScrapMeasurement = async (req: Request, res: Response) => {
   const { formState, user_id, areaName } = req.body;
 
   try {
+    // Operatör Geçerlilik Kontrolü
+    const operator = await Operator.findOne({ where: { id_dec: user_id } });
+    if (!operator) {
+      return res.status(404).json({
+        message: `Geçersiz Operatör ID (${user_id})! Lütfen sistemde kayıtlı bir ID giriniz.`,
+      });
+    }
+
     const newMeasurement = await ScrapMeasurement.create({
       order_no: formState.orderId,
       operator_id: user_id,
@@ -1036,7 +1101,9 @@ export const updateScrapMeasurement = async (req: Request, res: Response) => {
   try {
     const measurement = await ScrapMeasurement.findByPk(id);
     if (!measurement) {
-      return res.status(404).json({ message: "Güncellenecek kayıt bulunamadı." });
+      return res
+        .status(404)
+        .json({ message: "Güncellenecek kayıt bulunamadı." });
     }
 
     await measurement.update({
@@ -1051,5 +1118,159 @@ export const updateScrapMeasurement = async (req: Request, res: Response) => {
   } catch (error) {
     console.error("updateScrapMeasurement Error:", error);
     return res.status(500).json({ message: "Güncelleme yapılamadı." });
+  }
+};
+
+// ==========================================
+// MAKİNE ve ÖLÇÜM (MEASUREMENT) METOTLARI
+// ==========================================
+
+export const getMachines = async (req: Request, res: Response) => {
+  try {
+    const { area_name } = req.query;
+
+    const whereClause: any = {};
+    if (area_name) {
+      whereClause.area_name = area_name;
+    }
+
+    const machines = await MesMachine.findAll({
+      where: whereClause,
+      order: [["machine_name", "ASC"]],
+    });
+
+    res.json(machines);
+  } catch (error) {
+    console.error("Makine listesi getirilirken hata:", error);
+    res.status(500).json({ message: "Sunucu hatası." });
+  }
+};
+
+export const getMeasurements = async (req: Request, res: Response) => {
+  try {
+    const { area_name, material_no } = req.query;
+
+    if (!area_name || !material_no) {
+      return res.status(400).json({ message: "Eksik parametre." });
+    }
+
+    const measurements = await Measurement.findAll({
+      where: { area_name, material_no },
+      order: [["createdAt", "DESC"]],
+    });
+
+    res.json(measurements);
+  } catch (error) {
+    console.error("Ölçüm verileri getirilirken hata:", error);
+    res.status(500).json({ message: "Sunucu hatası." });
+  }
+};
+
+export const saveMeasurement = async (req: Request, res: Response) => {
+  try {
+    const {
+      order_no,
+      material_no,
+      operator,
+      area_name,
+      entry_measurement,
+      exit_measurement,
+      entry_weight_50cm,
+      exit_weight_50cm,
+      description,
+      measurement_package,
+    } = req.body;
+
+    // Operatör Geçerlilik Kontrolü
+    const operatorCheck = await Operator.findOne({
+      where: { id_dec: operator },
+    });
+    if (!operatorCheck) {
+      return res.status(404).json({
+        message: `Geçersiz Operatör ID (${operator})! Lütfen sistemde kayıtlı bir ID giriniz.`,
+      });
+    }
+
+    const newMeasurement = await Measurement.create({
+      order_no,
+      material_no,
+      operator,
+      area_name,
+      entry_measurement,
+      exit_measurement,
+      entry_weight_50cm,
+      exit_weight_50cm,
+      description,
+      measurement_package,
+      data_entry_date: new Date(),
+    });
+
+    res.json(newMeasurement);
+  } catch (error) {
+    console.error("Ölçüm verisi kaydedilirken hata:", error);
+    res.status(500).json({ message: "Sunucu hatası." });
+  }
+};
+
+export const deleteMeasurement = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const measurement = await Measurement.findByPk(id as string);
+    if (!measurement) {
+      return res.status(404).json({ message: "Ölçüm bulunamadı." });
+    }
+
+    await measurement.destroy();
+    res.json({ message: "Ölçüm başarıyla silindi." });
+  } catch (error) {
+    console.error("Ölçüm verisi silinirken hata:", error);
+    res.status(500).json({ message: "Sunucu hatası." });
+  }
+};
+
+export const getMeasureLimits = async (req: Request, res: Response) => {
+  try {
+    const { materialNo } = req.params;
+
+    const [results] = await sequelize.query(
+      `
+      SELECT lowerLimit, upperLimit, weight_50cm 
+      FROM mes.dbo.zincir_50cm_gr 
+      WHERE materialCode = :materialNo
+    `,
+      {
+        replacements: { materialNo },
+      },
+    );
+
+    if (!results || results.length === 0) {
+      return res.status(404).json({ message: "Limit bulunamadı." });
+    }
+
+    // İlk sonucu döndürüyoruz
+    res.json(results[0]);
+  } catch (error) {
+    console.error("Limit getirilirken hata:", error);
+    res.status(500).json({ message: "Sunucu hatası." });
+  }
+};
+
+export const getOperatorById = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const operator = await Operator.findOne({
+      where: { id_dec: id },
+      attributes: ["id_dec", "name", "surname", "photo_url"],
+    });
+
+    if (!operator) {
+      return res.status(404).json({ message: "Operatör bulunamadı." });
+    }
+
+    return res.status(200).json(operator);
+  } catch (error) {
+    console.error("getOperatorById Error:", error);
+    return res.status(500).json({ message: "Sunucu hatası." });
   }
 };

@@ -16,13 +16,13 @@ export interface Job {
 
 interface TerminalJobTableProps {
   jobs: Job[];
-  selectedJob: string | null;
+  selectedJobs: string[];
   onSelectJob: (id: string) => void;
 }
 
 const TerminalJobTable: React.FC<TerminalJobTableProps> = ({
   jobs,
-  selectedJob,
+  selectedJobs,
   onSelectJob,
 }) => {
   return (
@@ -61,7 +61,7 @@ const TerminalJobTable: React.FC<TerminalJobTableProps> = ({
                 onClick={() => onSelectJob(job.id)}
                 className={`group cursor-pointer transition-all duration-150 border-l-2
                   ${
-                    selectedJob === job.id
+                    selectedJobs.includes(job.id)
                       ? "bg-amber-500/10 border-amber-500"
                       : job.status === 1
                       ? "bg-success border-transparent hover:bg-success"

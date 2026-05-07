@@ -6,6 +6,29 @@ export interface MesProcess {
   process_group: string | null;
 }
 
+export interface MeasurementRecord {
+  id: number;
+  order_no: string;
+  material_no: string;
+  operator: string;
+  area_name: string;
+  entry_measurement: string;
+  exit_measurement: string;
+  entry_weight_50cm: number;
+  exit_weight_50cm: number;
+  description: string;
+  measurement_package: number;
+  createdAt: string;
+}
+
+export interface MesMachine {
+  id: number;
+  machine_name: string;
+  process_name: string;
+  machine_group: string | null;
+  area_name: string | null;
+}
+
 export interface MesRepairReason {
   repair_reason_id: string;
   repair_reason: string;

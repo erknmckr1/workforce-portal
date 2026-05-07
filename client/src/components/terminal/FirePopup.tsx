@@ -29,9 +29,10 @@ interface ScrapMeasurement {
 interface FirePopupProps {
   onClose: () => void;
   areaName: string;
+  operatorId?: string;
 }
 
-const FirePopup: React.FC<FirePopupProps> = ({ onClose, areaName }) => {
+const FirePopup: React.FC<FirePopupProps> = ({ onClose, areaName, operatorId }) => {
   const { user } = useAuthStore();
   const [loading, setLoading] = useState(false);
   const [history, setHistory] = useState<ScrapMeasurement[]>([]);
@@ -122,7 +123,7 @@ const FirePopup: React.FC<FirePopupProps> = ({ onClose, areaName }) => {
       } else {
         await apiClient.post("/mes/scrap-measurements", {
           formState: form,
-          user_id: user?.id_dec,
+          user_id: operatorId || user?.id_dec,
           areaName,
         });
         toast.success("Ölçüm kaydedildi.");
