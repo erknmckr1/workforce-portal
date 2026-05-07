@@ -45,7 +45,7 @@ const MeasurementPopup: React.FC<MeasurementPopupProps> = ({
     return val < limits.lowerLimit || val > limits.upperLimit;
   }, [form.exitWeight50cm, limits]);
 
-  const fetchHistory = async (orderId: string, materialNo: string) => {
+  const fetchHistory = async (materialNo: string) => {
     try {
       const res = await apiClient.get(
         `/mes/measurements?area_name=${areaName}&material_no=${materialNo}`,
@@ -71,7 +71,7 @@ const MeasurementPopup: React.FC<MeasurementPopupProps> = ({
       }));
       toast.success("Sipariş bilgileri getirildi.");
       if (matNo) {
-        await fetchHistory(form.orderId, matNo);
+        await fetchHistory(matNo);
         // Tolerans limitlerini çek
         try {
           const limitRes = await apiClient.get(`/mes/measure-limits/${matNo}`);
@@ -134,7 +134,7 @@ const MeasurementPopup: React.FC<MeasurementPopupProps> = ({
       // Kayıttan sonra limitleri sıfırlamıyoruz çünkü aynı malzemeye devam edebilir,
       // ancak formu temizledik.
 
-      await fetchHistory(form.orderId, form.materialNo);
+      await fetchHistory(form.materialNo);
     } catch (error) {
       console.log(error);
       toast.error("Kaydedilemedi.");
@@ -154,7 +154,7 @@ const MeasurementPopup: React.FC<MeasurementPopupProps> = ({
       await apiClient.delete(`/mes/measurements/${selectedId}`);
       toast.success("Ölçüm silindi.");
       setSelectedId(null);
-      await fetchHistory(form.orderId, form.materialNo);
+      await fetchHistory(form.materialNo);
     } catch (error) {
       toast.error("Silinemedi.");
     } finally {

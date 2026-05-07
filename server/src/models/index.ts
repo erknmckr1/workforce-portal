@@ -21,6 +21,7 @@ import ScrapMeasurement from "./ScrapMeasurement";
 import { Status } from "./Status";
 import { MesMachine } from "./MesMachine";
 import { Measurement } from "./Measurement";
+import { PhoneDirectory } from "./PhoneDirectory";
 
 // --- Lookups & Operator Associations ---
 Section.hasMany(Department, { foreignKey: "section_id" });
@@ -132,5 +133,6 @@ export {
     ScrapMeasurement,
     Status,
     MesMachine,
-    Measurement
+    Measurement,
+    PhoneDirectory
 };

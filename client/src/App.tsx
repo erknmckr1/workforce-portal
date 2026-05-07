@@ -23,6 +23,8 @@ import UretimTerminal from "./pages/UretimTerminal";
 import MesScreensNavigator from "./pages/MesScreensNavigator";
 import Reports from "./pages/Reports";
 import PersonnelMovementReport from "./pages/PersonnelMovementReport";
+import PhoneDirectoryPage from "./pages/PhoneDirectoryPage";
+import PhoneDirectoryManager from "./pages/settings/PhoneDirectoryManager";
 import { ThemeProvider } from "./components/theme-provider";
 import { ConfirmProvider } from "@/providers/ConfirmProvider";
 import "./App.css";
@@ -151,6 +153,7 @@ function App() {
               {/* Yemek Menüsü Yönetimi - Admin ve İK */}
               <Route element={<ProtectedRoute allowedRoles={["Admin", "İK"]} />}>
                 <Route path="settings/food-menu" element={<FoodMenuManager />} />
+                <Route path="settings/phone-directory" element={<PhoneDirectoryManager />} />
               </Route>
               {/* Takvim Yönetimi - Sadece Admin & İK */}
               <Route element={<ProtectedRoute allowedRoles={["Admin", "İK"]} />}>
@@ -164,6 +167,7 @@ function App() {
               
               <Route element={<ProtectedRoute allowedRoles={["Admin", "İK", "Müdür", "Şef", "Personel", "Revir", "Güvenlik"]} />}>
                 <Route path="food-menu" element={<FoodMenuPage />} />
+                <Route path="phone-directory" element={<PhoneDirectoryPage />} />
               </Route>
 
               {/* Üretim Ekranları Gezgini */}

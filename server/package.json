@@ -4,6 +4,7 @@
   "main": "dist/server.js",
   "scripts": {
     "dev": "nodemon --exec ts-node src/server.ts",
+    "seed:phone": "ts-node src/scripts/seed_phone_directory.ts",
     "build": "tsc",
     "start": "node dist/server.js"
   },

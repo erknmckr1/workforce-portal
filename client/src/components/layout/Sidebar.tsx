@@ -16,6 +16,7 @@ import {
   MonitorSmartphone,
   Wrench,
   CalendarRange,
+  Phone,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/authStore";
@@ -89,6 +90,12 @@ const menuItems = [
         icon: FileText,
         roles: ["Admin", "İK", "Müdür", "Şef", "Personel", "Revir", "Güvenlik"],
       },
+      {
+        title: "Telefon Rehberi",
+        path: "/phone-directory",
+        icon: Phone,
+        roles: ["Admin", "İK", "Müdür", "Şef", "Personel", "Revir", "Güvenlik"],
+      },
     ],
   },
   {
@@ -120,6 +127,11 @@ const menuItems = [
         title: "Yemek Yönetimi",
         path: "/settings/food-menu",
         roles: ["Admin"],
+      },
+      {
+        title: "Rehber Yönetimi",
+        path: "/settings/phone-directory",
+        roles: ["Admin", "İK"],
       },
     ],
   },
