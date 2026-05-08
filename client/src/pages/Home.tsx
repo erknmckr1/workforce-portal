@@ -21,6 +21,7 @@ import {
   Thermometer,
   Droplets,
   Video,
+  Loader2,
 } from "lucide-react";
 import {
   Tabs,
@@ -28,6 +29,26 @@ import {
   TabsList,
   TabsTrigger,
 } from "../components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "../components/ui/dialog";
+import { usePhoneDirectory } from "../hooks/usePhoneDirectory";
+import { useDebounce } from "../hooks/useDebounce";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../components/ui/table";
+import { Input } from "../components/ui/input";
+import { Button } from "../components/ui/button";
+import { Phone as PhoneIcon } from "lucide-react";
 
 interface CalendarEvent {
   id?: number;
@@ -66,6 +87,12 @@ interface NewsItem {
 const Home = () => {
   const { isAuthenticated } = useAuthStore();
   const [calendarDate, setCalendarDate] = useState(new Date());
+
+  // Phone Directory Modal States
+  const [isPhoneModalOpen, setIsPhoneModalOpen] = useState(false);
+  const [phoneSearch, setPhoneSearch] = useState("");
+  const debouncedPhoneSearch = useDebounce(phoneSearch, 400);
+  const { directoryQuery } = usePhoneDirectory(debouncedPhoneSearch);
 
   const { data: ratesResponse } = useQuery({
     queryKey: ["public-rates"],
@@ -199,7 +226,12 @@ const Home = () => {
             <span className="hover:opacity-100 cursor-pointer">Dokümanlar</span>
             <span className="hover:opacity-100 cursor-pointer">Belgeler</span>
             <span className="hover:opacity-100 cursor-pointer">Formlar</span>
-            <span className="hover:opacity-100 cursor-pointer">Numaralar</span>
+            <span
+              onClick={() => setIsPhoneModalOpen(true)}
+              className="hover:opacity-100 cursor-pointer text-card animate-pulse"
+            >
+              Numaralar
+            </span>
             <span className="hover:opacity-100 cursor-pointer">Anketler</span>
           </div>
         </div>
@@ -616,7 +648,7 @@ const Home = () => {
               </div>
             </section>
 
-            {/* PERSONEL ARAMA / KİM KİMDİR (Resimdeki gibi) */}
+            {/* PERSONEL ARAMA / KİM KİMDİR  */}
             <section className="bg-card border border-border rounded-sm shadow-sm p-4">
               <div className="flex items-center gap-2 mb-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">
                 <Search size={16} className="text-info" /> PERSONEL ARAMA
@@ -734,6 +766,144 @@ const Home = () => {
           <span>© {new Date().getFullYear()} Midas</span>
         </div>
       </footer>
+
+      {/* Telefon Rehberi Modalı ayrı bir componente tasınacak */}
+      <Dialog open={isPhoneModalOpen} onOpenChange={setIsPhoneModalOpen}>
+        <DialogContent className="sm:max-w-3xl h-[85vh] flex flex-col p-0 overflow-hidden rounded-none border-2 border-primary shadow-2xl">
+          <DialogHeader className="p-0 space-y-0">
+            <div className="bg-primary text-primary-foreground px-6 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-primary-foreground/10 flex items-center justify-center border border-primary-foreground/20">
+                  <PhoneIcon size={20} className="text-primary-foreground" />
+                </div>
+                <div>
+                  <DialogTitle className="text-lg font-black uppercase tracking-tighter italic">
+                    Dahili Telefon Rehberi
+                  </DialogTitle>
+                  <DialogDescription className="text-[10px] text-primary-foreground/60 font-black uppercase tracking-[0.2em]">
+                    Midas Intranet İletişim Hattı
+                  </DialogDescription>
+                </div>
+              </div>
+              <div className="hidden md:block">
+                <div className="text-[10px] font-black uppercase tracking-widest opacity-30 border-l border-primary-foreground/20 pl-4 py-1">
+                  Rehber Modülü v1.0
+                </div>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <div className="p-0 flex-1 flex flex-col min-h-0 bg-background">
+            {/* Search Bar Area */}
+            <div className="p-4 bg-muted/20 border-b border-border flex flex-col md:flex-row gap-4 items-center">
+              <div className="relative flex-1 w-full">
+                <Search
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                  size={16}
+                />
+                <Input
+                  placeholder="İSİM, BÖLÜM VEYA NUMARA ARA..."
+                  className="pl-10 h-11 rounded-none border-border bg-background text-xs font-bold uppercase tracking-widest focus:ring-1 focus:ring-primary focus:border-primary transition-all"
+                  value={phoneSearch}
+                  onChange={(e) => setPhoneSearch(e.target.value)}
+                />
+              </div>
+              <div className="flex items-center gap-2 text-[10px] font-black text-muted-foreground uppercase tracking-widest shrink-0">
+                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                Sistem Aktif
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-auto custom-scrollbar">
+              <Table>
+                <TableHeader className="bg-muted/50 sticky top-0 z-10 border-b border-border">
+                  <TableRow className="hover:bg-transparent border-none">
+                    <TableHead className="font-black text-[10px] uppercase tracking-[0.2em] py-4 pl-6 text-primary">
+                      Numara
+                    </TableHead>
+                    <TableHead className="font-black text-[10px] uppercase tracking-[0.2em] py-4 text-primary">
+                      İsim / Birim
+                    </TableHead>
+                    <TableHead className="font-black text-[10px] uppercase tracking-[0.2em] py-4 text-primary">
+                      Departman
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {directoryQuery.isLoading ? (
+                    <TableRow>
+                      <TableCell colSpan={3} className="h-64 text-center">
+                        <div className="flex flex-col items-center gap-3">
+                          <Loader2
+                            className="animate-spin text-primary"
+                            size={24}
+                          />
+                          <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                            Veriler Getiriliyor...
+                          </span>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ) : directoryQuery.data?.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={3} className="h-64 text-center">
+                        <div className="flex flex-col items-center gap-3 text-muted-foreground">
+                          <Search size={32} className="opacity-10" />
+                          <p className="text-[10px] font-black uppercase tracking-widest opacity-40 italic">
+                            Sonuç Bulunamadı
+                          </p>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    directoryQuery.data?.map((entry) => (
+                      <TableRow
+                        key={entry.id}
+                        className="group hover:bg-primary/5 transition-colors border-border/40"
+                      >
+                        <TableCell className="py-4 pl-6 border-l-2 border-transparent group-hover:border-primary transition-all">
+                          <div className="flex items-center gap-3">
+                            <span className="font-black text-lg tracking-tighter text-primary">
+                              {entry.number}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="py-4">
+                          <div className="flex flex-col">
+                            <span className="text-xs font-black uppercase tracking-tight">
+                              {entry.name}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="py-4">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground bg-muted px-2 py-0.5 border border-border">
+                              {entry.department}
+                            </span>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+
+          <div className="p-3 bg-muted/10 border-t border-border flex justify-between items-center">
+            <div className="text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 ml-2">
+              © MIDAS INTRANET DATA TERMINAL
+            </div>
+            <Button
+              onClick={() => setIsPhoneModalOpen(false)}
+              variant="outline"
+              className="rounded-none border-2 border-primary text-primary hover:bg-primary hover:text-primary-foreground font-black uppercase tracking-widest text-[10px] px-8 h-9"
+            >
+              Kapat
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
