@@ -22,6 +22,8 @@ import { Status } from "./Status";
 import { MesMachine } from "./MesMachine";
 import { Measurement } from "./Measurement";
 import { PhoneDirectory } from "./PhoneDirectory";
+import { GameScore } from "./GameScore";
+import { GameProfile } from "./GameProfile";
 
 // --- Lookups & Operator Associations ---
 Section.hasMany(Department, { foreignKey: "section_id" });
@@ -134,5 +136,7 @@ export {
     Status,
     MesMachine,
     Measurement,
-    PhoneDirectory
+    PhoneDirectory,
+    GameScore,
+    GameProfile
 };

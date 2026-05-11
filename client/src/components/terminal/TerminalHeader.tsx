@@ -13,6 +13,7 @@ interface TerminalHeaderProps {
   currentTime: Date;
   externalId?: number;
   isOnBreak: boolean;
+  onLogoClick?: () => void;
 }
 
 const TerminalHeader: React.FC<TerminalHeaderProps> = ({
@@ -25,13 +26,30 @@ const TerminalHeader: React.FC<TerminalHeaderProps> = ({
   currentTime,
   externalId,
   isOnBreak,
+  onLogoClick,
 }) => {
   const { theme, setTheme } = useTheme();
+  const [clickCount, setClickCount] = React.useState(0);
+
+  const handleTitleClick = () => {
+    const newCount = clickCount + 1;
+    if (newCount >= 5) {
+      onLogoClick?.();
+      setClickCount(0);
+    } else {
+      setClickCount(newCount);
+      // 2 saniye sonra sayacı sıfırla
+      setTimeout(() => setClickCount(0), 2000);
+    }
+  };
 
   return (
     <header className="h-[70px] bg-secondary/30 backdrop-blur-md border-b border-border flex items-center justify-between px-6 relative z-20">
       <div className="flex items-center gap-6">
-        <div className="flex flex-col">
+        <div
+          className="flex flex-col cursor-pointer select-none active:scale-95 transition-transform"
+          onClick={handleTitleClick}
+        >
           <h1 className="text-xl font-black tracking-tighter bg-linear-to-r from-foreground to-muted-foreground bg-clip-text text-transparent uppercase">
             {areaName}{" "}
             <span className="text-amber-500 font-light font-sans tracking-normal drop-shadow-[0_0_10px_rgba(245,158,11,0.5)]">

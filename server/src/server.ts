@@ -12,6 +12,7 @@ import ratesRoutes from "./routes/ratesRoutes";
 import foodMenuRoutes from "./routes/foodMenuRoutes";
 import mesRoutes from "./routes/mesRoutes";
 import phoneDirectoryRoutes from "./routes/phoneDirectoryRoutes";
+import gameRoutes from "./routes/gameRoutes";
 import path from "path";
 import fs from "fs";
 
@@ -55,6 +56,7 @@ app.use("/api/rates", ratesRoutes);
 app.use("/api/food-menu", foodMenuRoutes);
 app.use("/api/mes", mesRoutes);
 app.use("/api/phone-directory", phoneDirectoryRoutes);
+app.use("/api/game", gameRoutes);
 
 // Fotoğrafları frontend için /photos adresi ile dışarı aç
 const photoPath =

@@ -49,6 +49,7 @@ import {
 import { Input } from "../components/ui/input";
 import { Button } from "../components/ui/button";
 import { Phone as PhoneIcon } from "lucide-react";
+import ShiftRunner from "../components/game/ShiftRunner";
 
 interface CalendarEvent {
   id?: number;
@@ -85,8 +86,21 @@ interface NewsItem {
 }
 
 const Home = () => {
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, user } = useAuthStore();
   const [calendarDate, setCalendarDate] = useState(new Date());
+  const [isGameOpen, setIsGameOpen] = useState(false);
+  const [logoClicks, setLogoClicks] = useState(0);
+
+  const handleLogoClick = () => {
+    const newClicks = logoClicks + 1;
+    if (newClicks >= 5) {
+      setLogoClicks(0);
+      setIsGameOpen(true);
+    } else {
+      setLogoClicks(newClicks);
+      setTimeout(() => setLogoClicks(0), 3000);
+    }
+  };
 
   // Phone Directory Modal States
   const [isPhoneModalOpen, setIsPhoneModalOpen] = useState(false);
@@ -218,7 +232,10 @@ const Home = () => {
       {/* Üst Header (Resimdeki Siyah Bar) */}
       <header className="bg-primary text-primary-foreground h-12 flex items-center px-4 justify-between sticky top-0 z-60 shadow-md">
         <div className="flex items-center gap-4">
-          <div className="font-black text-xl tracking-tighter italic">
+          <div 
+            onClick={handleLogoClick}
+            className="font-black text-xl tracking-tighter italic cursor-pointer active:scale-95 transition-transform select-none"
+          >
             MIDAS
           </div>
           <div className="h-4 w-px bg-primary-foreground/20 ml-2"></div>
@@ -901,6 +918,13 @@ const Home = () => {
           </div>
         </DialogContent>
       </Dialog>
+      {/* Vardiya Koşucusu (Easter Egg Game) */}
+      {isGameOpen && (
+        <ShiftRunner 
+          onClose={() => setIsGameOpen(false)} 
+          operatorId={user?.external_id?.toString()} 
+        />
+      )}
     </div>
   );
 };

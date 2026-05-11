@@ -29,6 +29,7 @@ import type {
 } from "../types/mes";
 import { toast } from "sonner";
 import { RotateCw } from "lucide-react";
+import ShiftRunner from "../components/game/ShiftRunner";
 
 const UretimTerminal = () => {
   const { section, areaName } = useParams<{
@@ -59,6 +60,7 @@ const UretimTerminal = () => {
   const [selectedMachineName, setSelectedMachineName] = useState<string | null>(
     null,
   );
+  const [isGameOpen, setIsGameOpen] = useState(false);
   const [activeOperatorId, setActiveOperatorId] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [searchOrderId, setSearchOrderId] = useState("");
@@ -458,7 +460,15 @@ const UretimTerminal = () => {
         currentTime={currentTime}
         externalId={user?.external_id}
         isOnBreak={isOnBreak}
+        onLogoClick={() => setIsGameOpen(true)}
       />
+
+      {isGameOpen && (
+        <ShiftRunner
+          onClose={() => setIsGameOpen(false)}
+          operatorId={user?.id_dec}
+        />
+      )}
 
       {/* MAIN LAYOUT */}
       <div className="flex flex-1 overflow-hidden relative">
