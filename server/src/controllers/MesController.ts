@@ -404,14 +404,22 @@ export const getWorkLogs = async (req: Request, res: Response) => {
       area_name: areaName as string,
     };
 
-    if (areaName === "buzlama") {
-      // Buzlama alanı ortak bir havuzdur, tüm aktif/durdurulmuş işleri gösterir
+    if (areaName === "buzlama" || areaName === "kurutiras") {
+      // Buzlama ve Kurutiras alanları ortak bir havuzdur, tüm aktif/durdurulmuş işleri gösterir
       whereCondition.status = { [Op.in]: [1, 2, 9] };
     } else {
-      whereCondition[Op.or] = [
-        { status: 1, operator_id: operatorId as string }, // Sadece aktif kullanıcının devam eden işleri
-        { status: { [Op.in]: [2, 9] } }, // Durdurulmuş veya mola nedeniyle bekleyen tüm işler
+      // Diğer alanlarda:
+      // 1. Durdurulmuş (2) veya mola nedeniyle bekleyen (9) TÜM işler
+      // 2. Sadece aktif kullanıcının (operatorId) devam eden (1) işleri
+      const orConditions: any[] = [
+        { status: { [Op.in]: [2, 9] } }
       ];
+
+      if (operatorId && operatorId !== "undefined") {
+        orConditions.push({ status: 1, operator_id: operatorId as string });
+      }
+
+      whereCondition[Op.or] = orConditions;
     }
 
     const workLogs = await WorkLog.findAll({
@@ -1268,7 +1276,12 @@ export const getOperatorById = async (req: Request, res: Response) => {
       return res.status(404).json({ message: "Operatör bulunamadı." });
     }
 
-    return res.status(200).json(operator);
+    const isOnBreak = await isOperatorOnBreak(id as string);
+
+    return res.status(200).json({
+      ...operator.toJSON(),
+      isOnBreak,
+    });
   } catch (error) {
     console.error("getOperatorById Error:", error);
     return res.status(500).json({ message: "Sunucu hatası." });

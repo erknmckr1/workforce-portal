@@ -67,24 +67,46 @@ const UretimTerminal = () => {
   const [pendingOperatorAction, setPendingOperatorAction] = useState<{
     resolve: (id: string) => void;
     reject: (reason?: unknown) => void;
+    skipBreakCheck?: boolean;
   } | null>(null);
 
   // Ekran bireysel mi ortak mı kontrolü
-  const requireOperatorAuth = async (): Promise<string> => {
-    if (areaName !== "buzlama") {
+  const requireOperatorAuth = async (options?: {
+    skipBreakCheck?: boolean;
+  }): Promise<string> => {
+    if (areaName !== "buzlama" && areaName !== "kurutiras") {
       return user?.id_dec || "SYSTEM";
     }
 
     setOperatorIdModalOpen(true);
     return new Promise((resolve, reject) => {
-      setPendingOperatorAction({ resolve, reject });
+      setPendingOperatorAction({
+        resolve,
+        reject,
+        skipBreakCheck: options?.skipBreakCheck,
+      });
     });
   };
 
-  const handleOperatorIdSubmit = (id: string) => {
-    if (pendingOperatorAction) pendingOperatorAction.resolve(id);
-    setPendingOperatorAction(null);
-    setOperatorIdModalOpen(false);
+  const handleOperatorIdSubmit = async (id: string) => {
+    try {
+      const res = await apiClient.get(`/mes/operator/${id}`);
+      const operator = res.data;
+
+      // Eğer mola kontrolünü atlamıyorsak ve kullanıcı moladaysa engelle
+      if (operator.isOnBreak && !pendingOperatorAction?.skipBreakCheck) {
+        toast.error(
+          "Moladayken işlem yapamazsınız. Lütfen önce molanızı bitirin.",
+        );
+        return;
+      }
+
+      if (pendingOperatorAction) pendingOperatorAction.resolve(id);
+      setPendingOperatorAction(null);
+      setOperatorIdModalOpen(false);
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Geçersiz Operatör ID!");
+    }
   };
 
   const handleOperatorIdClose = () => {
@@ -95,7 +117,7 @@ const UretimTerminal = () => {
   };
 
   const handleSelectJob = (jobId: string) => {
-    if (areaName === "buzlama") {
+    if (areaName === "buzlama" || areaName === "kurutiras") {
       setSelectedJobs((prev) =>
         prev.includes(jobId)
           ? prev.filter((id) => id !== jobId)
@@ -290,12 +312,12 @@ const UretimTerminal = () => {
     queryKey: [
       "workLogs",
       areaName,
-      areaName === "buzlama" ? "ALL" : user?.id_dec,
+      (areaName === "buzlama" || areaName === "kurutiras") ? "ALL" : user?.id_dec,
     ],
     queryFn: async () => {
       if (!areaName) return [];
       const operatorParam =
-        areaName === "buzlama" ? "" : `&operatorId=${user?.id_dec}`;
+        (areaName === "buzlama" || areaName === "kurutiras") ? "" : `&operatorId=${user?.id_dec}`;
       const res = await apiClient.get(
         `/mes/work-logs?areaName=${areaName}${operatorParam}`,
       );
@@ -329,9 +351,9 @@ const UretimTerminal = () => {
   });
 
   //? Mevcut kullanıcının molada olup olmadığını saptıyoruz
-  // Buzlama terminalinde butonların mola yüzünden kilitlenmesini istemiyoruz, 
+  // Buzlama ve Kuru Tıraş terminalinde butonların mola yüzünden kilitlenmesini istemiyoruz, 
   // çünkü bir kişinin molaya çıkması diğerlerini engellememeli.
-  const isOnBreak = areaName === "buzlama" 
+  const isOnBreak = (areaName === "buzlama" || areaName === "kurutiras")
     ? false 
     : !!activeBreaks?.some((b: OperatorBreak) => {
         return String(b.operator_id) === String(user?.id_dec);
@@ -458,7 +480,7 @@ const UretimTerminal = () => {
           }}
           onEndBreak={async () => {
             try {
-              const opId = await requireOperatorAuth();
+              const opId = await requireOperatorAuth({ skipBreakCheck: true });
               endBreakMutation.mutate(opId);
             } catch {
               console.log("Moladan dönüş iptal edildi");

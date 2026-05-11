@@ -891,9 +891,6 @@ const Home = () => {
           </div>
 
           <div className="p-3 bg-muted/10 border-t border-border flex justify-between items-center">
-            <div className="text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 ml-2">
-              © MIDAS INTRANET DATA TERMINAL
-            </div>
             <Button
               onClick={() => setIsPhoneModalOpen(false)}
               variant="outline"

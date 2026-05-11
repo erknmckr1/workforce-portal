@@ -23,7 +23,7 @@ interface TerminalRightSideProps {
   onOpenFireModal: (opId: string) => void;
   onOpenMeasurementModal: (opId: string) => void;
   isOnBreak: boolean;
-  requireOperatorAuth?: () => Promise<string>;
+  requireOperatorAuth?: (options?: { skipBreakCheck?: boolean }) => Promise<string>;
 }
 
 const TerminalRightSide = ({
@@ -42,9 +42,14 @@ const TerminalRightSide = ({
   const { confirm } = useConfirm();
   const { user } = useAuthStore();
 
-  const handleGuardedAction = async (actionFn: (opId: string) => void) => {
+  const handleGuardedAction = async (
+    actionFn: (opId: string) => void,
+    options?: { skipBreakCheck?: boolean },
+  ) => {
     try {
-      const opId = requireOperatorAuth ? await requireOperatorAuth() : user?.id_dec || "SYSTEM";
+      const opId = requireOperatorAuth
+        ? await requireOperatorAuth(options)
+        : user?.id_dec || "SYSTEM";
       actionFn(opId);
     } catch {
       console.log("Kullanıcı işlemi iptal etti veya ID girmedi.");

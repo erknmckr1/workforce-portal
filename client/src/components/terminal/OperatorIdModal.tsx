@@ -30,7 +30,6 @@ const OperatorIdModal: React.FC<OperatorIdModalProps> = ({
     e.preventDefault();
     if (operatorId.trim()) {
       onSubmit(operatorId.trim());
-      onClose();
     }
   };
 
@@ -49,14 +48,16 @@ const OperatorIdModal: React.FC<OperatorIdModalProps> = ({
           onSubmit={handleSubmit}
           className="p-12 flex flex-col items-center gap-10"
         >
-          <input
-            ref={inputRef}
-            type="text"
-            placeholder="Operator ID"
-            className="w-full text-center text-3xl py-4 px-6 bg-background border-2 border-primary rounded-xl text-foreground font-bold"
-            value={operatorId}
-            onChange={(e) => setOperatorId(e.target.value)}
-          />
+          <div className="w-full relative">
+            <input
+              ref={inputRef}
+              type="text"
+              placeholder="Operator ID"
+              className="w-full text-center text-3xl py-4 px-6 bg-background border-2 border-primary rounded-xl text-foreground font-bold disabled:opacity-50"
+              value={operatorId}
+              onChange={(e) => setOperatorId(e.target.value)}
+            />
+          </div>
 
           <button
             type="button"
