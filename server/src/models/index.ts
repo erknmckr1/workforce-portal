@@ -24,6 +24,7 @@ import { Measurement } from "./Measurement";
 import { PhoneDirectory } from "./PhoneDirectory";
 import { GameScore } from "./GameScore";
 import { GameProfile } from "./GameProfile";
+import { GameSession } from "./GameSession";
 
 // --- Lookups & Operator Associations ---
 Section.hasMany(Department, { foreignKey: "section_id" });
@@ -138,5 +139,6 @@ export {
     Measurement,
     PhoneDirectory,
     GameScore,
-    GameProfile
+    GameProfile,
+    GameSession
 };

@@ -83,6 +83,7 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
   const [nickname, setNickname] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [isIdentifying, setIsIdentifying] = useState(false);
+  const [isStartingGame, setIsStartingGame] = useState(false);
   const [hasSaved, setHasSaved] = useState(false);
   const [molaPowerDisplay, setMolaPowerDisplay] = useState(0);
   const [countdown, setCountdown] = useState<3 | 2 | 1 | "BAŞLA">(3);
@@ -90,12 +91,24 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
   const [comboDisplay, setComboDisplay] = useState(0);
   const [newRecordBanner, setNewRecordBanner] = useState(false);
   const [showControlsHint, setShowControlsHint] = useState(false);
+  const [runStats, setRunStats] = useState({
+    ordersCollected: 0,
+    bestCombo: 0,
+    durationSeconds: 0,
+    finalLocation: "PRODUCTION" as LocationName,
+  });
   const [isMuted, setIsMuted] = useState(() => {
     return localStorage.getItem("shiftRunner_muted") === "true";
   });
 
-  const GRAVITY = 0.62;
-  const JUMP_FORCE = -13.2;
+  const GRAVITY = 0.5;
+  const JUMP_FORCE = -11.2;
+  const FALL_GRAVITY_MULTIPLIER = 1.08;
+  const HELD_JUMP_GRAVITY_MULTIPLIER = 0.86;
+  const MAX_JUMP_HOLD_FRAMES = 10;
+  const MIN_PLAYER_Y = 84;
+  const COYOTE_FRAMES = 6;
+  const JUMP_BUFFER_FRAMES = 8;
   const GROUND_Y = 320;
   const PLAYER_WIDTH = 46;
   const PLAYER_HEIGHT = 68;
@@ -104,6 +117,10 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
     y: GROUND_Y - PLAYER_HEIGHT,
     dy: 0,
     isJumping: false,
+    isJumpHeld: false,
+    jumpHoldFrames: 0,
+    coyoteFrames: 0,
+    jumpBufferFrames: 0,
     isDucking: false,
   });
 
@@ -114,17 +131,26 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
   const magnetPowerRef = useRef(0);
   const [magnetPowerDisplay, setMagnetPowerDisplay] = useState(0);
   const frameRef = useRef<number>(0);
+  const nextObstacleFrameRef = useRef<number>(0);
+  const nextItemFrameRef = useRef<number>(0);
+  const consecutiveGroundObstaclesRef = useRef(0);
   const gameLoopRef = useRef<number>(0);
   const countdownTimerRef = useRef<number>(0);
   const locationBannerTimerRef = useRef<number>(0);
   const audioContextRef = useRef<AudioContext | null>(null);
   const isMutedRef = useRef(isMuted);
+  const isStartingGameRef = useRef(isStartingGame);
   const comboRef = useRef(0);
+  const bestComboRef = useRef(0);
+  const ordersCollectedRef = useRef(0);
+  const runStartedAtRef = useRef(0);
   const floatingTextsRef = useRef<FloatingText[]>([]);
   const floatingTextIdRef = useRef(0);
   const newRecordShownRef = useRef(false);
   const newRecordTimerRef = useRef<number>(0);
   const controlsHintTimerRef = useRef<number>(0);
+  const gameSessionIdRef = useRef<string>("");
+  const playerOperatorIdRef = useRef<string>("");
   const locationRef = useRef<LocationName>("PRODUCTION");
   const trailRef = useRef<{ y: number; h: number; opacity: number }[]>([]);
   const shakeRef = useRef(0);
@@ -192,6 +218,19 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
     setComboDisplay(0);
   };
 
+  const captureRunStats = () => {
+    const durationSeconds = runStartedAtRef.current
+      ? Math.max(0, Math.floor((Date.now() - runStartedAtRef.current) / 1000))
+      : 0;
+
+    setRunStats({
+      ordersCollected: ordersCollectedRef.current,
+      bestCombo: bestComboRef.current,
+      durationSeconds,
+      finalLocation: locationRef.current,
+    });
+  };
+
   const addFloatingText = (
     x: number,
     y: number,
@@ -211,6 +250,8 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
 
   const collectOrder = (x: number, y: number) => {
     comboRef.current = Math.min(comboRef.current + 1, 12);
+    bestComboRef.current = Math.max(bestComboRef.current, comboRef.current);
+    ordersCollectedRef.current += 1;
     setComboDisplay(comboRef.current);
 
     const multiplier = Math.min(1 + Math.floor((comboRef.current - 1) / 3), 4);
@@ -228,7 +269,8 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
     if (typeof window === "undefined") return null;
 
     const AudioContextClass =
-      window.AudioContext || (window as WindowWithWebkitAudio).webkitAudioContext;
+      window.AudioContext ||
+      (window as WindowWithWebkitAudio).webkitAudioContext;
 
     if (!AudioContextClass) return null;
 
@@ -383,7 +425,98 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
     return "SNOW_PILE";
   };
 
-  const beginCountdown = () => {
+  const getObstacleBounds = (obs: any) => {
+    const isOverhead = isOverheadObstacle(obs.type);
+    const top = isOverhead ? obs.y - obs.height : GROUND_Y - obs.height;
+    const bottom = isOverhead ? obs.y : GROUND_Y;
+
+    return {
+      left: obs.x,
+      right: obs.x + obs.width,
+      top,
+      bottom,
+    };
+  };
+
+  const overlapsObstacle = (
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+  ) => {
+    return obstaclesRef.current.some((obs) => {
+      const bounds = getObstacleBounds(obs);
+      const safePadding = 28;
+
+      return (
+        x < bounds.right + safePadding &&
+        x + width > bounds.left - safePadding &&
+        y < bounds.bottom + safePadding &&
+        y + height > bounds.top - safePadding
+      );
+    });
+  };
+
+  const findSafeItemY = (x: number, width: number, height: number) => {
+    const hasHorizontalObstacleConflict = obstaclesRef.current.some((obs) => {
+      const bounds = getObstacleBounds(obs);
+      const horizontalPadding = 180;
+
+      return (
+        x < bounds.right + horizontalPadding &&
+        x + width > bounds.left - horizontalPadding
+      );
+    });
+
+    if (hasHorizontalObstacleConflict) return undefined;
+    if (nextObstacleFrameRef.current - frameRef.current < 42) return undefined;
+
+    const candidates = [
+      GROUND_Y - 125,
+      GROUND_Y - 155,
+      GROUND_Y - 185,
+    ].sort(() => Math.random() - 0.5);
+
+    return candidates.find((y) => !overlapsObstacle(x, y, width, height));
+  };
+
+  const startSecureGameSession = async () => {
+    const finalId = playerOperatorIdRef.current || operatorId || sessionId;
+    if (!finalId) {
+      toast.error("Oyuna başlamak için sicil no gerekli.");
+      return false;
+    }
+
+    isStartingGameRef.current = true;
+    setIsStartingGame(true);
+    try {
+      const res = await apiClient.post("/game/session/start", {
+        operator_id: finalId,
+      });
+
+      if (res.data?.success && res.data.data?.sessionId) {
+        gameSessionIdRef.current = res.data.data.sessionId;
+        return true;
+      }
+
+      toast.error("Oyun oturumu başlatılamadı.");
+      return false;
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Oyun oturumu başlatılamadı.");
+      return false;
+    } finally {
+      isStartingGameRef.current = false;
+      setIsStartingGame(false);
+    }
+  };
+
+  const beginCountdown = async () => {
+    if (isStartingGameRef.current || gameStateRef.current === "COUNTDOWN")
+      return;
+
+    const sessionStarted = await startSecureGameSession();
+    if (!sessionStarted) return;
+
     if (countdownTimerRef.current) {
       window.clearTimeout(countdownTimerRef.current);
     }
@@ -441,6 +574,15 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
     setGameState("PLAYING");
     resetScore();
     resetCombo();
+    bestComboRef.current = 0;
+    ordersCollectedRef.current = 0;
+    runStartedAtRef.current = Date.now();
+    setRunStats({
+      ordersCollected: 0,
+      bestCombo: 0,
+      durationSeconds: 0,
+      finalLocation: "PRODUCTION",
+    });
     setMolaPowerDisplay(0);
     setMagnetPowerDisplay(0);
     setHasSaved(false); // Kayıt durumunu her yeni oyunda sıfırla
@@ -456,31 +598,53 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
       y: GROUND_Y - PLAYER_HEIGHT,
       dy: 0,
       isJumping: false,
+      isJumpHeld: false,
+      jumpHoldFrames: 0,
+      coyoteFrames: 0,
+      jumpBufferFrames: 0,
       isDucking: false,
     };
     frameRef.current = 0;
+    nextObstacleFrameRef.current = 140;
+    nextItemFrameRef.current = 190;
+    consecutiveGroundObstaclesRef.current = 0;
     locationRef.current = "PRODUCTION";
     setLocation("PRODUCTION");
     showFirstGameControlsHint();
     animate();
   };
 
+  const performJump = () => {
+    const player = playerRef.current;
+    player.dy = JUMP_FORCE;
+    player.isJumping = true;
+    player.isJumpHeld = true;
+    player.jumpHoldFrames = 0;
+    player.jumpBufferFrames = 0;
+    player.coyoteFrames = 0;
+    playSound("jump");
+    createParticles(70, GROUND_Y, "#ffffff", 10); // Kalkış tozu
+  };
+
   const jump = () => {
-    if (
-      gameStateRef.current === "PLAYING" &&
-      !playerRef.current.isJumping &&
-      !playerRef.current.isDucking
-    ) {
-      playerRef.current.dy = JUMP_FORCE;
-      playerRef.current.isJumping = true;
-      playSound("jump");
-      createParticles(70, GROUND_Y, "#ffffff", 10); // Kalkış tozu
+    if (gameStateRef.current === "PLAYING" && !playerRef.current.isDucking) {
+      const player = playerRef.current;
+      player.isJumpHeld = true;
+      player.jumpBufferFrames = JUMP_BUFFER_FRAMES;
+
+      if (!player.isJumping || player.coyoteFrames > 0) {
+        performJump();
+      }
     } else if (
       gameStateRef.current === "START" ||
       gameStateRef.current === "GAMEOVER"
     ) {
       beginCountdown();
     }
+  };
+
+  const releaseJump = () => {
+    playerRef.current.isJumpHeld = false;
   };
 
   const [location, setLocation] = useState<LocationName>("PRODUCTION");
@@ -599,15 +763,60 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
 
       // --- 3. OYUNCU FİZİKLERİ VE ÇİZİM ---
       const player = playerRef.current;
-      player.dy += GRAVITY;
+      const currentH = player.isDucking ? PLAYER_HEIGHT / 2 : PLAYER_HEIGHT;
+      const isGrounded = player.y >= GROUND_Y - currentH - 0.5;
+
+      if (isGrounded) {
+        player.coyoteFrames = COYOTE_FRAMES;
+      } else if (player.coyoteFrames > 0) {
+        player.coyoteFrames--;
+      }
+
+      if (player.jumpBufferFrames > 0) {
+        player.jumpBufferFrames--;
+      }
+
+      if (
+        player.jumpBufferFrames > 0 &&
+        !player.isDucking &&
+        (!player.isJumping || player.coyoteFrames > 0)
+      ) {
+        performJump();
+      }
+
+      let gravityMultiplier = 1;
+      if (
+        player.dy < 0 &&
+        player.isJumpHeld &&
+        player.jumpHoldFrames < MAX_JUMP_HOLD_FRAMES
+      ) {
+        gravityMultiplier = HELD_JUMP_GRAVITY_MULTIPLIER;
+        player.jumpHoldFrames++;
+      } else if (player.jumpHoldFrames >= MAX_JUMP_HOLD_FRAMES) {
+        player.isJumpHeld = false;
+      } else if (player.dy < 0 && !player.isJumpHeld) {
+        gravityMultiplier = FALL_GRAVITY_MULTIPLIER;
+      } else if (player.dy > 0) {
+        gravityMultiplier = FALL_GRAVITY_MULTIPLIER;
+      }
+
+      player.dy += GRAVITY * gravityMultiplier;
       player.y += player.dy;
 
-      const currentH = player.isDucking ? PLAYER_HEIGHT / 2 : PLAYER_HEIGHT;
+      if (player.y < MIN_PLAYER_Y) {
+        player.y = MIN_PLAYER_Y;
+        if (player.dy < 0) player.dy = 0;
+        player.isJumpHeld = false;
+      }
+
       if (player.y > GROUND_Y - currentH) {
         if (player.isJumping) createParticles(70, GROUND_Y, "#ffffff", 5);
         player.y = GROUND_Y - currentH;
         player.dy = 0;
         player.isJumping = false;
+        player.isJumpHeld = false;
+        player.jumpHoldFrames = 0;
+        player.coyoteFrames = COYOTE_FRAMES;
       }
 
       if (molaPowerRef.current > 0) {
@@ -751,9 +960,28 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
       });
 
       // --- 5. ENGELLER (LOCATION BASED) ---
-      if (frameRef.current % 120 === 0) {
-        const type = pickObstacleType();
+      if (frameRef.current >= nextObstacleFrameRef.current) {
+        let type = pickObstacleType();
+        if (
+          consecutiveGroundObstaclesRef.current >= 2 &&
+          !isOverheadObstacle(type)
+        ) {
+          type =
+            locationRef.current === "PRODUCTION" ||
+            locationRef.current === "OFFICE"
+              ? "PIPE"
+              : "WARNING_SIGN";
+        }
+
         const size = getObstacleSize(type);
+        const difficulty = Math.min(scoreRef.current / 3000, 1);
+        const baseGapPx = 560 - difficulty * 130;
+        const randomGapPx = 160 - difficulty * 50;
+        const targetGapPx = baseGapPx + Math.random() * randomGapPx;
+        const nextGapFrames = Math.max(
+          82,
+          Math.floor(targetGapPx / currentSpeed),
+        );
 
         obstaclesRef.current.push({
           x: canvas.width,
@@ -762,6 +990,11 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
           y: isOverheadObstacle(type) ? GROUND_Y - 42 : GROUND_Y,
           type,
         });
+
+        consecutiveGroundObstaclesRef.current = isOverheadObstacle(type)
+          ? 0
+          : consecutiveGroundObstaclesRef.current + 1;
+        nextObstacleFrameRef.current = frameRef.current + nextGapFrames;
       }
 
       obstaclesRef.current.forEach((obs, index) => {
@@ -788,6 +1021,7 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
         ) {
           gameStateRef.current = "GAMEOVER";
           setGameState("GAMEOVER");
+          captureRunStats();
           resetCombo();
           playSound("hit");
           createParticles(70, player.y + 30, "#ef4444", 30);
@@ -853,14 +1087,19 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
           ctx.fillRect(obs.width - 10, 25, 20, 15); // Palet/Kutu
         } else if (obs.type === "CHAIR") {
           // Ofis Koltuğu
-          ctx.fillStyle = "#111827";
+          ctx.fillStyle = "#cbd5e1";
           ctx.beginPath();
           ctx.roundRect(5, 0, 8, 30, 2);
           ctx.fill(); // Sırtlık
+          ctx.strokeStyle = "#475569";
+          ctx.lineWidth = 2;
+          ctx.stroke();
+          ctx.fillStyle = "#e2e8f0";
           ctx.fillRect(5, 25, 35, 8); // Oturak
-          ctx.fillStyle = "#374151";
+          ctx.strokeRect(5, 25, 35, 8);
+          ctx.fillStyle = "#94a3b8";
           ctx.fillRect(18, 33, 6, 12); // Amortisör
-          ctx.fillStyle = "#000";
+          ctx.fillStyle = "#64748b";
           ctx.fillRect(10, 45, 22, 5); // Ayaklar
           ctx.beginPath();
           ctx.arc(10, 52, 4, 0, Math.PI * 2);
@@ -1046,19 +1285,31 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
       });
 
       // --- 6. ÖĞELER (DETAYLI) ---
-      if (frameRef.current % 220 === 0) {
+      if (frameRef.current >= nextItemFrameRef.current) {
         const rand = Math.random();
         let type: "COFFEE" | "ORDER" | "MAGNET" = "ORDER";
         if (rand > 0.95) type = "MAGNET";
         else if (rand > 0.85) type = "COFFEE";
+        const width = 35;
+        const height = 35;
+        const x = canvas.width + 40;
+        const y = findSafeItemY(x, width, height);
 
-        itemsRef.current.push({
-          x: canvas.width,
-          y: GROUND_Y - 100 - Math.random() * 80,
-          width: 35,
-          height: 35,
-          type,
-        });
+        if (y !== undefined) {
+          itemsRef.current.push({
+            x,
+            y,
+            width,
+            height,
+            type,
+          });
+
+          const itemGapPx = 470 + Math.random() * 250;
+          nextItemFrameRef.current =
+            frameRef.current + Math.floor(itemGapPx / currentSpeed);
+        } else {
+          nextItemFrameRef.current = frameRef.current + 12;
+        }
       }
 
       itemsRef.current.forEach((item, index) => {
@@ -1177,6 +1428,14 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
   };
 
   useEffect(() => {
+    playerOperatorIdRef.current = operatorId || sessionId;
+  }, [operatorId, sessionId]);
+
+  useEffect(() => {
+    isStartingGameRef.current = isStartingGame;
+  }, [isStartingGame]);
+
+  useEffect(() => {
     isMutedRef.current = isMuted;
   }, [isMuted]);
 
@@ -1196,6 +1455,7 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.code === "Space" || e.code === "ArrowUp") {
         e.preventDefault();
+        if (e.repeat) return;
         jump();
       }
       if (e.code === "ArrowDown" || e.code === "KeyS") {
@@ -1207,6 +1467,9 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.code === "Space" || e.code === "ArrowUp") {
+        releaseJump();
+      }
       if (e.code === "ArrowDown" || e.code === "KeyS") {
         playerRef.current.isDucking = false;
       }
@@ -1310,24 +1573,33 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
 
   const saveScoreToDB = async () => {
     if (isSaving || hasSaved) return;
-    const finalId = operatorId || sessionId;
     const finalScore = scoreRef.current || score;
+    const gameSessionId = gameSessionIdRef.current;
+
+    if (!gameSessionId) {
+      toast.error("Oyun oturumu bulunamadı. Skor kaydedilemedi.");
+      return;
+    }
 
     setIsSaving(true);
     try {
-      const res = await apiClient.post("/game/score", {
-        score: finalScore,
-        operator_id: finalId,
-        locationReached: locationRef.current,
-      });
+      const res = await apiClient.post(
+        `/game/session/${gameSessionId}/finish`,
+        {
+          score: finalScore,
+          locationReached: locationRef.current,
+        },
+      );
       if (res.data?.success) {
         setHasSaved(true);
-        setHighScore(finalScore);
+        gameSessionIdRef.current = "";
+        if (res.data.isNewRecord) {
+          setHighScore(finalScore);
+        }
         fetchLeaderboard(); // Listeyi tazele
-        toast.success("YENİ REKOR! Skorun otomatik kaydedildi.");
       }
-    } catch (err) {
-      toast.error("Skor kaydedilemedi.");
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Skor kaydedilemedi.");
     } finally {
       setIsSaving(false);
     }
@@ -1336,9 +1608,8 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
   // Oyun bittiğinde eğer yeni rekor ise otomatik kaydet
   useEffect(() => {
     if (gameState === "GAMEOVER") {
-      const finalId = operatorId || sessionId;
       const finalScore = scoreRef.current || score;
-      if (finalId && finalScore > highScore && finalScore > 0) {
+      if (gameSessionIdRef.current && finalScore > 0) {
         saveScoreToDB();
       }
     }
@@ -1517,9 +1788,10 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
                   e.stopPropagation();
                   beginCountdown();
                 }}
-                className="bg-primary text-primary-foreground font-black px-12 py-4 rounded-xl uppercase hover:scale-105 transition-all shadow-xl shadow-primary/20"
+                disabled={isStartingGame}
+                className="bg-primary text-primary-foreground font-black px-12 py-4 rounded-xl uppercase hover:scale-105 transition-all shadow-xl shadow-primary/20 disabled:opacity-50 disabled:hover:scale-100"
               >
-                Vardiyaya Başla
+                {isStartingGame ? "Hazırlanıyor..." : "Vardiyaya Başla"}
               </button>
               <div className="mt-6 flex flex-wrap justify-center gap-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
                 <span>Zıpla: BOŞLUK / TIKLA</span>
@@ -1615,8 +1887,46 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
               <h2 className="text-4xl font-black uppercase text-destructive italic mb-2">
                 Vardiya Bitti!
               </h2>
-              <div className="text-3xl font-mono font-bold text-white mb-8">
-                Skor: {score}
+              <div className="text-3xl font-mono font-bold text-white mb-5">
+                Skor: {score.toLocaleString()}
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 w-full max-w-2xl mb-7">
+                <div className="bg-background/15 border border-white/10 p-3">
+                  <div className="text-[9px] font-black uppercase tracking-widest text-white/50">
+                    Süre
+                  </div>
+                  <div className="mt-1 font-mono text-lg font-black text-white">
+                    {Math.floor(runStats.durationSeconds / 60)}:
+                    {(runStats.durationSeconds % 60)
+                      .toString()
+                      .padStart(2, "0")}
+                  </div>
+                </div>
+                <div className="bg-background/15 border border-white/10 p-3">
+                  <div className="text-[9px] font-black uppercase tracking-widest text-white/50">
+                    Sipariş
+                  </div>
+                  <div className="mt-1 font-mono text-lg font-black text-amber-300">
+                    {runStats.ordersCollected}
+                  </div>
+                </div>
+                <div className="bg-background/15 border border-white/10 p-3">
+                  <div className="text-[9px] font-black uppercase tracking-widest text-white/50">
+                    En İyi Combo
+                  </div>
+                  <div className="mt-1 font-mono text-lg font-black text-amber-300">
+                    x{Math.min(1 + Math.floor((runStats.bestCombo - 1) / 3), 4)}
+                  </div>
+                </div>
+                <div className="bg-background/15 border border-white/10 p-3">
+                  <div className="text-[9px] font-black uppercase tracking-widest text-white/50">
+                    Bölüm
+                  </div>
+                  <div className="mt-1 text-xs font-black uppercase text-white truncate">
+                    {LOCATION_LABELS[runStats.finalLocation]}
+                  </div>
+                </div>
               </div>
 
               <button
@@ -1624,9 +1934,10 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
                   e.stopPropagation();
                   beginCountdown();
                 }}
-                className="bg-primary text-primary-foreground font-black px-12 py-4 rounded-xl uppercase hover:scale-105 transition-all shadow-xl shadow-primary/20"
+                disabled={isStartingGame}
+                className="bg-primary text-primary-foreground font-black px-12 py-4 rounded-xl uppercase hover:scale-105 transition-all shadow-xl shadow-primary/20 disabled:opacity-50 disabled:hover:scale-100"
               >
-                Tekrar Dene
+                {isStartingGame ? "Hazırlanıyor..." : "Tekrar Dene"}
               </button>
             </div>
           )}
@@ -1637,10 +1948,10 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
           <div className="bg-muted/30 rounded-xl p-4 border border-border/50">
             <div className="flex items-center justify-between gap-2 mb-3">
               <div className="flex items-center gap-2">
-              <Trophy size={18} className="text-amber-500" />
-              <h3 className="text-xs font-black uppercase tracking-widest">
-                En İyi 10 Vardiya
-              </h3>
+                <Trophy size={18} className="text-amber-500" />
+                <h3 className="text-xs font-black uppercase tracking-widest">
+                  En İyi 10 Vardiya
+                </h3>
               </div>
               <span className="text-[10px] font-black text-muted-foreground uppercase">
                 Skor
@@ -1657,9 +1968,7 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
                       <span className="grid place-items-center text-primary bg-primary/10 rounded-md w-6 h-6 shrink-0">
                         {idx + 1}
                       </span>
-                      <span className="truncate">
-                        {item.player_name}
-                      </span>
+                      <span className="truncate">{item.player_name}</span>
                     </div>
                     <span className="font-mono text-primary shrink-0">
                       {item.score.toLocaleString()}

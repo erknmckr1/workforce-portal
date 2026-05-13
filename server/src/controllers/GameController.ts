@@ -1,5 +1,65 @@
 import { Request, Response } from "express";
-import { GameScore, GameProfile, Operator, sequelize } from "../models";
+import {
+  GameProfile,
+  GameScore,
+  GameSession,
+  Operator,
+  sequelize,
+} from "../models";
+
+const SESSION_TTL_MS = 10 * 60 * 1000;
+const MAX_POINTS_PER_SECOND = 80;
+const SCORE_TOLERANCE = 500;
+const VALID_LOCATIONS = new Set(["PRODUCTION", "WAREHOUSE", "OFFICE", "SNOWY"]);
+
+const createSeed = () => {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
+};
+
+const getOrCreateProfile = async (operator_id: string) => {
+  let profile = await GameProfile.findOne({ where: { operator_id } });
+  if (profile) return profile;
+
+  const operator = await Operator.findOne({ where: { id_dec: operator_id } });
+  if (!operator) return null;
+
+  return GameProfile.create({
+    operator_id,
+    nickname: `${operator.name} ${operator.surname}`,
+    best_score: 0,
+  });
+};
+
+const getScoreRejectionReason = (
+  score: unknown,
+  elapsedMs: number,
+  locationReached: unknown,
+) => {
+  if (!Number.isInteger(score) || Number(score) <= 0) {
+    return "INVALID_SCORE";
+  }
+
+  if (
+    typeof locationReached !== "string" ||
+    !VALID_LOCATIONS.has(locationReached)
+  ) {
+    return "INVALID_LOCATION";
+  }
+
+  if (elapsedMs < 1000) {
+    return "SESSION_TOO_SHORT";
+  }
+
+  const elapsedSeconds = Math.max(1, elapsedMs / 1000);
+  const maxReasonableScore =
+    Math.ceil(elapsedSeconds * MAX_POINTS_PER_SECOND) + SCORE_TOLERANCE;
+
+  if (Number(score) > maxReasonableScore) {
+    return "SCORE_TOO_HIGH_FOR_DURATION";
+  }
+
+  return null;
+};
 
 // 1. Oyuncuyu Tanıma (Sicil No ile sorgulama)
 export const identifyPlayer = async (req: Request, res: Response) => {
@@ -9,21 +69,26 @@ export const identifyPlayer = async (req: Request, res: Response) => {
     // Önce operatör tablosunda bu kişi var mı? (Gerçek kullanıcı eşleşmesi)
     const operator = await Operator.findOne({ where: { id_dec: id } });
     if (!operator) {
-      return res.status(404).json({ success: false, message: "Geçersiz Sicil No. Lütfen gerçek ID'nizi giriniz." });
+      return res.status(404).json({
+        success: false,
+        message: "Geçersiz Sicil No. Lütfen gerçek ID'nizi giriniz.",
+      });
     }
 
     // Bu operatörün oyun profili var mı?
     const profile = await GameProfile.findOne({ where: { operator_id: id } });
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       exists: !!profile,
       operatorName: `${operator.name} ${operator.surname}`,
-      profile: profile || null 
+      profile: profile || null,
     });
   } catch (error) {
     console.error("Identify player error:", error);
-    res.status(500).json({ success: false, message: "Sorgulama sırasında hata oluştu." });
+    res
+      .status(500)
+      .json({ success: false, message: "Sorgulama sırasında hata oluştu." });
   }
 };
 
@@ -35,62 +100,173 @@ export const createProfile = async (req: Request, res: Response) => {
     // Lakap çakışması kontrolü
     const existing = await GameProfile.findOne({ where: { nickname } });
     if (existing) {
-      return res.status(400).json({ success: false, message: "Bu lakap zaten alınmış. Başka bir tane dene!" });
+      return res.status(400).json({
+        success: false,
+        message: "Bu lakap zaten alınmış. Başka bir tane dene!",
+      });
     }
 
     const profile = await GameProfile.create({
       operator_id,
       nickname,
-      best_score: 0
+      best_score: 0,
     });
 
     res.status(201).json({ success: true, data: profile });
   } catch (error) {
     console.error("Create profile error:", error);
-    res.status(500).json({ success: false, message: "Profil oluşturulamadı." });
+    res
+      .status(500)
+      .json({ success: false, message: "Profil oluşturulamadı." });
   }
 };
 
-// 3. Skor Kaydetme (Geliştirilmiş)
-export const saveScore = async (req: Request, res: Response) => {
+export const startGameSession = async (req: Request, res: Response) => {
   try {
-    const { score, operator_id, locationReached } = req.body;
+    const { operator_id } = req.body;
 
-    let profile = await GameProfile.findOne({ where: { operator_id } });
-    
-    // EĞER PROFİL YOKSA AMA GEÇERLİ BİR PERSONELSE, OTOMATİK OLUŞTUR
-    if (!profile) {
-      const operator = await Operator.findOne({ where: { id_dec: operator_id } });
-      if (operator) {
-        profile = await GameProfile.create({
-          operator_id,
-          nickname: `${operator.name} ${operator.surname}`,
-          best_score: 0
-        });
-      } else {
-        return res.status(404).json({ success: false, message: "Geçersiz ID. Skor kaydedilemedi." });
-      }
+    if (!operator_id) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Operatör ID zorunludur." });
     }
 
-    // Genel skor tablosuna ekle
-    const newScore = await GameScore.create({
-      score,
-      player_name: profile.nickname,
+    const operator = await Operator.findOne({ where: { id_dec: operator_id } });
+    if (!operator) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Geçersiz operatör ID." });
+    }
+
+    await getOrCreateProfile(operator_id);
+
+    const startedAt = new Date();
+    const expiresAt = new Date(startedAt.getTime() + SESSION_TTL_MS);
+    const session = await GameSession.create({
       operator_id,
+      seed: createSeed(),
+      status: "ACTIVE",
+      started_at: startedAt,
+      expires_at: expiresAt,
+    });
+
+    res.status(201).json({
+      success: true,
+      data: {
+        sessionId: session.id,
+        seed: session.seed,
+        startedAt,
+        expiresAt,
+      },
+    });
+  } catch (error) {
+    console.error("Start game session error:", error);
+    res
+      .status(500)
+      .json({ success: false, message: "Oyun oturumu başlatılamadı." });
+  }
+};
+
+export const finishGameSession = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { score, locationReached } = req.body;
+
+    const session = await GameSession.findByPk(String(id));
+    if (!session) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Oyun oturumu bulunamadı." });
+    }
+
+    if (session.status !== "ACTIVE") {
+      return res.status(409).json({
+        success: false,
+        message: "Bu oyun oturumu zaten tamamlanmış.",
+      });
+    }
+
+    const now = new Date();
+    if (now > session.expires_at) {
+      await session.update({
+        status: "EXPIRED",
+        finished_at: now,
+        suspicious_reason: "SESSION_EXPIRED",
+      });
+      return res
+        .status(400)
+        .json({ success: false, message: "Oyun oturumunun süresi dolmuş." });
+    }
+
+    const elapsedMs = now.getTime() - session.started_at.getTime();
+    const rejectionReason = getScoreRejectionReason(
+      score,
+      elapsedMs,
+      locationReached,
+    );
+
+    if (rejectionReason) {
+      await session.update({
+        status: "REJECTED",
+        score: Number.isInteger(score) ? score : null,
+        duration_ms: elapsedMs,
+        locationReached:
+          typeof locationReached === "string" ? locationReached : null,
+        suspicious_reason: rejectionReason,
+        finished_at: now,
+      });
+
+      return res.status(400).json({
+        success: false,
+        message: "Skor doğrulaması başarısız.",
+        reason: rejectionReason,
+      });
+    }
+
+    const profile = await getOrCreateProfile(session.operator_id);
+    if (!profile) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Oyuncu profili bulunamadı." });
+    }
+
+    const finalScore = Number(score);
+    const newScore = await GameScore.create({
+      score: finalScore,
+      player_name: profile.nickname,
+      operator_id: session.operator_id,
       locationReached,
     });
 
-    // Eğer yeni rekor ise profili güncelle
-    const isNewRecord = score > profile.best_score;
+    const isNewRecord = finalScore > profile.best_score;
     if (isNewRecord) {
-      await profile.update({ best_score: score });
+      await profile.update({ best_score: finalScore });
     }
+
+    await session.update({
+      status: "FINISHED",
+      score: finalScore,
+      duration_ms: elapsedMs,
+      locationReached,
+      finished_at: now,
+    });
 
     res.status(201).json({ success: true, data: newScore, isNewRecord });
   } catch (error) {
-    console.error("Save score error:", error);
-    res.status(500).json({ success: false, message: "Skor kaydedilemedi." });
+    console.error("Finish game session error:", error);
+    res
+      .status(500)
+      .json({ success: false, message: "Oyun oturumu tamamlanamadı." });
   }
+};
+
+// 3. Skor Kaydetme (Doğrudan skor kaydı kapalı)
+export const saveScore = async (req: Request, res: Response) => {
+  return res.status(410).json({
+    success: false,
+    message:
+      "Doğrudan skor kaydı kapatıldı. Lütfen oyun oturumu ile skor gönderin.",
+  });
 };
 
 // 4. Liderlik Tablosu (Lakaplarla birlikte)
@@ -100,17 +276,19 @@ export const getLeaderboard = async (req: Request, res: Response) => {
     const scores = await GameScore.findAll({
       attributes: [
         "player_name",
-        [sequelize.fn("MAX", sequelize.col("score")), "score"]
+        [sequelize.fn("MAX", sequelize.col("score")), "score"],
       ],
       group: ["player_name"],
-      order: [[sequelize.literal("MAX(score)"), "DESC"]], // MSSQL için literal gerekebilir
+      order: [[sequelize.literal("MAX(score)"), "DESC"]],
       limit: 10,
-      raw: true // Ham veri alalım ki karmaşa olmasın
+      raw: true,
     });
 
     res.json({ success: true, data: scores });
   } catch (error) {
     console.error("Get leaderboard error:", error);
-    res.status(500).json({ success: false, message: "Liderlik tablosu alınamadı." });
+    res
+      .status(500)
+      .json({ success: false, message: "Liderlik tablosu alınamadı." });
   }
 };
