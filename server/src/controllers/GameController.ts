@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { randomBytes, timingSafeEqual } from "crypto";
 import {
   GameProfile,
   GameScore,
@@ -8,12 +9,23 @@ import {
 } from "../models";
 
 const SESSION_TTL_MS = 10 * 60 * 1000;
-const MAX_POINTS_PER_SECOND = 80;
-const SCORE_TOLERANCE = 500;
+const MAX_POINTS_PER_SECOND = 110;
+const SCORE_TOLERANCE = 900;
 const VALID_LOCATIONS = new Set(["PRODUCTION", "WAREHOUSE", "OFFICE", "SNOWY"]);
 
-const createSeed = () => {
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
+const createSessionSecret = () => {
+  return randomBytes(32).toString("hex");
+};
+
+const isValidSessionSecret = (expected: string, received: unknown) => {
+  if (typeof received !== "string") return false;
+
+  const expectedBuffer = Buffer.from(expected);
+  const receivedBuffer = Buffer.from(received);
+
+  if (expectedBuffer.length !== receivedBuffer.length) return false;
+
+  return timingSafeEqual(expectedBuffer, receivedBuffer);
 };
 
 const getOrCreateProfile = async (operator_id: string) => {
@@ -144,7 +156,7 @@ export const startGameSession = async (req: Request, res: Response) => {
     const expiresAt = new Date(startedAt.getTime() + SESSION_TTL_MS);
     const session = await GameSession.create({
       operator_id,
-      seed: createSeed(),
+      seed: createSessionSecret(),
       status: "ACTIVE",
       started_at: startedAt,
       expires_at: expiresAt,
@@ -154,7 +166,7 @@ export const startGameSession = async (req: Request, res: Response) => {
       success: true,
       data: {
         sessionId: session.id,
-        seed: session.seed,
+        finishToken: session.seed,
         startedAt,
         expiresAt,
       },
@@ -170,7 +182,7 @@ export const startGameSession = async (req: Request, res: Response) => {
 export const finishGameSession = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { score, locationReached } = req.body;
+    const { score, locationReached, finishToken } = req.body;
 
     const session = await GameSession.findByPk(String(id));
     if (!session) {
@@ -199,6 +211,25 @@ export const finishGameSession = async (req: Request, res: Response) => {
     }
 
     const elapsedMs = now.getTime() - session.started_at.getTime();
+
+    if (!isValidSessionSecret(session.seed, finishToken)) {
+      await session.update({
+        status: "REJECTED",
+        score: Number.isInteger(score) ? score : null,
+        duration_ms: elapsedMs,
+        locationReached:
+          typeof locationReached === "string" ? locationReached : null,
+        suspicious_reason: "INVALID_SESSION_TOKEN",
+        finished_at: now,
+      });
+
+      return res.status(403).json({
+        success: false,
+        message: "Oyun oturumu doğrulanamadı.",
+        reason: "INVALID_SESSION_TOKEN",
+      });
+    }
+
     const rejectionReason = getScoreRejectionReason(
       score,
       elapsedMs,

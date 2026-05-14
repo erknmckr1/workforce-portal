@@ -1,6 +1,18 @@
 import React, { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import apiClient from "../../lib/api";
+import area1Background from "../../assets/game/area1.jpg";
+import area2Background from "../../assets/game/area2.jpg";
+import area3Background from "../../assets/game/area3.jpg";
+import area4Background from "../../assets/game/area4.jpg";
+import fireObstacle from "../../assets/game/engeller/ates1.svg";
+import airObstacle1 from "../../assets/game/engeller/hava_engeli1.svg";
+import airObstacle2 from "../../assets/game/engeller/hava_engeli2.svg";
+import blueObstacle from "../../assets/game/engeller/maviengel.svg";
+import emeraldObstacle from "../../assets/game/engeller/zümrüt.svg";
+import bonusItem from "../../assets/game/items/bonus.svg";
+import boostItem from "../../assets/game/items/boost.svg";
+import magnetItem from "../../assets/game/items/mıknatıs.svg";
 import {
   Trophy,
   User as UserIcon,
@@ -43,6 +55,7 @@ type SoundType =
   | "countdown"
   | "start"
   | "transition";
+type ObstacleAssetKey = "FIRE" | "BLUE" | "EMERALD" | "AIR_1" | "AIR_2";
 
 type WindowWithWebkitAudio = Window &
   typeof globalThis & {
@@ -64,14 +77,76 @@ interface FloatingText {
 }
 
 const LOCATION_LABELS: Record<LocationName, string> = {
-  PRODUCTION: "ÜRETİM BANDI",
-  WAREHOUSE: "SEVKİYAT DEPOSU",
-  OFFICE: "YÖNETİM OFİSİ",
-  SNOWY: "KARLI DIŞ MEKAN",
+  PRODUCTION: "KIZIL GEZEGEN",
+  WAREHOUSE: "ASTEROİT KUŞAĞI",
+  OFFICE: "ORBİTAL İSTASYON",
+  SNOWY: "BUZUL AY",
+};
+
+const LOCATION_BACKGROUNDS: Record<LocationName, string> = {
+  PRODUCTION: area1Background,
+  WAREHOUSE: area2Background,
+  OFFICE: area3Background,
+  SNOWY: area4Background,
+};
+
+const OBSTACLE_ASSETS: Record<ObstacleAssetKey, string> = {
+  FIRE: fireObstacle,
+  BLUE: blueObstacle,
+  EMERALD: emeraldObstacle,
+  AIR_1: airObstacle1,
+  AIR_2: airObstacle2,
+};
+
+const BACKGROUND_TRANSITION_FRAMES = 120;
+
+const drawScrollingImageBackground = (
+  ctx: CanvasRenderingContext2D,
+  image: HTMLImageElement,
+  offset: number,
+  width: number,
+  height: number
+) => {
+  const imageRatio = image.naturalWidth / image.naturalHeight;
+  const tileRatio = width / height;
+  let sourceWidth = image.naturalWidth;
+  let sourceHeight = image.naturalHeight;
+
+  if (imageRatio > tileRatio) {
+    sourceWidth = image.naturalHeight * tileRatio;
+  } else {
+    sourceHeight = image.naturalWidth / tileRatio;
+  }
+
+  const maxSourceX = Math.max(0, image.naturalWidth - sourceWidth);
+  const maxSourceY = Math.max(0, image.naturalHeight - sourceHeight);
+  const panX = maxSourceX * (0.5 + Math.sin(offset * 0.001) * 0.5);
+  const panY = maxSourceY * (0.5 + Math.sin(offset * 0.0007) * 0.5);
+
+  ctx.drawImage(
+    image,
+    panX,
+    panY,
+    sourceWidth,
+    sourceHeight,
+    0,
+    0,
+    width,
+    height
+  );
 };
 
 const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const backgroundImagesRef = useRef<
+    Partial<Record<LocationName, HTMLImageElement>>
+  >({});
+  const obstacleImagesRef = useRef<
+    Partial<Record<ObstacleAssetKey, CanvasImageSource>>
+  >({});
+  const bonusItemImageRef = useRef<HTMLImageElement | null>(null);
+  const boostItemImageRef = useRef<HTMLImageElement | null>(null);
+  const magnetItemImageRef = useRef<HTMLImageElement | null>(null);
   const [gameState, setGameState] = useState<GameState>("IDENTIFY");
   const gameStateRef = useRef<GameState>("IDENTIFY");
   const [score, setScore] = useState(0);
@@ -150,8 +225,11 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
   const newRecordTimerRef = useRef<number>(0);
   const controlsHintTimerRef = useRef<number>(0);
   const gameSessionIdRef = useRef<string>("");
+  const gameSessionTokenRef = useRef<string>("");
   const playerOperatorIdRef = useRef<string>("");
   const locationRef = useRef<LocationName>("PRODUCTION");
+  const previousLocationRef = useRef<LocationName>("PRODUCTION");
+  const backgroundTransitionFrameRef = useRef(BACKGROUND_TRANSITION_FRAMES);
   const trailRef = useRef<{ y: number; h: number; opacity: number }[]>([]);
   const shakeRef = useRef(0);
 
@@ -370,6 +448,16 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
   const isOverheadObstacle = (type: ObstacleType) =>
     type === "PIPE" || type === "WARNING_SIGN";
 
+  const getObstacleAssetKey = (type: ObstacleType): ObstacleAssetKey => {
+    if (type === "PIPE") return "AIR_1";
+    if (type === "WARNING_SIGN") return "AIR_2";
+    if (type === "FORKLIFT" || type === "SNOW_BARRIER") return "BLUE";
+    if (type === "ROBOT_ARM" || type === "BOX_STACK" || type === "DESK") {
+      return "EMERALD";
+    }
+    return "FIRE";
+  };
+
   const getObstacleSize = (type: ObstacleType) => {
     switch (type) {
       case "FORKLIFT":
@@ -483,7 +571,7 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
   const startSecureGameSession = async () => {
     const finalId = playerOperatorIdRef.current || operatorId || sessionId;
     if (!finalId) {
-      toast.error("Oyuna başlamak için sicil no gerekli.");
+      toast.error("Yolculuğa başlamak için yolcu kodu gerekli.");
       return false;
     }
 
@@ -494,8 +582,13 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
         operator_id: finalId,
       });
 
-      if (res.data?.success && res.data.data?.sessionId) {
+      if (
+        res.data?.success &&
+        res.data.data?.sessionId &&
+        res.data.data?.finishToken
+      ) {
         gameSessionIdRef.current = res.data.data.sessionId;
+        gameSessionTokenRef.current = res.data.data.finishToken;
         return true;
       }
 
@@ -609,6 +702,8 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
     nextItemFrameRef.current = 190;
     consecutiveGroundObstaclesRef.current = 0;
     locationRef.current = "PRODUCTION";
+    previousLocationRef.current = "PRODUCTION";
+    backgroundTransitionFrameRef.current = BACKGROUND_TRANSITION_FRAMES;
     setLocation("PRODUCTION");
     showFirstGameControlsHint();
     animate();
@@ -678,7 +773,9 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
       const currentLocation = themes[themeIndex];
 
       if (currentLocation !== locationRef.current) {
+        previousLocationRef.current = locationRef.current;
         locationRef.current = currentLocation;
+        backgroundTransitionFrameRef.current = 0;
         setLocation(currentLocation);
         showLocationBanner(currentLocation);
       }
@@ -708,7 +805,51 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       // --- 2. KATMANLI ARKA PLAN (LOCATION BASED) ---
-      if (locationRef.current === "PRODUCTION") {
+      const drawBackgroundImageForLocation = (
+        locationName: LocationName,
+        alpha = 1
+      ) => {
+        const image = backgroundImagesRef.current[locationName];
+        if (!image?.complete || image.naturalWidth <= 0) return false;
+
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        drawScrollingImageBackground(
+          ctx,
+          image,
+          scrollOffset * 0.14,
+          canvas.width,
+          canvas.height
+        );
+        ctx.restore();
+        return true;
+      };
+
+      const transitionProgress = Math.min(
+        backgroundTransitionFrameRef.current / BACKGROUND_TRANSITION_FRAMES,
+        1
+      );
+      const easedTransitionProgress =
+        transitionProgress * transitionProgress * (3 - 2 * transitionProgress);
+      const hasPreviousImageBackground =
+        transitionProgress < 1
+          ? drawBackgroundImageForLocation(
+              previousLocationRef.current,
+              1 - easedTransitionProgress
+            )
+          : false;
+      const hasCurrentImageBackground = drawBackgroundImageForLocation(
+        locationRef.current,
+        transitionProgress < 1 ? easedTransitionProgress : 1
+      );
+      if (backgroundTransitionFrameRef.current < BACKGROUND_TRANSITION_FRAMES) {
+        backgroundTransitionFrameRef.current++;
+      }
+
+      const backgroundImage = backgroundImagesRef.current[locationRef.current];
+      if (hasPreviousImageBackground || hasCurrentImageBackground) {
+        // Asset tabanli arka plan cizildi.
+      } else if (locationRef.current === "PRODUCTION") {
         // Fabrika Silüeti
         ctx.fillStyle = "rgba(0, 0, 0, 0.15)";
         for (let i = 0; i < 5; i++) {
@@ -761,8 +902,28 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
         }
       }
 
+      ctx.fillStyle = "rgba(0, 0, 0, 0.32)";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
       // --- 3. OYUNCU FİZİKLERİ VE ÇİZİM ---
       const player = playerRef.current;
+      if (
+        locationRef.current === "SNOWY" &&
+        backgroundImage?.complete &&
+        backgroundImage.naturalWidth > 0 &&
+        frameRef.current % 5 === 0
+      ) {
+        particlesRef.current.push({
+          x: Math.random() * canvas.width,
+          y: -10,
+          size: Math.random() * 3 + 1,
+          color: "#fff",
+          dx: (Math.random() - 0.5) * 1,
+          dy: Math.random() * 2 + 1,
+          life: 1,
+        });
+      }
+
       const currentH = player.isDucking ? PLAYER_HEIGHT / 2 : PLAYER_HEIGHT;
       const isGrounded = player.y >= GROUND_Y - currentH - 0.5;
 
@@ -1049,7 +1210,16 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
           ctx.fill();
         }
 
-        if (obs.type === "FORKLIFT") {
+        const obstacleImage =
+          obstacleImagesRef.current[getObstacleAssetKey(obs.type)];
+        if (obstacleImage) {
+          ctx.shadowBlur = isOverhead ? 12 : 16;
+          ctx.shadowColor = isOverhead
+            ? "rgba(96, 165, 250, 0.75)"
+            : "rgba(251, 146, 60, 0.6)";
+          ctx.drawImage(obstacleImage, 0, 0, obs.width, obs.height);
+          ctx.shadowBlur = 0;
+        } else if (obs.type === "FORKLIFT") {
           // Gövde (Sarı endüstriyel boya)
           const grad = ctx.createLinearGradient(0, 0, 0, obs.height);
           grad.addColorStop(0, "#facc15");
@@ -1352,49 +1522,81 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
         ctx.save();
         ctx.translate(item.x, item.y + bounce);
         if (item.type === "ORDER") {
-          // Altın Sipariş Evrağı
-          ctx.fillStyle = "#facc15";
-          ctx.beginPath();
-          ctx.roundRect(0, 0, 25, 32, 2);
-          ctx.fill();
-          ctx.fillStyle = "#a16207";
-          ctx.fillRect(5, 5, 15, 2);
-          ctx.fillRect(5, 12, 15, 2);
-          ctx.fillRect(5, 19, 10, 2);
-          ctx.shadowBlur = 15;
-          ctx.shadowColor = "#facc15";
-          ctx.strokeStyle = "#fff";
-          ctx.strokeRect(-2, -2, 29, 36);
+          const boostImage = boostItemImageRef.current;
+          if (boostImage?.complete && boostImage.naturalWidth > 0) {
+            ctx.shadowBlur = 14;
+            ctx.shadowColor = "#7dd3fc";
+            ctx.drawImage(boostImage, 3, -5, 29, 42);
+            ctx.shadowBlur = 0;
+          } else {
+            ctx.fillStyle = "#facc15";
+            ctx.beginPath();
+            ctx.roundRect(0, 0, 25, 32, 2);
+            ctx.fill();
+            ctx.fillStyle = "#a16207";
+            ctx.fillRect(5, 5, 15, 2);
+            ctx.fillRect(5, 12, 15, 2);
+            ctx.fillRect(5, 19, 10, 2);
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = "#facc15";
+            ctx.strokeStyle = "#fff";
+            ctx.strokeRect(-2, -2, 29, 36);
+          }
         } else if (item.type === "COFFEE") {
-          // Kahve Bardağı (Starbucks stili)
-          ctx.fillStyle = "#fff";
-          ctx.beginPath();
-          ctx.moveTo(5, 0);
-          ctx.lineTo(20, 0);
-          ctx.lineTo(18, 30);
-          ctx.lineTo(7, 30);
-          ctx.fill();
-          ctx.fillStyle = "#166534";
-          ctx.fillRect(6, 10, 13, 10); // Yeşil logo bandı
-          ctx.fillStyle = "#451a03";
-          ctx.fillRect(4, -2, 17, 4); // Kapak
+          const bonusImage = bonusItemImageRef.current;
+          if (bonusImage?.complete && bonusImage.naturalWidth > 0) {
+            ctx.shadowBlur = 14;
+            ctx.shadowColor = "#fde68a";
+            ctx.drawImage(bonusImage, 2, -4, 31, 41);
+            ctx.shadowBlur = 0;
+          } else {
+            ctx.fillStyle = "#fff";
+            ctx.beginPath();
+            ctx.moveTo(5, 0);
+            ctx.lineTo(20, 0);
+            ctx.lineTo(18, 30);
+            ctx.lineTo(7, 30);
+            ctx.fill();
+            ctx.fillStyle = "#166534";
+            ctx.fillRect(6, 10, 13, 10);
+            ctx.fillStyle = "#451a03";
+            ctx.fillRect(4, -2, 17, 4);
+          }
         } else {
-          // Mıknatıs Çizimi (U-Shape)
-          ctx.fillStyle = "#ef4444";
-          ctx.beginPath();
-          ctx.arc(15, 15, 12, Math.PI, 0);
-          ctx.lineTo(27, 30);
-          ctx.lineTo(20, 30);
-          ctx.lineTo(20, 15);
-          ctx.arc(15, 15, 5, 0, Math.PI, true);
-          ctx.lineTo(10, 30);
-          ctx.lineTo(3, 30);
-          ctx.closePath();
-          ctx.fill();
-          // Uçlar (Gümüş)
-          ctx.fillStyle = "#cbd5e1";
-          ctx.fillRect(3, 25, 7, 5);
-          ctx.fillRect(20, 25, 7, 5);
+          const magnetImage = magnetItemImageRef.current;
+          if (magnetImage?.complete && magnetImage.naturalWidth > 0) {
+            const glowPulse = 0.55 + Math.sin(frameRef.current * 0.18) * 0.2;
+            const glow = ctx.createRadialGradient(17.5, 17, 4, 17.5, 17, 28);
+            glow.addColorStop(0, `rgba(251, 146, 60, ${glowPulse})`);
+            glow.addColorStop(0.45, "rgba(239, 68, 68, 0.36)");
+            glow.addColorStop(1, "rgba(239, 68, 68, 0)");
+            ctx.fillStyle = glow;
+            ctx.beginPath();
+            ctx.arc(17.5, 17, 28, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.shadowBlur = 18;
+            ctx.shadowColor = "#fb923c";
+            ctx.drawImage(magnetImage, 1, -3, 33, 40);
+            ctx.shadowBlur = 0;
+          } else {
+            // Mıknatıs Çizimi (U-Shape)
+            ctx.fillStyle = "#ef4444";
+            ctx.beginPath();
+            ctx.arc(15, 15, 12, Math.PI, 0);
+            ctx.lineTo(27, 30);
+            ctx.lineTo(20, 30);
+            ctx.lineTo(20, 15);
+            ctx.arc(15, 15, 5, 0, Math.PI, true);
+            ctx.lineTo(10, 30);
+            ctx.lineTo(3, 30);
+            ctx.closePath();
+            ctx.fill();
+            // Uçlar (Gümüş)
+            ctx.fillStyle = "#cbd5e1";
+            ctx.fillRect(3, 25, 7, 5);
+            ctx.fillRect(20, 25, 7, 5);
+          }
         }
         ctx.restore();
         if (item.x + item.width < 0) {
@@ -1440,6 +1642,53 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
   }, [isMuted]);
 
   useEffect(() => {
+    (Object.entries(LOCATION_BACKGROUNDS) as [LocationName, string][]).forEach(
+      ([locationName, source]) => {
+        const image = new Image();
+        image.src = source;
+        image.onload = () => {
+          backgroundImagesRef.current[locationName] = image;
+        };
+      }
+    );
+
+    (Object.entries(OBSTACLE_ASSETS) as [ObstacleAssetKey, string][]).forEach(
+      ([assetKey, source]) => {
+        const image = new Image();
+        image.src = source;
+        image.onload = async () => {
+          try {
+            obstacleImagesRef.current[assetKey] =
+              typeof createImageBitmap === "function"
+                ? await createImageBitmap(image)
+                : image;
+          } catch {
+            obstacleImagesRef.current[assetKey] = image;
+          }
+        };
+      }
+    );
+
+    const bonusImage = new Image();
+    bonusImage.src = bonusItem;
+    bonusImage.onload = () => {
+      bonusItemImageRef.current = bonusImage;
+    };
+
+    const boostImage = new Image();
+    boostImage.src = boostItem;
+    boostImage.onload = () => {
+      boostItemImageRef.current = boostImage;
+    };
+
+    const magnetImage = new Image();
+    magnetImage.src = magnetItem;
+    magnetImage.onload = () => {
+      magnetItemImageRef.current = magnetImage;
+    };
+  }, []);
+
+  useEffect(() => {
     if (
       gameState === "PLAYING" &&
       highScore > 0 &&
@@ -1452,7 +1701,18 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
   }, [gameState, score, highScore]);
 
   useEffect(() => {
+    const isTypingInField = (target: EventTarget | null) => {
+      if (!(target instanceof HTMLElement)) return false;
+      return (
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.isContentEditable
+      );
+    };
+
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (isTypingInField(e.target)) return;
+
       if (e.code === "Space" || e.code === "ArrowUp") {
         e.preventDefault();
         if (e.repeat) return;
@@ -1467,6 +1727,8 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
+      if (isTypingInField(e.target)) return;
+
       if (e.code === "Space" || e.code === "ArrowUp") {
         releaseJump();
       }
@@ -1529,7 +1791,7 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
       }
     } catch (err: any) {
       toast.error(
-        err.response?.data?.message || "Sicil No sorgulanırken hata oluştu.",
+        err.response?.data?.message || "Yolcu kodu sorgulanırken hata oluştu.",
       );
     } finally {
       setIsIdentifying(false);
@@ -1575,8 +1837,9 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
     if (isSaving || hasSaved) return;
     const finalScore = scoreRef.current || score;
     const gameSessionId = gameSessionIdRef.current;
+    const finishToken = gameSessionTokenRef.current;
 
-    if (!gameSessionId) {
+    if (!gameSessionId || !finishToken) {
       toast.error("Oyun oturumu bulunamadı. Skor kaydedilemedi.");
       return;
     }
@@ -1588,11 +1851,13 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
         {
           score: finalScore,
           locationReached: locationRef.current,
+          finishToken,
         },
       );
       if (res.data?.success) {
         setHasSaved(true);
         gameSessionIdRef.current = "";
+        gameSessionTokenRef.current = "";
         if (res.data.isNewRecord) {
           setHighScore(finalScore);
         }
@@ -1624,10 +1889,10 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between w-full mb-4">
           <div className="flex flex-col">
             <h1 className="text-4xl font-black uppercase tracking-tighter text-primary italic">
-              Runner
+              Kozmik Koşu
             </h1>
             <p className="text-xs font-bold text-muted-foreground uppercase tracking-[0.3em]">
-              Koşucu
+              Uzay Yolcusu
             </p>
           </div>
           <div className="flex gap-3 items-center justify-between sm:justify-end">
@@ -1662,7 +1927,7 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
             )}
             {molaPowerDisplay > 0 && (
               <div className="flex items-center gap-2 bg-primary/20 px-3 py-1.5 rounded-xl border border-primary/30 animate-pulse">
-                <div className="text-primary">☕</div>
+                <div className="text-primary text-[10px] font-black">EN</div>
                 <span className="text-xs font-black text-primary font-mono">
                   {molaPowerDisplay}s
                 </span>
@@ -1697,7 +1962,7 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
                 Kimsin?
               </h2>
               <p className="text-xs font-bold text-muted-foreground uppercase mb-6 tracking-widest">
-                Skorunu kaydetmek için Sicil No gir
+                Görev kaydı için yolcu kodunu gir
               </p>
 
               <div
@@ -1709,7 +1974,7 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
                   value={sessionId}
                   onChange={(e) => setSessionId(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleIdentify()}
-                  placeholder="Sicil No / ID..."
+                  placeholder="Yolcu Kodu / ID..."
                   className="flex-1 bg-background border-2 border-border px-4 py-3 rounded-xl text-sm focus:outline-none focus:border-primary"
                 />
                 <button
@@ -1738,7 +2003,7 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
                 Hoş geldin {operatorName}!
               </h2>
               <p className="text-xs font-bold text-muted-foreground uppercase mb-6 tracking-widest">
-                Liderlik tablosunda görünecek lakabını seç
+                Galaksi listesinde görünecek çağrı adını seç
               </p>
 
               <div
@@ -1749,7 +2014,7 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
                   type="text"
                   value={nickname}
                   onChange={(e) => setNickname(e.target.value)}
-                  placeholder="Gamer Tag / Lakap..."
+                  placeholder="Çağrı Adı / Pilot Tag..."
                   maxLength={15}
                   className="w-full bg-background border-2 border-border px-4 py-3 rounded-xl text-sm font-bold focus:outline-none focus:border-primary text-center"
                 />
@@ -1761,7 +2026,7 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
                   disabled={!nickname || isSaving}
                   className="bg-primary text-primary-foreground font-black py-3 rounded-xl uppercase hover:scale-105 transition-all disabled:opacity-50"
                 >
-                  Profilimi Oluştur
+                  Yolcu Profilimi Oluştur
                 </button>
               </div>
             </div>
@@ -1772,7 +2037,7 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/50 backdrop-blur-[2px] text-center">
               <div className="mb-6 scale-110">
                 <p className="text-[10px] font-black uppercase tracking-[0.4em] text-primary mb-1">
-                  Kullanıcı Hazır
+                  Yolcu Hazır
                 </p>
                 <h2 className="text-3xl font-black uppercase text-foreground italic">
                   {nickname}
@@ -1791,7 +2056,7 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
                 disabled={isStartingGame}
                 className="bg-primary text-primary-foreground font-black px-12 py-4 rounded-xl uppercase hover:scale-105 transition-all shadow-xl shadow-primary/20 disabled:opacity-50 disabled:hover:scale-100"
               >
-                {isStartingGame ? "Hazırlanıyor..." : "Vardiyaya Başla"}
+                {isStartingGame ? "Fırlatma hazırlanıyor..." : "Yolculuğa Başla"}
               </button>
               <div className="mt-6 flex flex-wrap justify-center gap-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
                 <span>Zıpla: BOŞLUK / TIKLA</span>
@@ -1816,7 +2081,7 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
           {gameState === "COUNTDOWN" && (
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/45 backdrop-blur-[2px] text-center pointer-events-none">
               <div className="text-[10px] font-black uppercase tracking-[0.45em] text-primary mb-4">
-                Hazırlan
+                Fırlatmaya Hazırlan
               </div>
               <div className="min-w-40 rounded-2xl border-4 border-primary bg-background/80 px-10 py-6 shadow-2xl">
                 <div className="font-mono text-7xl md:text-8xl font-black text-primary tabular-nums leading-none animate-in zoom-in duration-200">
@@ -1830,7 +2095,7 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
             <div className="absolute inset-x-0 top-8 flex justify-center pointer-events-none animate-in fade-in zoom-in-95 duration-300">
               <div className="border-2 border-primary bg-background/85 px-8 py-4 shadow-2xl backdrop-blur-sm">
                 <div className="text-[10px] font-black uppercase tracking-[0.45em] text-primary mb-1">
-                  Vardiya Değişimi
+                  Rota Değişimi
                 </div>
                 <div className="text-2xl md:text-4xl font-black uppercase italic tracking-tight text-foreground">
                   {locationBanner}
@@ -1865,14 +2130,14 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
 
           {gameState === "PLAYING" && newRecordBanner && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none animate-in fade-in zoom-in-95 duration-300">
-              <div className="border-4 border-amber-400 bg-background/90 px-10 py-6 text-center shadow-2xl shadow-amber-500/20 backdrop-blur-sm">
-                <div className="text-[10px] font-black uppercase tracking-[0.45em] text-amber-500 mb-2">
+              <div className="border-2 border-amber-400 bg-background/85 px-6 py-4 text-center shadow-xl shadow-amber-500/15 backdrop-blur-sm">
+                <div className="text-[9px] font-black uppercase tracking-[0.35em] text-amber-500 mb-1">
                   Kişisel
                 </div>
-                <div className="text-4xl md:text-6xl font-black uppercase italic tracking-tight text-amber-500">
+                <div className="text-2xl md:text-4xl font-black uppercase italic tracking-tight text-amber-500">
                   Yeni Rekor!
                 </div>
-                <div className="mt-2 font-mono text-lg font-black text-foreground">
+                <div className="mt-1 font-mono text-sm font-black text-foreground">
                   {score.toLocaleString()}
                 </div>
               </div>
@@ -1885,7 +2150,7 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
               onClick={(e) => e.stopPropagation()}
             >
               <h2 className="text-4xl font-black uppercase text-destructive italic mb-2">
-                Vardiya Bitti!
+                Görev Tamamlandı!
               </h2>
               <div className="text-3xl font-mono font-bold text-white mb-5">
                 Skor: {score.toLocaleString()}
@@ -1905,7 +2170,7 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
                 </div>
                 <div className="bg-background/15 border border-white/10 p-3">
                   <div className="text-[9px] font-black uppercase tracking-widest text-white/50">
-                    Sipariş
+                    Veri Çekirdeği
                   </div>
                   <div className="mt-1 font-mono text-lg font-black text-amber-300">
                     {runStats.ordersCollected}
@@ -1921,7 +2186,7 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
                 </div>
                 <div className="bg-background/15 border border-white/10 p-3">
                   <div className="text-[9px] font-black uppercase tracking-widest text-white/50">
-                    Bölüm
+                    Rota
                   </div>
                   <div className="mt-1 text-xs font-black uppercase text-white truncate">
                     {LOCATION_LABELS[runStats.finalLocation]}
@@ -1950,7 +2215,7 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
               <div className="flex items-center gap-2">
                 <Trophy size={18} className="text-amber-500" />
                 <h3 className="text-xs font-black uppercase tracking-widest">
-                  En İyi 10 Vardiya
+                  En İyi 10 Yolcu
                 </h3>
               </div>
               <span className="text-[10px] font-black text-muted-foreground uppercase">
@@ -1977,7 +2242,7 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
                 ))
               ) : (
                 <div className="sm:col-span-2 xl:col-span-5 text-[10px] text-center py-4 text-muted-foreground uppercase italic">
-                  Henüz skor yok. İlk sen ol!
+                  Henüz skor yok. İlk rotayı sen aç!
                 </div>
               )}
             </div>
@@ -1992,7 +2257,7 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
                 </div>
                 <div>
                   <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                    Aktif Oyuncu
+                    Aktif Yolcu
                   </p>
                   <p className="text-sm font-bold text-primary">
                     {nickname || operatorName || "Giriş Bekleniyor"}
@@ -2000,9 +2265,9 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
                 </div>
               </div>
               <p className="text-[10px] leading-relaxed text-muted-foreground font-medium uppercase italic">
-                Bu oyun Midas Intranet personeli için özel olarak
-                geliştirilmiştir. Skorlar veritabanına kaydedilir ve aylık
-                şampiyonlar ilan edilir.
+                Uzay Yolcusu, galaktik rotalarda veri çekirdekleri toplayan
+                refleks tabanlı bir keşif oyunudur. Skorlar veritabanına
+                kaydedilir ve galaksi liderleri ilan edilir.
               </p>
             </div>
             <button
