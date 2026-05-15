@@ -6,11 +6,19 @@ import area2Background from "../../assets/game/area2.jpg";
 import area3Background from "../../assets/game/area3.jpg";
 import area4Background from "../../assets/game/area4.jpg";
 import fireObstacle from "../../assets/game/engeller/ates1.svg";
-import airObstacle1 from "../../assets/game/engeller/hava_engeli1.svg";
-import airObstacle2 from "../../assets/game/engeller/hava_engeli2.svg";
+import airObstacle1 from "../../assets/game/orta_engel/laser_1.png";
+import airObstacle2 from "../../assets/game/orta_engel/laser_2.png";
+import airObstacle3 from "../../assets/game/orta_engel/laser_3.png";
+import airObstacle4 from "../../assets/game/orta_engel/laser_4.png";
+import airObstacle5 from "../../assets/game/orta_engel/laser_5.png";
+import meteorAsset1 from "../../assets/game/orta_engel/meteor_1.png";
+import meteorAsset2 from "../../assets/game/orta_engel/meteor_2.png";
+import meteorAsset3 from "../../assets/game/orta_engel/meteor_3.png";
+import meteorAsset4 from "../../assets/game/orta_engel/meteor_4.png";
 import blueObstacle from "../../assets/game/engeller/maviengel.svg";
 import emeraldObstacle from "../../assets/game/engeller/zümrüt.svg";
-import bonusItem from "../../assets/game/items/bonus.svg";
+import groundObstacle2 from "../../assets/game/yer_engeli/yer_engeli_2.png";
+import bonusItem from "../../assets/game/items/bonus.png";
 import boostItem from "../../assets/game/items/boost.svg";
 import magnetItem from "../../assets/game/items/mıknatıs.svg";
 import {
@@ -55,7 +63,25 @@ type SoundType =
   | "countdown"
   | "start"
   | "transition";
-type ObstacleAssetKey = "FIRE" | "BLUE" | "EMERALD" | "AIR_1" | "AIR_2";
+type ObstacleAssetKey =
+  | "FIRE"
+  | "BLUE"
+  | "EMERALD"
+  | "AIR_1"
+  | "AIR_2"
+  | "AIR_3"
+  | "AIR_4"
+  | "AIR_5"
+  | "GROUND_2";
+
+interface GameObstacle {
+  x: number;
+  width: number;
+  height: number;
+  y: number;
+  type: ObstacleType;
+  assetKey?: ObstacleAssetKey;
+}
 
 type WindowWithWebkitAudio = Window &
   typeof globalThis & {
@@ -76,6 +102,27 @@ interface FloatingText {
   life: number;
 }
 
+interface SkyStar {
+  x: number;
+  y: number;
+  size: number;
+  alpha: number;
+}
+
+interface SkyShip {
+  startFrame: number;
+  y: number;
+}
+
+interface SkyMeteor {
+  imageIndex: number;
+  x: number;
+  y: number;
+  size: number;
+  delay: number;
+  rotation: number;
+}
+
 const LOCATION_LABELS: Record<LocationName, string> = {
   PRODUCTION: "KIZIL GEZEGEN",
   WAREHOUSE: "ASTEROİT KUŞAĞI",
@@ -90,63 +137,158 @@ const LOCATION_BACKGROUNDS: Record<LocationName, string> = {
   SNOWY: area4Background,
 };
 
+const SPEECH_MESSAGES = [
+  { score: 100, text: "Bekle beni mesoooo geliyorum." },
+  { score: 500, text: "Kalkış tamam. Rota bende." },
+  { score: 1200, text: "Asteroit alanı yaklaşıyor!" },
+  { score: 2200, text: "Veri çekirdeği sinyali güçlendi." },
+  { score: 3600, text: "Oksijen iyi. Tempoyu koru." },
+  { score: 5200, text: "Hız artıyor, gözünü yoldan ayırma." },
+  { score: 7000, text: "Buzul Ay hattına girdik." },
+  { score: 9000, text: "Bu koşu kayıtlara geçebilir!" },
+];
+
+const REACTION_MESSAGES = {
+  jump: ["Hop!", "Yer çekimi iptal.", "Yukarı rota!"],
+  order: ["Veri çekirdeği alındı.", "Güzel topladık.", "Sinyal bizde!"],
+  coffee: ["Enerji doldu!", "Motorlar ısınıyor.", "Bonus aktif!"],
+  magnet: [
+    "Çekim alanı aktif.",
+    "Hepsi bize geliyor.",
+    "Manyetik rota açıldı!",
+  ],
+  combo: ["Seri güzel gidiyor!", "Zinciri bozma!", "Akış bizde."],
+  hit: ["Kask çizildi...", "Sert iniş oldu.", "Görev sarsıldı!"],
+} as const;
+
 const OBSTACLE_ASSETS: Record<ObstacleAssetKey, string> = {
   FIRE: fireObstacle,
   BLUE: blueObstacle,
   EMERALD: emeraldObstacle,
   AIR_1: airObstacle1,
   AIR_2: airObstacle2,
+  AIR_3: airObstacle3,
+  AIR_4: airObstacle4,
+  AIR_5: airObstacle5,
+  GROUND_2: groundObstacle2,
+};
+
+const SKY_METEOR_ASSETS = [
+  meteorAsset1,
+  meteorAsset2,
+  meteorAsset3,
+  meteorAsset4,
+];
+
+const OBSTACLE_RASTER_SIZES: Record<
+  ObstacleAssetKey,
+  { width: number; height: number }
+> = {
+  FIRE: { width: 160, height: 160 },
+  BLUE: { width: 200, height: 150 },
+  EMERALD: { width: 180, height: 180 },
+  AIR_1: { width: 340, height: 120 },
+  AIR_2: { width: 320, height: 88 },
+  AIR_3: { width: 340, height: 120 },
+  AIR_4: { width: 320, height: 72 },
+  AIR_5: { width: 340, height: 120 },
+  GROUND_2: { width: 96, height: 152 },
 };
 
 const BACKGROUND_TRANSITION_FRAMES = 120;
+const SKY_SHIP_INTERVAL_FRAMES = 420;
+const SKY_SHIP_DURATION_FRAMES = 210;
+const SKY_METEOR_LOOP_FRAMES = 900;
 
-const drawScrollingImageBackground = (
-  ctx: CanvasRenderingContext2D,
+const rasterizeCanvasImage = async (
   image: HTMLImageElement,
-  offset: number,
-  width: number,
-  height: number
-) => {
+  size: { width: number; height: number }
+): Promise<CanvasImageSource> => {
+  const canvas = document.createElement("canvas");
+  canvas.width = size.width;
+  canvas.height = size.height;
+
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return image;
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+  if (typeof createImageBitmap !== "function") {
+    return canvas;
+  }
+
+  try {
+    return await createImageBitmap(canvas);
+  } catch {
+    return canvas;
+  }
+};
+
+const rasterizeObstacleImage = (
+  image: HTMLImageElement,
+  size: { width: number; height: number }
+) => rasterizeCanvasImage(image, size);
+
+const rasterizeCoverImage = async (
+  image: HTMLImageElement,
+  size: { width: number; height: number }
+): Promise<CanvasImageSource> => {
+  const canvas = document.createElement("canvas");
+  canvas.width = size.width;
+  canvas.height = size.height;
+
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return image;
+
   const imageRatio = image.naturalWidth / image.naturalHeight;
-  const tileRatio = width / height;
+  const canvasRatio = size.width / size.height;
   let sourceWidth = image.naturalWidth;
   let sourceHeight = image.naturalHeight;
 
-  if (imageRatio > tileRatio) {
-    sourceWidth = image.naturalHeight * tileRatio;
+  if (imageRatio > canvasRatio) {
+    sourceWidth = image.naturalHeight * canvasRatio;
   } else {
-    sourceHeight = image.naturalWidth / tileRatio;
+    sourceHeight = image.naturalWidth / canvasRatio;
   }
 
-  const maxSourceX = Math.max(0, image.naturalWidth - sourceWidth);
-  const maxSourceY = Math.max(0, image.naturalHeight - sourceHeight);
-  const panX = maxSourceX * (0.5 + Math.sin(offset * 0.001) * 0.5);
-  const panY = maxSourceY * (0.5 + Math.sin(offset * 0.0007) * 0.5);
+  const sourceX = Math.max(0, (image.naturalWidth - sourceWidth) / 2);
+  const sourceY = Math.max(0, (image.naturalHeight - sourceHeight) / 2);
 
   ctx.drawImage(
     image,
-    panX,
-    panY,
+    sourceX,
+    sourceY,
     sourceWidth,
     sourceHeight,
     0,
     0,
-    width,
-    height
+    size.width,
+    size.height
   );
+
+  if (typeof createImageBitmap !== "function") {
+    return canvas;
+  }
+
+  try {
+    return await createImageBitmap(canvas);
+  } catch {
+    return canvas;
+  }
 };
 
 const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const backgroundImagesRef = useRef<
-    Partial<Record<LocationName, HTMLImageElement>>
+    Partial<Record<LocationName, CanvasImageSource>>
   >({});
   const obstacleImagesRef = useRef<
     Partial<Record<ObstacleAssetKey, CanvasImageSource>>
   >({});
-  const bonusItemImageRef = useRef<HTMLImageElement | null>(null);
-  const boostItemImageRef = useRef<HTMLImageElement | null>(null);
-  const magnetItemImageRef = useRef<HTMLImageElement | null>(null);
+  const bonusItemImageRef = useRef<CanvasImageSource | null>(null);
+  const boostItemImageRef = useRef<CanvasImageSource | null>(null);
+  const magnetItemImageRef = useRef<CanvasImageSource | null>(null);
   const [gameState, setGameState] = useState<GameState>("IDENTIFY");
   const gameStateRef = useRef<GameState>("IDENTIFY");
   const [score, setScore] = useState(0);
@@ -163,6 +305,7 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
   const [molaPowerDisplay, setMolaPowerDisplay] = useState(0);
   const [countdown, setCountdown] = useState<3 | 2 | 1 | "BAŞLA">(3);
   const [locationBanner, setLocationBanner] = useState<string | null>(null);
+  const [speechBubble, setSpeechBubble] = useState<string | null>(null);
   const [comboDisplay, setComboDisplay] = useState(0);
   const [newRecordBanner, setNewRecordBanner] = useState(false);
   const [showControlsHint, setShowControlsHint] = useState(false);
@@ -199,12 +342,17 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
     isDucking: false,
   });
 
-  const obstaclesRef = useRef<any[]>([]);
+  const obstaclesRef = useRef<GameObstacle[]>([]);
   const itemsRef = useRef<any[]>([]);
   const particlesRef = useRef<any[]>([]); // Yeni: Toz ve parıltı efektleri
   const molaPowerRef = useRef(0);
   const magnetPowerRef = useRef(0);
   const [magnetPowerDisplay, setMagnetPowerDisplay] = useState(0);
+  const skyStarsRef = useRef<SkyStar[]>([]);
+  const skyMeteorsRef = useRef<SkyMeteor[]>([]);
+  const skyMeteorImagesRef = useRef<CanvasImageSource[]>([]);
+  const skyShipRef = useRef<SkyShip | null>(null);
+  const nextSkyShipFrameRef = useRef(SKY_SHIP_INTERVAL_FRAMES);
   const frameRef = useRef<number>(0);
   const nextObstacleFrameRef = useRef<number>(0);
   const nextItemFrameRef = useRef<number>(0);
@@ -212,6 +360,10 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
   const gameLoopRef = useRef<number>(0);
   const countdownTimerRef = useRef<number>(0);
   const locationBannerTimerRef = useRef<number>(0);
+  const speechBubbleTimerRef = useRef<number>(0);
+  const shownSpeechMessagesRef = useRef<Set<number>>(new Set());
+  const lastReactionFrameRef = useRef(0);
+  const lastComboReactionMultiplierRef = useRef(1);
   const audioContextRef = useRef<AudioContext | null>(null);
   const isMutedRef = useRef(isMuted);
   const isStartingGameRef = useRef(isStartingGame);
@@ -257,9 +409,53 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
     setScore(0);
   };
 
+  const showSpeechBubble = (text: string) => {
+    if (speechBubbleTimerRef.current) {
+      window.clearTimeout(speechBubbleTimerRef.current);
+    }
+
+    setSpeechBubble(text);
+    speechBubbleTimerRef.current = window.setTimeout(() => {
+      setSpeechBubble(null);
+      speechBubbleTimerRef.current = 0;
+    }, 2800);
+  };
+
+  const showCharacterReaction = (
+    type: keyof typeof REACTION_MESSAGES,
+    options: { force?: boolean; minGapFrames?: number } = {},
+  ) => {
+    const minGapFrames = options.minGapFrames ?? 600;
+    if (
+      !options.force &&
+      frameRef.current - lastReactionFrameRef.current < minGapFrames
+    ) {
+      return;
+    }
+
+    const messages = REACTION_MESSAGES[type];
+    const message = messages[Math.floor(Math.random() * messages.length)];
+    lastReactionFrameRef.current = frameRef.current;
+    showSpeechBubble(message);
+  };
+
+  const maybeShowSpeechBubble = () => {
+    const nextMessage = SPEECH_MESSAGES.find(
+      (message) =>
+        scoreRef.current >= message.score &&
+        !shownSpeechMessagesRef.current.has(message.score),
+    );
+
+    if (!nextMessage) return;
+
+    shownSpeechMessagesRef.current.add(nextMessage.score);
+    showSpeechBubble(nextMessage.text);
+  };
+
   const addScore = (points: number) => {
     scoreRef.current += points;
     setScore(scoreRef.current);
+    maybeShowSpeechBubble();
   };
 
   const showNewRecordBanner = () => {
@@ -293,6 +489,7 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
 
   const resetCombo = () => {
     comboRef.current = 0;
+    lastComboReactionMultiplierRef.current = 1;
     setComboDisplay(0);
   };
 
@@ -334,6 +531,10 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
 
     const multiplier = Math.min(1 + Math.floor((comboRef.current - 1) / 3), 4);
     const points = 50 * multiplier;
+    if (multiplier > lastComboReactionMultiplierRef.current) {
+      lastComboReactionMultiplierRef.current = multiplier;
+      showCharacterReaction("combo", { force: true });
+    }
     addScore(points);
     addFloatingText(
       x,
@@ -432,6 +633,185 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
     });
   };
 
+  const drawSkyDetails = (
+    ctx: CanvasRenderingContext2D,
+    canvas: HTMLCanvasElement,
+    currentLocation: LocationName,
+    scrollOffset: number
+  ) => {
+    if (skyStarsRef.current.length === 0) {
+      skyStarsRef.current = Array.from({ length: 58 }, () => ({
+        x: Math.random() * canvas.width,
+        y: 18 + Math.random() * 150,
+        size: 0.7 + Math.random() * 1.8,
+        alpha: 0.25 + Math.random() * 0.45,
+      }));
+    }
+    if (skyMeteorsRef.current.length === 0) {
+      skyMeteorsRef.current = Array.from({ length: 5 }, (_, index) => ({
+        imageIndex: index % SKY_METEOR_ASSETS.length,
+        x: canvas.width * (0.35 + Math.random() * 0.9),
+        y: -42 + Math.random() * 80,
+        size: 28 + Math.random() * 18,
+        delay: index * 170 + Math.floor(Math.random() * 80),
+        rotation: -0.58 + Math.random() * 0.16,
+      }));
+    }
+
+    ctx.save();
+    ctx.globalCompositeOperation = "screen";
+    skyStarsRef.current.forEach((star) => {
+      const x = (star.x - scrollOffset * 0.025) % canvas.width;
+      const wrappedX = x < 0 ? x + canvas.width : x;
+      ctx.globalAlpha =
+        star.alpha + Math.sin(frameRef.current * 0.018 + star.x) * 0.08;
+      ctx.fillStyle = "#e0f2fe";
+      ctx.fillRect(wrappedX, star.y, star.size, star.size);
+    });
+
+    skyMeteorsRef.current.forEach((meteor) => {
+      const localFrame =
+        (frameRef.current + meteor.delay) % SKY_METEOR_LOOP_FRAMES;
+      const progress = localFrame / SKY_METEOR_LOOP_FRAMES;
+      const x = meteor.x - progress * (canvas.width * 0.62 + 180);
+      const y = meteor.y + progress * 245;
+      const image = skyMeteorImagesRef.current[meteor.imageIndex];
+
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(meteor.rotation);
+      ctx.globalAlpha = 0.42;
+
+      const trail = ctx.createLinearGradient(0, 0, meteor.size * 3.8, 0);
+      trail.addColorStop(0, "rgba(125, 211, 252, 0.52)");
+      trail.addColorStop(1, "rgba(125, 211, 252, 0)");
+      ctx.strokeStyle = trail;
+      ctx.lineWidth = Math.max(1.2, meteor.size * 0.09);
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(meteor.size * 3.6, 0);
+      ctx.stroke();
+
+      if (image) {
+        ctx.drawImage(
+          image,
+          -meteor.size * 0.5,
+          -meteor.size * 0.5,
+          meteor.size,
+          meteor.size
+        );
+      } else {
+        ctx.fillStyle = "#bae6fd";
+        ctx.beginPath();
+        ctx.arc(0, 0, meteor.size * 0.22, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    });
+
+    ctx.globalAlpha = 0.16;
+    if (currentLocation === "PRODUCTION") {
+      const grad = ctx.createRadialGradient(940, 82, 8, 940, 82, 72);
+      grad.addColorStop(0, "#fb923c");
+      grad.addColorStop(1, "rgba(251, 146, 60, 0)");
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(940, 82, 72, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (currentLocation === "WAREHOUSE") {
+      ctx.fillStyle = "#c4b5fd";
+      for (let i = 0; i < 7; i++) {
+        ctx.globalAlpha = 0.08 + i * 0.01;
+        ctx.beginPath();
+        ctx.ellipse(800 + i * 34, 70 + (i % 3) * 20, 10, 5, 0.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    } else if (currentLocation === "OFFICE") {
+      ctx.strokeStyle = "rgba(125, 211, 252, 0.24)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(930, 82, 48, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(882, 82);
+      ctx.lineTo(978, 82);
+      ctx.stroke();
+    } else {
+      ctx.fillStyle = "rgba(224, 242, 254, 0.22)";
+      ctx.beginPath();
+      ctx.arc(930, 78, 46, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    if (
+      !skyShipRef.current &&
+      frameRef.current >= nextSkyShipFrameRef.current
+    ) {
+      skyShipRef.current = {
+        startFrame: frameRef.current,
+        y: 48 + Math.random() * 76,
+      };
+      nextSkyShipFrameRef.current =
+        frameRef.current + SKY_SHIP_INTERVAL_FRAMES;
+    }
+
+    const skyShip = skyShipRef.current;
+    if (skyShip) {
+      const elapsed = frameRef.current - skyShip.startFrame;
+
+      if (elapsed > SKY_SHIP_DURATION_FRAMES) {
+        skyShipRef.current = null;
+      } else {
+        const progress = elapsed / SKY_SHIP_DURATION_FRAMES;
+        const x = canvas.width + 76 - progress * (canvas.width + 170);
+        const y = skyShip.y + Math.sin(elapsed * 0.08) * 4;
+
+        ctx.save();
+        ctx.globalAlpha = 0.58;
+        ctx.lineCap = "round";
+        ctx.strokeStyle = "rgba(56, 189, 248, 0.38)";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(x + 20, y);
+        ctx.lineTo(x + 74, y + 2);
+        ctx.stroke();
+
+        ctx.strokeStyle = "rgba(224, 242, 254, 0.22)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(x + 26, y - 5);
+        ctx.lineTo(x + 92, y - 4);
+        ctx.stroke();
+
+        ctx.translate(x, y);
+        ctx.fillStyle = "#e0f2fe";
+        ctx.beginPath();
+        ctx.moveTo(-22, -7);
+        ctx.lineTo(22, 0);
+        ctx.lineTo(-22, 7);
+        ctx.lineTo(-12, 0);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.fillStyle = "#38bdf8";
+        ctx.beginPath();
+        ctx.ellipse(-4, -1, 8, 4, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = "#f97316";
+        ctx.beginPath();
+        ctx.moveTo(-24, -4);
+        ctx.lineTo(-38, 0);
+        ctx.lineTo(-24, 4);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+    ctx.restore();
+  };
+
   const showLocationBanner = (nextLocation: LocationName) => {
     if (locationBannerTimerRef.current) {
       window.clearTimeout(locationBannerTimerRef.current);
@@ -448,6 +828,26 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
   const isOverheadObstacle = (type: ObstacleType) =>
     type === "PIPE" || type === "WARNING_SIGN";
 
+  const pickProductionObstacleAssetKey = (
+    type: ObstacleType
+  ): ObstacleAssetKey => {
+    if (isOverheadObstacle(type)) {
+      return Math.random() < 0.5 ? "AIR_1" : "AIR_3";
+    }
+
+    return "GROUND_2";
+  };
+
+  const pickWarehouseObstacleAssetKey = (
+    type: ObstacleType
+  ): ObstacleAssetKey => {
+    if (isOverheadObstacle(type)) {
+      return Math.random() < 0.5 ? "AIR_4" : "AIR_5";
+    }
+
+    return "GROUND_2";
+  };
+
   const getObstacleAssetKey = (type: ObstacleType): ObstacleAssetKey => {
     if (type === "PIPE") return "AIR_1";
     if (type === "WARNING_SIGN") return "AIR_2";
@@ -458,14 +858,16 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
     return "FIRE";
   };
 
-  const getObstacleSize = (type: ObstacleType) => {
+  const getObstacleSize = (type: ObstacleType, assetKey?: ObstacleAssetKey) => {
+    if (assetKey === "GROUND_2") return { width: 48, height: 76 };
+
     switch (type) {
       case "FORKLIFT":
         return { width: 90, height: 64 };
       case "CHAIR":
         return { width: 44, height: 54 };
       case "PIPE":
-        return { width: 68, height: 150 };
+        return { width: 170, height: 60 };
       case "ROBOT_ARM":
         return { width: 74, height: 68 };
       case "PALLET_STACK":
@@ -479,7 +881,7 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
       case "SNOW_PILE":
         return { width: 70, height: 42 };
       case "WARNING_SIGN":
-        return { width: 70, height: 115 };
+        return { width: 160, height: 44 };
       default:
         return { width: 50, height: 50 };
     }
@@ -559,11 +961,9 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
     if (hasHorizontalObstacleConflict) return undefined;
     if (nextObstacleFrameRef.current - frameRef.current < 42) return undefined;
 
-    const candidates = [
-      GROUND_Y - 125,
-      GROUND_Y - 155,
-      GROUND_Y - 185,
-    ].sort(() => Math.random() - 0.5);
+    const candidates = [GROUND_Y - 125, GROUND_Y - 155, GROUND_Y - 185].sort(
+      () => Math.random() - 0.5,
+    );
 
     return candidates.find((y) => !overlapsObstacle(x, y, width, height));
   };
@@ -651,6 +1051,10 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
       window.clearTimeout(locationBannerTimerRef.current);
       locationBannerTimerRef.current = 0;
     }
+    if (speechBubbleTimerRef.current) {
+      window.clearTimeout(speechBubbleTimerRef.current);
+      speechBubbleTimerRef.current = 0;
+    }
     if (newRecordTimerRef.current) {
       window.clearTimeout(newRecordTimerRef.current);
       newRecordTimerRef.current = 0;
@@ -660,9 +1064,13 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
       controlsHintTimerRef.current = 0;
     }
     setLocationBanner(null);
+    setSpeechBubble(null);
     setNewRecordBanner(false);
     setShowControlsHint(false);
     newRecordShownRef.current = false;
+    shownSpeechMessagesRef.current = new Set();
+    lastReactionFrameRef.current = 0;
+    lastComboReactionMultiplierRef.current = 1;
     gameStateRef.current = "PLAYING";
     setGameState("PLAYING");
     resetScore();
@@ -698,6 +1106,8 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
       isDucking: false,
     };
     frameRef.current = 0;
+    skyShipRef.current = null;
+    nextSkyShipFrameRef.current = SKY_SHIP_INTERVAL_FRAMES;
     nextObstacleFrameRef.current = 140;
     nextItemFrameRef.current = 190;
     consecutiveGroundObstaclesRef.current = 0;
@@ -718,6 +1128,9 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
     player.jumpBufferFrames = 0;
     player.coyoteFrames = 0;
     playSound("jump");
+    if (Math.random() < 0.04) {
+      showCharacterReaction("jump", { minGapFrames: 900 });
+    }
     createParticles(70, GROUND_Y, "#ffffff", 10); // Kalkış tozu
   };
 
@@ -807,27 +1220,21 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
       // --- 2. KATMANLI ARKA PLAN (LOCATION BASED) ---
       const drawBackgroundImageForLocation = (
         locationName: LocationName,
-        alpha = 1
+        alpha = 1,
       ) => {
         const image = backgroundImagesRef.current[locationName];
-        if (!image?.complete || image.naturalWidth <= 0) return false;
+        if (!image) return false;
 
         ctx.save();
         ctx.globalAlpha = alpha;
-        drawScrollingImageBackground(
-          ctx,
-          image,
-          scrollOffset * 0.14,
-          canvas.width,
-          canvas.height
-        );
+        ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
         ctx.restore();
         return true;
       };
 
       const transitionProgress = Math.min(
         backgroundTransitionFrameRef.current / BACKGROUND_TRANSITION_FRAMES,
-        1
+        1,
       );
       const easedTransitionProgress =
         transitionProgress * transitionProgress * (3 - 2 * transitionProgress);
@@ -835,12 +1242,12 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
         transitionProgress < 1
           ? drawBackgroundImageForLocation(
               previousLocationRef.current,
-              1 - easedTransitionProgress
+              1 - easedTransitionProgress,
             )
           : false;
       const hasCurrentImageBackground = drawBackgroundImageForLocation(
         locationRef.current,
-        transitionProgress < 1 ? easedTransitionProgress : 1
+        transitionProgress < 1 ? easedTransitionProgress : 1,
       );
       if (backgroundTransitionFrameRef.current < BACKGROUND_TRANSITION_FRAMES) {
         backgroundTransitionFrameRef.current++;
@@ -902,6 +1309,8 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
         }
       }
 
+      drawSkyDetails(ctx, canvas, locationRef.current, scrollOffset);
+
       ctx.fillStyle = "rgba(0, 0, 0, 0.32)";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -909,8 +1318,7 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
       const player = playerRef.current;
       if (
         locationRef.current === "SNOWY" &&
-        backgroundImage?.complete &&
-        backgroundImage.naturalWidth > 0 &&
+        backgroundImage &&
         frameRef.current % 5 === 0
       ) {
         particlesRef.current.push({
@@ -1134,7 +1542,13 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
               : "WARNING_SIGN";
         }
 
-        const size = getObstacleSize(type);
+        const assetKey =
+          locationRef.current === "PRODUCTION"
+            ? pickProductionObstacleAssetKey(type)
+            : locationRef.current === "WAREHOUSE"
+              ? pickWarehouseObstacleAssetKey(type)
+              : getObstacleAssetKey(type);
+        const size = getObstacleSize(type, assetKey);
         const difficulty = Math.min(scoreRef.current / 3000, 1);
         const baseGapPx = 560 - difficulty * 130;
         const randomGapPx = 160 - difficulty * 50;
@@ -1150,6 +1564,7 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
           height: size.height,
           y: isOverheadObstacle(type) ? GROUND_Y - 42 : GROUND_Y,
           type,
+          assetKey,
         });
 
         consecutiveGroundObstaclesRef.current = isOverheadObstacle(type)
@@ -1185,6 +1600,7 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
           captureRunStats();
           resetCombo();
           playSound("hit");
+          showCharacterReaction("hit", { force: true });
           createParticles(70, player.y + 30, "#ef4444", 30);
           shakeRef.current = 15; // Çarpınca sarsıl
           cancelAnimationFrame(gameLoopRef.current);
@@ -1211,14 +1627,9 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
         }
 
         const obstacleImage =
-          obstacleImagesRef.current[getObstacleAssetKey(obs.type)];
+          obstacleImagesRef.current[obs.assetKey ?? getObstacleAssetKey(obs.type)];
         if (obstacleImage) {
-          ctx.shadowBlur = isOverhead ? 12 : 16;
-          ctx.shadowColor = isOverhead
-            ? "rgba(96, 165, 250, 0.75)"
-            : "rgba(251, 146, 60, 0.6)";
           ctx.drawImage(obstacleImage, 0, 0, obs.width, obs.height);
-          ctx.shadowBlur = 0;
         } else if (obs.type === "FORKLIFT") {
           // Gövde (Sarı endüstriyel boya)
           const grad = ctx.createLinearGradient(0, 0, 0, obs.height);
@@ -1509,10 +1920,12 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
           } else if (item.type === "COFFEE") {
             molaPowerRef.current = 360;
             setMolaPowerDisplay(6);
+            showCharacterReaction("coffee", { minGapFrames: 720 });
             createParticles(item.x, item.y, "#ffffff", 15);
           } else {
             magnetPowerRef.current = 480; // 8 saniye (60fps * 8)
             setMagnetPowerDisplay(8);
+            showCharacterReaction("magnet", { minGapFrames: 720 });
             createParticles(item.x, item.y, "#a855f7", 20);
           }
           itemsRef.current.splice(index, 1);
@@ -1523,11 +1936,8 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
         ctx.translate(item.x, item.y + bounce);
         if (item.type === "ORDER") {
           const boostImage = boostItemImageRef.current;
-          if (boostImage?.complete && boostImage.naturalWidth > 0) {
-            ctx.shadowBlur = 14;
-            ctx.shadowColor = "#7dd3fc";
+          if (boostImage) {
             ctx.drawImage(boostImage, 3, -5, 29, 42);
-            ctx.shadowBlur = 0;
           } else {
             ctx.fillStyle = "#facc15";
             ctx.beginPath();
@@ -1544,11 +1954,8 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
           }
         } else if (item.type === "COFFEE") {
           const bonusImage = bonusItemImageRef.current;
-          if (bonusImage?.complete && bonusImage.naturalWidth > 0) {
-            ctx.shadowBlur = 14;
-            ctx.shadowColor = "#fde68a";
+          if (bonusImage) {
             ctx.drawImage(bonusImage, 2, -4, 31, 41);
-            ctx.shadowBlur = 0;
           } else {
             ctx.fillStyle = "#fff";
             ctx.beginPath();
@@ -1564,7 +1971,7 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
           }
         } else {
           const magnetImage = magnetItemImageRef.current;
-          if (magnetImage?.complete && magnetImage.naturalWidth > 0) {
+          if (magnetImage) {
             const glowPulse = 0.55 + Math.sin(frameRef.current * 0.18) * 0.2;
             const glow = ctx.createRadialGradient(17.5, 17, 4, 17.5, 17, 28);
             glow.addColorStop(0, `rgba(251, 146, 60, ${glowPulse})`);
@@ -1575,10 +1982,7 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
             ctx.arc(17.5, 17, 28, 0, Math.PI * 2);
             ctx.fill();
 
-            ctx.shadowBlur = 18;
-            ctx.shadowColor = "#fb923c";
             ctx.drawImage(magnetImage, 1, -3, 33, 40);
-            ctx.shadowBlur = 0;
           } else {
             // Mıknatıs Çizimi (U-Shape)
             ctx.fillStyle = "#ef4444";
@@ -1646,10 +2050,13 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
       ([locationName, source]) => {
         const image = new Image();
         image.src = source;
-        image.onload = () => {
-          backgroundImagesRef.current[locationName] = image;
+        image.onload = async () => {
+          backgroundImagesRef.current[locationName] = await rasterizeCoverImage(
+            image,
+            { width: 1200, height: 380 }
+          );
         };
-      }
+      },
     );
 
     (Object.entries(OBSTACLE_ASSETS) as [ObstacleAssetKey, string][]).forEach(
@@ -1658,33 +2065,53 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
         image.src = source;
         image.onload = async () => {
           try {
-            obstacleImagesRef.current[assetKey] =
-              typeof createImageBitmap === "function"
-                ? await createImageBitmap(image)
-                : image;
+            obstacleImagesRef.current[assetKey] = await rasterizeObstacleImage(
+              image,
+              OBSTACLE_RASTER_SIZES[assetKey]
+            );
           } catch {
             obstacleImagesRef.current[assetKey] = image;
           }
         };
-      }
+      },
     );
+
+    SKY_METEOR_ASSETS.forEach((source, index) => {
+      const image = new Image();
+      image.src = source;
+      image.onload = async () => {
+        skyMeteorImagesRef.current[index] = await rasterizeCanvasImage(image, {
+          width: 96,
+          height: 96,
+        });
+      };
+    });
 
     const bonusImage = new Image();
     bonusImage.src = bonusItem;
-    bonusImage.onload = () => {
-      bonusItemImageRef.current = bonusImage;
+    bonusImage.onload = async () => {
+      bonusItemImageRef.current = await rasterizeCanvasImage(bonusImage, {
+        width: 96,
+        height: 128,
+      });
     };
 
     const boostImage = new Image();
     boostImage.src = boostItem;
-    boostImage.onload = () => {
-      boostItemImageRef.current = boostImage;
+    boostImage.onload = async () => {
+      boostItemImageRef.current = await rasterizeCanvasImage(boostImage, {
+        width: 96,
+        height: 128,
+      });
     };
 
     const magnetImage = new Image();
     magnetImage.src = magnetItem;
-    magnetImage.onload = () => {
-      magnetItemImageRef.current = magnetImage;
+    magnetImage.onload = async () => {
+      magnetItemImageRef.current = await rasterizeCanvasImage(magnetImage, {
+        width: 96,
+        height: 128,
+      });
     };
   }, []);
 
@@ -1748,6 +2175,9 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
       }
       if (locationBannerTimerRef.current) {
         window.clearTimeout(locationBannerTimerRef.current);
+      }
+      if (speechBubbleTimerRef.current) {
+        window.clearTimeout(speechBubbleTimerRef.current);
       }
       if (newRecordTimerRef.current) {
         window.clearTimeout(newRecordTimerRef.current);
@@ -1945,7 +2375,7 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
         </div>
 
         <div
-          className="relative w-full aspect-[60/19] min-h-[280px] bg-secondary/20 rounded-xl border-2 border-border overflow-hidden cursor-pointer"
+          className="relative w-full aspect-60/19 min-h-[280px] bg-secondary/20 rounded-xl border-2 border-border overflow-hidden cursor-pointer"
           onClick={jump}
         >
           <canvas
@@ -1954,6 +2384,17 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
             height={380}
             className="w-full h-full"
           />
+          {gameState === "PLAYING" && speechBubble && (
+            <div className="absolute left-[7%] top-[18%] max-w-[260px] pointer-events-none animate-in fade-in zoom-in-95 slide-in-from-bottom-1 duration-200">
+              <div className="relative rounded-xl border-2 border-cyan-300/70 bg-slate-950/82 px-4 py-3 text-sm font-black leading-snug text-cyan-50 shadow-2xl shadow-cyan-500/20 backdrop-blur-sm">
+                <span className="absolute -bottom-2 left-7 h-4 w-4 rotate-45 border-b-2 border-r-2 border-cyan-300/70 bg-slate-950/82" />
+                <span className="block text-[9px] uppercase tracking-[0.28em] text-cyan-300/80">
+                  Telsiz
+                </span>
+                <span className="relative z-10">{speechBubble}</span>
+              </div>
+            </div>
+          )}
           {/* 1. ADIM: SİCİL NO SORGULAMA */}
           {gameState === "IDENTIFY" && (
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/90 backdrop-blur-xs p-6 text-center">
@@ -2056,7 +2497,9 @@ const ShiftRunner: React.FC<ShiftRunnerProps> = ({ onClose, operatorId }) => {
                 disabled={isStartingGame}
                 className="bg-primary text-primary-foreground font-black px-12 py-4 rounded-xl uppercase hover:scale-105 transition-all shadow-xl shadow-primary/20 disabled:opacity-50 disabled:hover:scale-100"
               >
-                {isStartingGame ? "Fırlatma hazırlanıyor..." : "Yolculuğa Başla"}
+                {isStartingGame
+                  ? "Fırlatma hazırlanıyor..."
+                  : "Yolculuğa Başla"}
               </button>
               <div className="mt-6 flex flex-wrap justify-center gap-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
                 <span>Zıpla: BOŞLUK / TIKLA</span>
