@@ -39,6 +39,22 @@ type LeaveFormValues = z.infer<typeof leaveSchema>;
 
 const HOURS = Array.from({ length: 11 }, (_, i) => String(i + 7).padStart(2, "0")); // 07:00 - 17:00
 const MINUTES = ["00", "15", "30", "45"];
+const DAYS = Array.from({ length: 31 }, (_, i) => String(i + 1).padStart(2, "0"));
+const MONTHS = [
+  { value: "01", label: "Oca" },
+  { value: "02", label: "Şub" },
+  { value: "03", label: "Mar" },
+  { value: "04", label: "Nis" },
+  { value: "05", label: "May" },
+  { value: "06", label: "Haz" },
+  { value: "07", label: "Tem" },
+  { value: "08", label: "Ağu" },
+  { value: "09", label: "Eyl" },
+  { value: "10", label: "Eki" },
+  { value: "11", label: "Kas" },
+  { value: "12", label: "Ara" },
+];
+const YEARS = [String(new Date().getFullYear()), String(new Date().getFullYear() + 1)];
 
 interface SharedLeaveFormProps {
   userId: string;
@@ -76,8 +92,8 @@ export function SharedLeaveForm({
       user_id: userId || "",
       leave_reason_id: "",
       leave_duration_type_id: "1",
-      start_date: "",
-      end_date: "",
+      start_date: `${new Date().toISOString().split('T')[0]}T07:30`,
+      end_date: `${new Date().toISOString().split('T')[0]}T17:00`,
       description: "",
       phone: defaultPhone || "",
       address: defaultAddress || ""
@@ -107,20 +123,33 @@ export function SharedLeaveForm({
       });
     } else {
       setValue("user_id", userId);
+      setValue("start_date", `${new Date().toISOString().split('T')[0]}T07:30`);
+      setValue("end_date", `${new Date().toISOString().split('T')[0]}T17:00`);
       if (defaultPhone) setValue("phone", defaultPhone);
       if (defaultAddress) setValue("address", defaultAddress);
     }
   }, [editingLeave, userId, defaultPhone, defaultAddress, setValue, reset]);
 
-  const updateDateTime = (field: "start_date" | "end_date", part: "date" | "hour" | "minute", val: string) => {
+  const updateDateTime = (field: "start_date" | "end_date", part: "date" | "year" | "month" | "day" | "hour" | "minute", val: string) => {
     const current = getValues(field) || `${new Date().toISOString().split('T')[0]}T09:00`;
     const [date, time] = current.split("T");
+    const [year, month, day] = date.split("-");
     const [hour, minute] = (time || "09:00").split(":");
-    let newDate = date, newHour = hour, newMinute = minute;
-    if (part === "date") newDate = val;
+    
+    let newYear = year, newMonth = month, newDay = day, newHour = hour, newMinute = minute;
+    if (part === "date") {
+      const [y, m, d] = val.split("-");
+      if (y) newYear = y;
+      if (m) newMonth = m;
+      if (d) newDay = d;
+    }
+    if (part === "year") newYear = val;
+    if (part === "month") newMonth = val;
+    if (part === "day") newDay = val;
     if (part === "hour") newHour = val;
     if (part === "minute") newMinute = val;
-    setValue(field, `${newDate}T${newHour}:${newMinute}`, { shouldValidate: true });
+    
+    setValue(field, `${newYear}-${newMonth}-${newDay}T${newHour}:${newMinute}`, { shouldValidate: true });
   };
 
   const onFormSubmit = async (values: LeaveFormValues) => {
@@ -182,7 +211,34 @@ export function SharedLeaveForm({
                 control={control}
                 name="leave_duration_type_id"
                 render={({ field }) => (
-                  <Select onValueChange={field.onChange} value={field.value}>
+                  <Select 
+                    onValueChange={(val) => {
+                      field.onChange(val);
+                      const type = lookups.durationTypes.find(t => String(t.id) === val);
+                      if (type) {
+                        const label = type.label.toLowerCase();
+                        let startHour = "07", startMin = "30", endHour = "17", endMin = "00";
+                        
+                        if (label.includes("sabah")) {
+                          endHour = "12"; 
+                          endMin = "00";
+                        } else if (label.includes("öğle") || label.includes("sonra")) {
+                          startHour = "13"; 
+                          startMin = "00";
+                        }
+                        
+                        const currentStart = getValues("start_date") || `${new Date().toISOString().split('T')[0]}T07:30`;
+                        const currentEnd = getValues("end_date") || `${new Date().toISOString().split('T')[0]}T17:00`;
+                        
+                        const startDatePart = currentStart.split("T")[0];
+                        const endDatePart = currentEnd.split("T")[0];
+                        
+                        setValue("start_date", `${startDatePart}T${startHour}:${startMin}`, { shouldValidate: true });
+                        setValue("end_date", `${endDatePart}T${endHour}:${endMin}`, { shouldValidate: true });
+                      }
+                    }} 
+                    value={field.value}
+                  >
                     <SelectTrigger className={cn("h-16! rounded-2xl bg-muted/40 border-none font-bold", errors.leave_duration_type_id && "ring-2 ring-destructive")}>
                       <SelectValue placeholder="Seçin..." />
                     </SelectTrigger>
@@ -201,11 +257,30 @@ export function SharedLeaveForm({
             <div className="space-y-2">
               <label className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground ml-1 flex items-center gap-2"><Clock size={14}/> Başlangıç Tarihi ve Saati *</label>
               <div className="grid grid-cols-12 gap-3">
-                <Input type="date" className={cn("col-span-12 sm:col-span-6 h-16! rounded-2xl bg-muted/40 border-none font-bold", errors.start_date && "ring-2 ring-destructive")} value={start_date_val?.split("T")[0] || ""} onChange={(e) => updateDateTime("start_date", "date", e.target.value)} />
-                <div className="col-span-12 sm:col-span-6 flex gap-2">
+                <div className="col-span-12 sm:col-span-8 flex gap-2">
+                  <Select value={(start_date_val?.split("T")[0] || `${new Date().getFullYear()}-01-01`).split("-")[2]} onValueChange={(val) => updateDateTime("start_date", "day", val)}>
+                    <SelectTrigger className="h-16! rounded-2xl bg-muted/40 border-none font-bold flex-1"><SelectValue placeholder="Gün" /></SelectTrigger>
+                    <SelectContent className="max-h-75 rounded-2xl border-none shadow-xl z-110">
+                      {DAYS.map(d => <SelectItem key={d} value={d} className="font-bold py-4 text-base cursor-pointer">{d}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <Select value={(start_date_val?.split("T")[0] || `${new Date().getFullYear()}-01-01`).split("-")[1]} onValueChange={(val) => updateDateTime("start_date", "month", val)}>
+                    <SelectTrigger className="h-16! rounded-2xl bg-muted/40 border-none font-bold flex-1"><SelectValue placeholder="Ay" /></SelectTrigger>
+                    <SelectContent className="max-h-75 rounded-2xl border-none shadow-xl z-110">
+                      {MONTHS.map(m => <SelectItem key={m.value} value={m.value} className="font-bold py-4 text-base cursor-pointer">{m.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <Select value={(start_date_val?.split("T")[0] || `${new Date().getFullYear()}-01-01`).split("-")[0]} onValueChange={(val) => updateDateTime("start_date", "year", val)}>
+                    <SelectTrigger className="h-16! rounded-2xl bg-muted/40 border-none font-bold flex-1"><SelectValue placeholder="Yıl" /></SelectTrigger>
+                    <SelectContent className="max-h-75 rounded-2xl border-none shadow-xl z-110">
+                      {YEARS.map(y => <SelectItem key={y} value={y} className="font-bold py-4 text-base cursor-pointer">{y}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="col-span-12 sm:col-span-4 flex gap-2">
                   <Select value={(start_date_val?.split("T")[1] || "09:00").split(":")[0]} onValueChange={(val) => updateDateTime("start_date", "hour", val)}>
                     <SelectTrigger className="h-16! rounded-2xl bg-muted/40 border-none font-bold flex-1"><SelectValue placeholder="Saat" /></SelectTrigger>
-                    <SelectContent className="max-h-[300px] rounded-2xl border-none shadow-xl z-110">
+                    <SelectContent className="max-h-75 rounded-2xl border-none shadow-xl z-110">
                       {HOURS.map(h => <SelectItem key={h} value={h} className="font-bold py-4 text-base cursor-pointer">{h}:00</SelectItem>)}
                     </SelectContent>
                   </Select>
@@ -223,11 +298,30 @@ export function SharedLeaveForm({
             <div className="space-y-2">
               <label className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground ml-1 flex items-center gap-2"><Clock size={14}/> Bitiş (Dönüş) Tarihi ve Saati *</label>
               <div className="grid grid-cols-12 gap-3">
-                <Input type="date" className={cn("col-span-12 sm:col-span-6 h-16! rounded-2xl bg-muted/40 border-none font-bold", errors.end_date && "ring-2 ring-destructive")} value={end_date_val?.split("T")[0] || ""} onChange={(e) => updateDateTime("end_date", "date", e.target.value)} />
-                <div className="col-span-12 sm:col-span-6 flex gap-2">
+                <div className="col-span-12 sm:col-span-8 flex gap-2">
+                  <Select value={(end_date_val?.split("T")[0] || `${new Date().getFullYear()}-01-01`).split("-")[2]} onValueChange={(val) => updateDateTime("end_date", "day", val)}>
+                    <SelectTrigger className="h-16! rounded-2xl bg-muted/40 border-none font-bold flex-1"><SelectValue placeholder="Gün" /></SelectTrigger>
+                    <SelectContent className="max-h-75 rounded-2xl border-none shadow-xl z-110">
+                      {DAYS.map(d => <SelectItem key={d} value={d} className="font-bold py-4 text-base cursor-pointer">{d}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <Select value={(end_date_val?.split("T")[0] || `${new Date().getFullYear()}-01-01`).split("-")[1]} onValueChange={(val) => updateDateTime("end_date", "month", val)}>
+                    <SelectTrigger className="h-16! rounded-2xl bg-muted/40 border-none font-bold flex-1"><SelectValue placeholder="Ay" /></SelectTrigger>
+                    <SelectContent className="max-h-75 rounded-2xl border-none shadow-xl z-110">
+                      {MONTHS.map(m => <SelectItem key={m.value} value={m.value} className="font-bold py-4 text-base cursor-pointer">{m.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <Select value={(end_date_val?.split("T")[0] || `${new Date().getFullYear()}-01-01`).split("-")[0]} onValueChange={(val) => updateDateTime("end_date", "year", val)}>
+                    <SelectTrigger className="h-16! rounded-2xl bg-muted/40 border-none font-bold flex-1"><SelectValue placeholder="Yıl" /></SelectTrigger>
+                    <SelectContent className="max-h-75 rounded-2xl border-none shadow-xl z-110">
+                      {YEARS.map(y => <SelectItem key={y} value={y} className="font-bold py-4 text-base cursor-pointer">{y}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="col-span-12 sm:col-span-4 flex gap-2">
                   <Select value={(end_date_val?.split("T")[1] || "17:00").split(":")[0]} onValueChange={(val) => updateDateTime("end_date", "hour", val)}>
                     <SelectTrigger className="h-16! rounded-2xl bg-muted/40 border-none font-bold flex-1"><SelectValue placeholder="Saat" /></SelectTrigger>
-                    <SelectContent className="max-h-[300px] rounded-2xl border-none shadow-xl z-110">
+                    <SelectContent className="max-h-75 rounded-2xl border-none shadow-xl z-110">
                       {HOURS.map(h => <SelectItem key={h} value={h} className="font-bold py-4 text-base cursor-pointer">{h}:00</SelectItem>)}
                     </SelectContent>
                   </Select>
@@ -245,7 +339,7 @@ export function SharedLeaveForm({
 
           <div className="space-y-2">
             <label className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground ml-1 flex items-center gap-2"><FileText size={14}/> Açıklama</label>
-            <Textarea placeholder="Notunuzu buraya yazın..." className="rounded-[1.5rem] bg-muted/40 border-none font-bold min-h-[120px] p-6 lg:p-8 focus-visible:ring-primary/20" {...register("description")} />
+            <Textarea placeholder="Notunuzu buraya yazın..." className="rounded-[1.5rem] bg-muted/40 border-none font-bold min-h-30 p-6 lg:p-8 focus-visible:ring-primary/20" {...register("description")} />
           </div>
         </div>
 

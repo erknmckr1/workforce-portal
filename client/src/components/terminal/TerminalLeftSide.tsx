@@ -27,7 +27,7 @@ const TerminalLeftSide: React.FC<TerminalLeftSideProps> = ({
     : null;
 
   return (
-    <aside className="w-[240px] border-r border-sidebar-border bg-sidebar text-sidebar-foreground p-4 flex flex-col gap-4 shadow-2xl relative overflow-hidden">
+    <aside className="w-60 border-r border-sidebar-border bg-sidebar text-sidebar-foreground p-4 flex flex-col gap-4 shadow-2xl relative overflow-hidden">
       {/* Background Accent Glow using Amber */}
       <div className="absolute top-0 left-0 w-full h-1 bg-linear-to-r from-transparent via-amber-500 to-transparent opacity-50" />
 

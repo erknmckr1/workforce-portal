@@ -32,7 +32,11 @@ interface FirePopupProps {
   operatorId?: string;
 }
 
-const FirePopup: React.FC<FirePopupProps> = ({ onClose, areaName, operatorId }) => {
+const FirePopup: React.FC<FirePopupProps> = ({
+  onClose,
+  areaName,
+  operatorId,
+}) => {
   const { user } = useAuthStore();
   const [loading, setLoading] = useState(false);
   const [history, setHistory] = useState<ScrapMeasurement[]>([]);
@@ -127,6 +131,14 @@ const FirePopup: React.FC<FirePopupProps> = ({ onClose, areaName, operatorId }) 
           areaName,
         });
         toast.success("Ölçüm kaydedildi.");
+        setForm({
+          orderId: "",
+          goldSetting: 0,
+          entryGramage: 0,
+          exitGramage: 0,
+          gold_pure_scrap: 0,
+          diffirence: 0,
+        });
       }
       await fetchHistory(form.orderId);
       resetForm(false); // Sadece ölçüleri sıfırla, sipariş no kalsın
@@ -226,6 +238,7 @@ const FirePopup: React.FC<FirePopupProps> = ({ onClose, areaName, operatorId }) 
                 <input
                   type="number"
                   value={form.goldSetting}
+                  disabled
                   onChange={(e) =>
                     setForm({ ...form, goldSetting: Number(e.target.value) })
                   }

@@ -244,19 +244,19 @@ export const startWork = async (req: Request, res: Response) => {
       }
     }
 
-    if (area_name === "kalite") {
-      const activeKaliteJob = await WorkLog.findOne({
-        where: {
-          order_no,
-          status: { [Op.in]: [1, 2] },
-        },
-      });
-      if (activeKaliteJob) {
-        return res.status(400).json({
-          message: `Bu siparişin(${order_no})  kontrolü zaten başlatılmış.`,
-        });
-      }
-    }
+    // if (area_name === "kalite") {
+    //   const activeKaliteJob = await WorkLog.findOne({
+    //     where: {
+    //       order_no,
+    //       status: { [Op.in]: [1, 2] },
+    //     },
+    //   });
+    //   if (activeKaliteJob) {
+    //     return res.status(400).json({
+    //       message: `Bu siparişin(${order_no})  kontrolü zaten başlatılmış.`,
+    //     });
+    //   }
+    // }
 
     // 3. Yeni İşi Oluştur (work_logs tablosuna kayıt at)
     const newWork = await WorkLog.create({
@@ -411,9 +411,7 @@ export const getWorkLogs = async (req: Request, res: Response) => {
       // Diğer alanlarda:
       // 1. Durdurulmuş (2) veya mola nedeniyle bekleyen (9) TÜM işler
       // 2. Sadece aktif kullanıcının (operatorId) devam eden (1) işleri
-      const orConditions: any[] = [
-        { status: { [Op.in]: [2, 9] } }
-      ];
+      const orConditions: any[] = [{ status: { [Op.in]: [2, 9] } }];
 
       if (operatorId && operatorId !== "undefined") {
         orConditions.push({ status: 1, operator_id: operatorId as string });
@@ -737,13 +735,26 @@ export const endBreak = async (req: Request, res: Response) => {
 
 export const getActiveBreaks = async (req: Request, res: Response) => {
   try {
-    const { areaName } = req.query;
+    const { areaName, operatorId } = req.query;
+
+    const whereCondition: any = {
+      status: 1,
+    };
+
+    const orConditions: any[] = [];
+    if (areaName && areaName !== "undefined" && areaName !== "null") {
+      orConditions.push({ area_name: String(areaName) });
+    }
+    if (operatorId && operatorId !== "undefined" && operatorId !== "null") {
+      orConditions.push({ operator_id: String(operatorId) });
+    }
+
+    if (orConditions.length > 0) {
+      whereCondition[Op.or] = orConditions;
+    }
 
     const activeBreaks = await OperatorBreak.findAll({
-      where: {
-        status: 1,
-        ...(areaName && { area_name: String(areaName) }), // Doğrudan area_name üzerinden filtrele
-      },
+      where: whereCondition,
       include: [
         {
           model: Operator,

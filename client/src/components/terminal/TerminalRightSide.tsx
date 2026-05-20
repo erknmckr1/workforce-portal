@@ -14,7 +14,10 @@ import { useConfirm } from "@/providers/ConfirmProvider";
 import { useAuthStore } from "../../store/authStore";
 import { toast } from "sonner";
 
+import type { Job } from "./TerminalJobTable";
+
 interface TerminalRightSideProps {
+  jobs: Job[];
   selectedJobs: string[];
   onJobDeselect: () => void;
   onOpenFinishModal: (opId: string) => void;
@@ -23,12 +26,15 @@ interface TerminalRightSideProps {
   onOpenFireModal: (opId: string) => void;
   onOpenMeasurementModal: (opId: string) => void;
   isOnBreak: boolean;
-  requireOperatorAuth?: (options?: { skipBreakCheck?: boolean }) => Promise<string>;
+  updateSelectedJobs: (jobIds: string[]) => void;
+  requireOperatorAuth?: (options?: { skipBreakCheck?: boolean; actionType?: "break" | "job" }) => Promise<string>;
 }
 
 const TerminalRightSide = ({
+  jobs,
   selectedJobs,
   onJobDeselect,
+  updateSelectedJobs,
   onOpenFinishModal,
   onOpenStopModal,
   onOpenProductImage,
@@ -79,25 +85,42 @@ const TerminalRightSide = ({
       return;
     }
 
+    const eligibleJobs = selectedJobs.filter(
+      (jobId) => {
+        const status = jobs.find((j) => j.id === jobId)?.status;
+        return status === 1 || status === 2 || status === 9; // İptal edilebilecek durumlar
+      }
+    );
+
+    if (eligibleJobs.length === 0) {
+      toast.error("Seçili işler arasında iptal edilebilecek uygun bir iş bulunamadı.");
+      return;
+    }
+
     const isConfirmed = await confirm({
       title: "İş İptali",
-      description: `${selectedJobs.length} adet işi iptal etmek istediğinize emin misiniz? Bu işlem geri alınamaz!`,
+      description: eligibleJobs.length < selectedJobs.length
+        ? `Seçtiğiniz ${selectedJobs.length} işin ${selectedJobs.length - eligibleJobs.length} adedi iptal edilmeye uygun değil. Sadece uygun olan ${eligibleJobs.length} adet işi iptal etmek istediğinize emin misiniz? Bu işlem geri alınamaz!`
+        : `${eligibleJobs.length} adet işi iptal etmek istediğinize emin misiniz? Bu işlem geri alınamaz!`,
       confirmText: "Evet, İptal Et",
       cancelText: "Vazgeç",
       variant: "destructive",
     });
 
     if (isConfirmed) {
+      if (eligibleJobs.length < selectedJobs.length) {
+        updateSelectedJobs(eligibleJobs);
+      }
       handleGuardedAction(async (opId) => {
         try {
-          for (const jobId of selectedJobs) {
+          for (const jobId of eligibleJobs) {
             await cancelWorkMutation.mutateAsync({
               workLogId: jobId,
               operatorId: opId,
               cancelReasonId: 1, // Genel iptal nedeni
             });
           }
-          toast.success("Tüm işler iptal edildi!");
+          toast.success("Uygun işler başarıyla iptal edildi!");
           onJobDeselect();
         } catch {
           // Hata
@@ -128,23 +151,42 @@ const TerminalRightSide = ({
       toast.error("Lütfen işlem yapmak için en az bir iş seçin!");
       return;
     }
+
+    const eligibleJobs = selectedJobs.filter(
+      (jobId) => {
+        const status = jobs.find((j) => j.id === jobId)?.status;
+        return status === 2 || status === 9; // Yeniden başlatılabilecek durumlar
+      }
+    );
+
+    if (eligibleJobs.length === 0) {
+      toast.error("Seçili işler arasında yeniden başlatılabilecek (durdurulmuş) bir iş bulunamadı.");
+      return;
+    }
+
     const isConfirmed = await confirm({
       title: "İşi Yeniden Başlat",
-      description: `${selectedJobs.length} adet işi yeniden başlatmak istediğinize emin misiniz?`,
+      description: eligibleJobs.length < selectedJobs.length
+        ? `Seçtiğiniz ${selectedJobs.length} işin ${selectedJobs.length - eligibleJobs.length} adedi geçerli durumda değil. Sadece durdurulmuş olan ${eligibleJobs.length} iş yeniden başlatılacaktır. Devam edilsin mi?`
+        : `${eligibleJobs.length} adet işi yeniden başlatmak istediğinize emin misiniz?`,
       confirmText: "Evet, Başlat",
       cancelText: "Vazgeç",
       variant: "success",
     });
+
     if (isConfirmed) {
+      if (eligibleJobs.length < selectedJobs.length) {
+        updateSelectedJobs(eligibleJobs);
+      }
       handleGuardedAction(async (opId) => {
         try {
-          for (const jobId of selectedJobs) {
+          for (const jobId of eligibleJobs) {
             await restartWorkMutation.mutateAsync({
               workLogId: jobId,
               operatorId: opId,
             });
           }
-          toast.success("Tüm işler başarıyla başlatıldı!");
+          toast.success("Uygun işler başarıyla başlatıldı!");
           onJobDeselect();
         } catch {
           // Hata
@@ -176,30 +218,49 @@ const TerminalRightSide = ({
       return;
     }
 
+    const eligibleJobs = selectedJobs.filter(
+      (jobId) => jobs.find((j) => j.id === jobId)?.status === 1
+    );
+
+    if (eligibleJobs.length === 0) {
+      toast.error("Seçili işler arasında bitirilebilecek (aktif) bir iş bulunamadı.");
+      return;
+    }
+
     if (areaName === "kalite") {
-      if (selectedJobs.length > 1) {
+      if (eligibleJobs.length > 1) {
         toast.error("Kalite ekranında sadece tekli bitirme yapılabilir.");
         return;
+      }
+      if (eligibleJobs.length < selectedJobs.length) {
+        toast.info(`Geçersiz olanlar atlandı. ${eligibleJobs.length} adet uygun iş işleme alındı.`);
+        updateSelectedJobs(eligibleJobs);
       }
       handleGuardedAction((opId) => onOpenFinishModal(opId));
     } else {
       const isConfirmed = await confirm({
         title: "İşi Bitir",
-        description: `${selectedJobs.length} adet işi tamamlamak istediğinize emin misiniz?`,
+        description: eligibleJobs.length < selectedJobs.length
+          ? `Seçtiğiniz ${selectedJobs.length} işin ${selectedJobs.length - eligibleJobs.length} adedi aktif değil. Sadece aktif olan ${eligibleJobs.length} iş tamamlanacaktır. Devam edilsin mi?`
+          : `${eligibleJobs.length} adet işi tamamlamak istediğinize emin misiniz?`,
         confirmText: "Evet, Bitir",
         cancelText: "Vazgeç",
         variant: "success",
       });
       if (isConfirmed) {
+        if (eligibleJobs.length < selectedJobs.length) {
+          updateSelectedJobs(eligibleJobs);
+        }
         handleGuardedAction(async (opId) => {
           try {
-            for (const jobId of selectedJobs) {
+            for (const jobId of eligibleJobs) {
               await finishWorkMutation.mutateAsync({
                 work_log_id: jobId,
                 operator_id: opId,
               });
             }
-            toast.success("Tüm işler başarıyla tamamlandı!");
+            toast.success("Uygun işler başarıyla tamamlandı!");
+            onJobDeselect();
           } catch {
             // Hata
           }
@@ -228,7 +289,24 @@ const TerminalRightSide = ({
       </button>
 
       <button
-        onClick={() => handleGuardedAction((opId) => selectedJobs.length > 0 ? onOpenStopModal(opId) : toast.error("Lütfen işlem yapmak için bir iş seçin!"))}
+        onClick={() => {
+          if (selectedJobs.length === 0) {
+            toast.error("Lütfen işlem yapmak için bir iş seçin!");
+            return;
+          }
+          const eligibleJobs = selectedJobs.filter(
+            (jobId) => jobs.find((j) => j.id === jobId)?.status === 1
+          );
+          if (eligibleJobs.length === 0) {
+            toast.error("Seçili işler arasında durdurulabilecek (aktif) bir iş bulunamadı.");
+            return;
+          }
+          if (eligibleJobs.length < selectedJobs.length) {
+            toast.info(`Geçersiz olanlar atlandı. ${eligibleJobs.length} aktif iş durdurma işlemine alınacak.`);
+            updateSelectedJobs(eligibleJobs);
+          }
+          handleGuardedAction((opId) => onOpenStopModal(opId));
+        }}
         disabled={isOnBreak}
         className={`group relative w-full bg-secondary hover:bg-destructive text-foreground hover:text-destructive-foreground font-black py-6 rounded-xl transition-all duration-300 border border-border hover:border-destructive/50 active:scale-95 overflow-hidden text-center ${isOnBreak ? "opacity-50 cursor-not-allowed grayscale" : ""}`}
       >

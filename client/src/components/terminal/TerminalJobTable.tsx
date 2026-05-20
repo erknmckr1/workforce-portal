@@ -12,6 +12,7 @@ export interface Job {
   quantity: string;
   materialNo?: string;
   status?: number;
+  machine: string;
 }
 
 interface TerminalJobTableProps {
@@ -46,6 +47,9 @@ const TerminalJobTable: React.FC<TerminalJobTableProps> = ({
               <th className="p-3 border-y border-border text-[10px] uppercase tracking-[0.2em] font-black">
                 Process
               </th>
+              <th className="p-3 border-y border-border text-[10px] uppercase tracking-[0.2em] font-black">
+                Makine
+              </th>
               <th className="p-3 border-y border-border text-[10px] uppercase tracking-[0.2em] font-black text-right">
                 Miktar
               </th>
@@ -64,12 +68,12 @@ const TerminalJobTable: React.FC<TerminalJobTableProps> = ({
                     selectedJobs.includes(job.id)
                       ? "bg-amber-500/10 border-amber-500"
                       : job.status === 1
-                      ? "bg-success border-transparent hover:bg-success"
-                      : job.status === 2
-                      ? "bg-destructive border-transparent hover:bg-destructive"
-                      : job.status === 9
-                      ? "bg-destructive border-transparent hover:bg-destructive"
-                      : "bg-card/40 border-transparent hover:bg-secondary/40"
+                        ? "bg-success border-transparent hover:bg-success"
+                        : job.status === 2
+                          ? "bg-destructive border-transparent hover:bg-destructive"
+                          : job.status === 9
+                            ? "bg-destructive border-transparent hover:bg-destructive"
+                            : "bg-card/40 border-transparent hover:bg-secondary/40"
                   }
                 `}
               >
@@ -99,6 +103,9 @@ const TerminalJobTable: React.FC<TerminalJobTableProps> = ({
                       {job.section}
                     </span>
                   </div>
+                </td>
+                <td className="p-3 font-mono font-black text-right text-foreground">
+                  {job.machine}
                 </td>
                 <td className="p-3 font-mono font-black text-right text-foreground">
                   {job.quantity}

@@ -186,7 +186,7 @@ export function KioskMyRequests() {
 
         return (
           <div key={leave.id} className="flex flex-col xl:flex-row items-center bg-card border-[1.5px] border-border/50 rounded-[2rem] p-4 lg:pr-6 shadow-sm overflow-hidden gap-6">
-            <div className="flex flex-col items-start xl:min-w-[280px] w-full xl:w-auto">
+            <div className="flex flex-col items-start xl:min-w-70 w-full xl:w-auto">
                <div className="flex items-center gap-3 mb-3">
                   <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground bg-muted py-1  px-3 rounded-md">#{leave.id}</span>
                   <span className={cn("text-[10px] font-black uppercase tracking-widest py-1 px-3 rounded-md border-[1.5px]", statusColor)}>
@@ -207,7 +207,7 @@ export function KioskMyRequests() {
                     <p className="font-bold text-[13px] text-foreground">{format(new Date(leave.start_date), "dd MMM yyyy HH:mm", { locale: tr })}</p>
                   </div>
                </div>
-               <div className="hidden md:block w-[2px] h-10 bg-border/50 rounded-full"></div>
+               <div className="hidden md:block w-0.5 h-10 bg-border/50 rounded-full"></div>
                <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-background flex items-center justify-center border border-border/50 text-muted-foreground shrink-0"><Clock size={18}/></div>
                   <div>
@@ -215,9 +215,22 @@ export function KioskMyRequests() {
                     <p className="font-bold text-[13px] text-foreground">{format(new Date(leave.end_date), "dd MMM yyyy HH:mm", { locale: tr })}</p>
                   </div>
                </div>
+               
+               <div className="hidden md:block w-0.5 h-10 bg-border/50 rounded-full"></div>
+               <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-background flex items-center justify-center border border-border/50 text-muted-foreground shrink-0"><UserCircle size={18}/></div>
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Onaycılar</p>
+                    <div className="font-bold text-[11px] text-foreground flex flex-col leading-tight mt-1 gap-0.5">
+                       {leave.Approver1 ? <span>1. {leave.Approver1.name} {leave.Approver1.surname}</span> : null}
+                       {leave.Approver2 ? <span>2. {leave.Approver2.name} {leave.Approver2.surname}</span> : null}
+                       {!leave.Approver1 && !leave.Approver2 ? <span className="text-muted-foreground italic">Atanmadı</span> : null}
+                    </div>
+                  </div>
+               </div>
             </div>
 
-            <div className="shrink-0 flex items-center w-full xl:w-[150px] justify-center xl:justify-end">
+            <div className="shrink-0 flex items-center w-full xl:w-37.5 justify-center xl:justify-end">
                 {isPending ? (
                    <Button variant="ghost" onClick={() => handleCancel(leave.id)} className="w-full xl:w-auto text-destructive hover:bg-destructive/10 hover:text-destructive rounded-xl h-14 xl:h-12 px-6 font-black transition-all uppercase tracking-widest text-[11px] bg-destructive/5">
                       İptal Et
@@ -288,7 +301,7 @@ export function KioskApproveRequests() {
 
       {leaves.map((leave) => (
         <div key={leave.id} className="flex flex-col xl:flex-row items-center bg-card border-[1.5px] border-orange-500/20 rounded-[2rem] p-4 lg:pr-6 shadow-sm overflow-hidden gap-6 hover:border-orange-500/40 transition-colors">
-          <div className="flex flex-col items-start xl:min-w-[250px] w-full xl:w-auto">
+          <div className="flex flex-col items-start xl:min-w-62.5 w-full xl:w-auto">
              <div className="flex items-center gap-2 mb-2">
                 <div className="w-8 h-8 rounded-full bg-orange-500/10 flex items-center justify-center text-orange-600 font-black text-[10px]">
                    {leave.User?.name?.[0]}{leave.User?.surname?.[0]}
@@ -304,7 +317,7 @@ export function KioskApproveRequests() {
           </div>
           
           <div className="flex flex-col md:flex-row items-center gap-6 bg-orange-500/5 px-6 py-4 rounded-[1.5rem] flex-1 w-full xl:w-auto border border-orange-500/10">
-             <div className="flex flex-col items-start min-w-[120px]">
+             <div className="flex flex-col items-start min-w-30">
                 <span className="text-[9px] font-black uppercase tracking-[0.2em] text-orange-600/70 mb-1">İzin Nedeni</span>
                 <span className="font-bold text-sm text-foreground">{leave.LeaveReason?.label}</span>
                 <span className="text-[10px] font-bold text-muted-foreground uppercase">{leave.LeaveDurationType?.label}</span>

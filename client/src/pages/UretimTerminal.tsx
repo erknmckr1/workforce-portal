@@ -75,8 +75,13 @@ const UretimTerminal = () => {
   // Ekran bireysel mi ortak mı kontrolü
   const requireOperatorAuth = async (options?: {
     skipBreakCheck?: boolean;
+    actionType?: "break" | "job";
   }): Promise<string> => {
-    if (areaName !== "buzlama" && areaName !== "kurutiras") {
+    if (areaName === "kalite") {
+      if (options?.actionType !== "break") {
+        return user?.id_dec || "SYSTEM";
+      }
+    } else if (areaName !== "buzlama" && areaName !== "kurutiras") {
       return user?.id_dec || "SYSTEM";
     }
 
@@ -119,7 +124,11 @@ const UretimTerminal = () => {
   };
 
   const handleSelectJob = (jobId: string) => {
-    if (areaName === "buzlama" || areaName === "kurutiras") {
+    if (
+      areaName === "buzlama" ||
+      areaName === "kurutiras" ||
+      areaName === "kalite"
+    ) {
       setSelectedJobs((prev) =>
         prev.includes(jobId)
           ? prev.filter((id) => id !== jobId)
@@ -314,12 +323,14 @@ const UretimTerminal = () => {
     queryKey: [
       "workLogs",
       areaName,
-      (areaName === "buzlama" || areaName === "kurutiras") ? "ALL" : user?.id_dec,
+      areaName === "buzlama" || areaName === "kurutiras" ? "ALL" : user?.id_dec,
     ],
     queryFn: async () => {
       if (!areaName) return [];
       const operatorParam =
-        (areaName === "buzlama" || areaName === "kurutiras") ? "" : `&operatorId=${user?.id_dec}`;
+        areaName === "buzlama" || areaName === "kurutiras"
+          ? ""
+          : `&operatorId=${user?.id_dec}`;
       const res = await apiClient.get(
         `/mes/work-logs?areaName=${areaName}${operatorParam}`,
       );
@@ -330,10 +341,10 @@ const UretimTerminal = () => {
 
   //! Aktif Molaları Çekecek Query
   const { data: activeBreaks } = useQuery<OperatorBreak[]>({
-    queryKey: ["activeBreaks", areaName],
+    queryKey: ["activeBreaks", areaName, user?.id_dec],
     queryFn: async () => {
       const res = await apiClient.get(
-        `/mes/active-breaks?areaName=${areaName}`,
+        `/mes/active-breaks?areaName=${areaName}&operatorId=${user?.id_dec || ""}`,
       );
       return res.data;
     },
@@ -353,13 +364,14 @@ const UretimTerminal = () => {
   });
 
   //? Mevcut kullanıcının molada olup olmadığını saptıyoruz
-  // Buzlama ve Kuru Tıraş terminalinde butonların mola yüzünden kilitlenmesini istemiyoruz, 
+  // Buzlama ve Kuru Tıraş terminalinde butonların mola yüzünden kilitlenmesini istemiyoruz,
   // çünkü bir kişinin molaya çıkması diğerlerini engellememeli.
-  const isOnBreak = (areaName === "buzlama" || areaName === "kurutiras")
-    ? false 
-    : !!activeBreaks?.some((b: OperatorBreak) => {
-        return String(b.operator_id) === String(user?.id_dec);
-      });
+  const isOnBreak =
+    areaName === "buzlama" || areaName === "kurutiras" || areaName === "taslama"
+      ? false
+      : !!activeBreaks?.some((b: OperatorBreak) => {
+          return String(b.operator_id) === String(user?.id_dec);
+        });
 
   //* Backend'den gelen WorkLog verisini Tablo formatına (Job) çeviriyoruz
   const activeJobs: Job[] =
@@ -374,6 +386,7 @@ const UretimTerminal = () => {
       processId: log.process_id,
       section: log.area_name,
       process: log.process_name,
+      machine: log.machine_name,
       quantity: "-",
       materialNo: log.material_no,
       status: log.status,
@@ -430,13 +443,16 @@ const UretimTerminal = () => {
         onClose={() => setIsBreakModalOpen(false)}
         operator={
           activeOperatorInfo
-            ? { 
-                id_dec: activeOperatorInfo.id_dec, 
-                full_name: `${activeOperatorInfo.name} ${activeOperatorInfo.surname}` 
+            ? {
+                id_dec: activeOperatorInfo.id_dec,
+                full_name: `${activeOperatorInfo.name} ${activeOperatorInfo.surname}`,
               }
             : user
-            ? { id_dec: user.id_dec, full_name: `${user.name} ${user.surname}` }
-            : null
+              ? {
+                  id_dec: user.id_dec,
+                  full_name: `${user.name} ${user.surname}`,
+                }
+              : null
         }
         onConfirm={(reason) => {
           const targetOpId = activeOperatorId || user?.id_dec;
@@ -481,7 +497,7 @@ const UretimTerminal = () => {
           onOpenFoodMenu={() => setIsFoodMenuOpen(true)}
           onOpenBreak={async () => {
             try {
-              const opId = await requireOperatorAuth();
+              const opId = await requireOperatorAuth({ actionType: "break" });
               setActiveOperatorId(opId);
               setIsBreakModalOpen(true);
             } catch {
@@ -490,7 +506,10 @@ const UretimTerminal = () => {
           }}
           onEndBreak={async () => {
             try {
-              const opId = await requireOperatorAuth({ skipBreakCheck: true });
+              const opId = await requireOperatorAuth({
+                skipBreakCheck: true,
+                actionType: "break",
+              });
               endBreakMutation.mutate(opId);
             } catch {
               console.log("Moladan dönüş iptal edildi");
@@ -506,13 +525,27 @@ const UretimTerminal = () => {
               onSelectJob={handleSelectJob}
             />
             <TerminalRightSide
+              jobs={activeJobs}
               selectedJobs={selectedJobs}
               onJobDeselect={() => setSelectedJobs([])}
-              onOpenFinishModal={(opId: string) => { setActiveOperatorId(opId || null); setIsFinishModalOpen(true); }}
-              onOpenStopModal={(opId: string) => { setActiveOperatorId(opId || null); setIsStopModalOpen(true); }}
+              updateSelectedJobs={setSelectedJobs}
+              onOpenFinishModal={(opId: string) => {
+                setActiveOperatorId(opId || null);
+                setIsFinishModalOpen(true);
+              }}
+              onOpenStopModal={(opId: string) => {
+                setActiveOperatorId(opId || null);
+                setIsStopModalOpen(true);
+              }}
               onOpenProductImage={() => setIsProductImageModalOpen(true)}
-              onOpenFireModal={(opId: string) => { setActiveOperatorId(opId || null); setIsFireModalOpen(true); }}
-              onOpenMeasurementModal={(opId: string) => { setActiveOperatorId(opId || null); setIsMeasurementModalOpen(true); }}
+              onOpenFireModal={(opId: string) => {
+                setActiveOperatorId(opId || null);
+                setIsFireModalOpen(true);
+              }}
+              onOpenMeasurementModal={(opId: string) => {
+                setActiveOperatorId(opId || null);
+                setIsMeasurementModalOpen(true);
+              }}
               isOnBreak={isOnBreak}
               requireOperatorAuth={requireOperatorAuth}
             />
@@ -520,7 +553,7 @@ const UretimTerminal = () => {
 
           {/* BOTTOM SECTION */}
           <div className="h-[35%] flex bg-card border-t border-border">
-            <div className="w-[50%] p-4 border-r border-border">
+            <div className="w-[30%] p-4 border-r border-border">
               <div className="w-full h-full bg-secondary/20 border border-border rounded-xl overflow-hidden flex flex-col">
                 <div className="bg-secondary/80 p-2 flex text-[10px] font-black text-muted-foreground uppercase tracking-widest">
                   <div className="flex-1 px-2">Operator</div>
@@ -576,7 +609,7 @@ const UretimTerminal = () => {
               </div>
             </div>
 
-            <div className="w-[50%] p-4">
+            <div className="w-[70%] p-4">
               <div className="w-full h-full bg-secondary/20 border border-border rounded-xl flex flex-col overflow-hidden">
                 <div className="bg-secondary/80 p-0 text-[10px] font-black text-muted-foreground uppercase tracking-widest text-center border-b border-border flex">
                   <div

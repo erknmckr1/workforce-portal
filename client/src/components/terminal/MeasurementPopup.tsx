@@ -123,16 +123,16 @@ const MeasurementPopup: React.FC<MeasurementPopupProps> = ({
       toast.success("Ölçüm başarıyla kaydedildi.");
 
       // Temizle
-      setForm((prev) => ({
-        ...prev,
+      setForm({
+        orderId: "",
+        materialNo: "",
         entryMeasurement: "",
         exitMeasurement: "",
         entryWeight50cm: "",
         exitWeight50cm: "",
         quantity: "",
-      }));
-      // Kayıttan sonra limitleri sıfırlamıyoruz çünkü aynı malzemeye devam edebilir,
-      // ancak formu temizledik.
+        description: "",
+      });
 
       await fetchHistory(form.materialNo);
     } catch (error) {
