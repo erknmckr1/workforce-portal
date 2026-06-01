@@ -25,6 +25,7 @@ import { PhoneDirectory } from "./PhoneDirectory";
 import { GameScore } from "./GameScore";
 import { GameProfile } from "./GameProfile";
 import { GameSession } from "./GameSession";
+import { SectionParticipationLog } from "./SectionParticipationLog";
 
 // --- Lookups & Operator Associations ---
 Section.hasMany(Department, { foreignKey: "section_id" });
@@ -106,6 +107,10 @@ PasswordResetRequest.belongsTo(Operator, { as: "Handler", foreignKey: "handled_b
 OperatorBreak.belongsTo(Operator, { as: "Operator", foreignKey: "operator_id", targetKey: "id_dec" });
 Operator.hasMany(OperatorBreak, { foreignKey: "operator_id", sourceKey: "id_dec" });
 
+// --- SectionParticipationLog Associations ---
+SectionParticipationLog.belongsTo(Operator, { as: "Operator", foreignKey: "operator_id", targetKey: "id_dec" });
+Operator.hasMany(SectionParticipationLog, { foreignKey: "operator_id", sourceKey: "id_dec" });
+
 export {
     sequelize,
     Section,
@@ -140,5 +145,6 @@ export {
     PhoneDirectory,
     GameScore,
     GameProfile,
-    GameSession
+    GameSession,
+    SectionParticipationLog
 };

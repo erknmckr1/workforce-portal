@@ -8,6 +8,7 @@ import TerminalRightSide from "../components/terminal/TerminalRightSide";
 import TerminalJobTable from "../components/terminal/TerminalJobTable";
 import type { Job } from "../components/terminal/TerminalJobTable";
 import TerminalHeader from "../components/terminal/TerminalHeader";
+import TerminalGroupArea from "../components/terminal/TerminalGroupArea";
 import TerminalLoginModal from "../components/terminal/TerminalLoginModal";
 import FinishWorkModal from "../components/terminal/FinishWorkModal";
 import StopWorkModal from "../components/terminal/StopWorkModal";
@@ -28,7 +29,7 @@ import type {
   MesMachine,
 } from "../types/mes";
 import { toast } from "sonner";
-import { RotateCw } from "lucide-react";
+import { RotateCw, Package } from "lucide-react";
 import ShiftRunner from "../components/game/ShiftRunner";
 
 const UretimTerminal = () => {
@@ -48,6 +49,7 @@ const UretimTerminal = () => {
   const [isFinishModalOpen, setIsFinishModalOpen] = useState(false);
   const [isStopModalOpen, setIsStopModalOpen] = useState(false);
   const [isKioskOpen, setIsKioskOpen] = useState(false);
+  const [cekicField, setCekicField] = useState<string>("makine");
   const [isFoodMenuOpen, setIsFoodMenuOpen] = useState(false);
   const [isBreakModalOpen, setIsBreakModalOpen] = useState(false);
   const [isProductImageModalOpen, setIsProductImageModalOpen] = useState(false);
@@ -81,7 +83,11 @@ const UretimTerminal = () => {
       if (options?.actionType !== "break") {
         return user?.id_dec || "SYSTEM";
       }
-    } else if (areaName !== "buzlama" && areaName !== "kurutiras") {
+    } else if (
+      areaName !== "buzlama" &&
+      areaName !== "kurutiras" &&
+      areaName !== "cekic"
+    ) {
       return user?.id_dec || "SYSTEM";
     }
 
@@ -218,14 +224,17 @@ const UretimTerminal = () => {
     },
   });
 
-  const handleSearch = async (e: React.KeyboardEvent) => {
+    const handleSearch = async (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && searchOrderId) {
       if (isOnBreak) {
         toast.error("Moladayken iş başlatamazsınız!");
         setSearchOrderId("");
         return;
       }
-      if (!selectedProcessId) {
+      
+      const isMakineArea = !(areaName === "cekic" && cekicField !== "makine");
+
+      if (isMakineArea && !selectedProcessId) {
         toast.error("LÜTFEN ÖNCE YAPACAĞINIZ İŞLEMİ (PROSES) SEÇİNİZ!");
         setSearchOrderId("");
         return;
@@ -240,7 +249,8 @@ const UretimTerminal = () => {
         machines &&
         machines.length > 0 &&
         machines.some((m) => m.process_name === selectedProcess?.process_name);
-      if (requiresMachine && !selectedMachineName) {
+        
+      if (isMakineArea && requiresMachine && !selectedMachineName) {
         toast.error("BU İŞLEM İÇİN BİR MAKİNE SEÇMENİZ GEREKMEKTEDİR!");
         setSearchOrderId("");
         return;
@@ -375,24 +385,37 @@ const UretimTerminal = () => {
 
   //* Backend'den gelen WorkLog verisini Tablo formatına (Job) çeviriyoruz
   const activeJobs: Job[] =
-    workLogs?.map((log: WorkLog) => ({
-      id: String(log.id),
-      operatorId: log.operator_id,
-      operatorName: log.Operator
-        ? `${log.Operator.name} ${log.Operator.surname}`
-        : log.operator_id,
-      orderId: log.order_no,
-      oldCode: "-",
-      processId: log.process_id,
-      section: log.area_name,
-      process: log.process_name,
-      machine: log.machine_name,
-      quantity: "-",
-      materialNo: log.material_no,
-      status: log.status,
-      statusName: log.StatusDetail?.name || "Bilinmiyor",
-      statusColor: log.StatusDetail?.color_code || "#6b7280", // Gri (Varsayılan)
-    })) || [];
+    workLogs
+      ?.filter((log: WorkLog) => {
+        // Proses Filtresi (Eğer bir proses seçildiyse)
+        if (selectedProcessId && log.process_id !== selectedProcessId) return false;
+        
+        // Makine Filtresi (Eğer bir makine seçildiyse)
+        if (selectedMachineName && log.machine_name !== selectedMachineName) return false;
+        
+        // Çekiç Alt Alan (Tezgah/Sarma vb.) Filtresi
+        if (areaName === "cekic" && cekicField && log.field && log.field !== cekicField) return false;
+        
+        return true;
+      })
+      .map((log: WorkLog) => ({
+        id: String(log.id),
+        operatorId: log.operator_id,
+        operatorName: log.Operator
+          ? `${log.Operator.name} ${log.Operator.surname}`
+          : log.operator_id,
+        orderId: log.order_no,
+        oldCode: "-",
+        processId: log.process_id,
+        section: log.area_name,
+        process: log.process_name,
+        machine: log.machine_name,
+        quantity: "-",
+        materialNo: log.material_no,
+        status: log.status,
+        statusName: log.StatusDetail?.name || "Bilinmiyor",
+        statusColor: log.StatusDetail?.color_code || "#6b7280", // Gri (Varsayılan)
+      })) || [];
 
   return (
     <div className="h-screen w-screen bg-background text-foreground flex flex-col overflow-hidden font-sans select-none">
@@ -553,8 +576,22 @@ const UretimTerminal = () => {
 
           {/* BOTTOM SECTION */}
           <div className="h-[35%] flex bg-card border-t border-border">
-            <div className="w-[30%] p-4 border-r border-border">
-              <div className="w-full h-full bg-secondary/20 border border-border rounded-xl overflow-hidden flex flex-col">
+            <div className={`${areaName === "cekic" ? "w-[55%]" : "w-[30%]"} p-4 border-r border-border flex gap-4`}>
+              
+              {/* TerminalGroupArea - Sadece Cekic İçin */}
+              {areaName === "cekic" && (
+                <div className="w-1/2 h-full">
+                  <TerminalGroupArea 
+                    areaName={areaName} 
+                    requireOperatorAuth={requireOperatorAuth} 
+                    selectedField={cekicField}
+                    setSelectedField={setCekicField}
+                  />
+                </div>
+              )}
+
+              {/* Aktif Molalar */}
+              <div className={`${areaName === "cekic" ? "w-1/2" : "w-full"} h-full bg-secondary/20 border border-border rounded-xl overflow-hidden flex flex-col`}>
                 <div className="bg-secondary/80 p-2 flex text-[10px] font-black text-muted-foreground uppercase tracking-widest">
                   <div className="flex-1 px-2">Operator</div>
                   <div className="w-24 text-center">Süre</div>
@@ -609,83 +646,95 @@ const UretimTerminal = () => {
               </div>
             </div>
 
-            <div className="w-[70%] p-4">
-              <div className="w-full h-full bg-secondary/20 border border-border rounded-xl flex flex-col overflow-hidden">
-                <div className="bg-secondary/80 p-0 text-[10px] font-black text-muted-foreground uppercase tracking-widest text-center border-b border-border flex">
-                  <div
-                    className={`flex-1 py-2 ${filteredMachines.length > 0 ? "border-r border-border" : ""}`}
-                  >
-                    İşlem (Proses) Seçimi
-                  </div>
-                  {filteredMachines.length > 0 && (
-                    <div className="flex-1 py-2 text-info">Makine Seçimi</div>
-                  )}
+            <div className={`${areaName === "cekic" ? "w-[45%]" : "w-[70%]"} p-4`}>
+              {areaName === "cekic" && cekicField !== "makine" ? (
+                <div className="w-full h-full bg-secondary/20 border border-dashed border-border rounded-xl flex flex-col items-center justify-center p-8 text-center gap-4">
+                   <div className="bg-background p-6 rounded-full shadow-inner mb-4">
+                     <Package size={48} className="text-muted-foreground/30" />
+                   </div>
+                   <h2 className="text-xl font-black uppercase tracking-widest text-muted-foreground">İşlem Yapmak İçin Barkod Okutun</h2>
+                   <p className="text-xs font-bold text-muted-foreground/50 max-w-sm">
+                     "{cekicField}" alanında çalışırken proses seçimi yapmanıza gerek yoktur. İş başlatmak için doğrudan barkod okutabilirsiniz.
+                   </p>
                 </div>
-
-                <div className="flex-1 flex overflow-hidden">
-                  <div
-                    className={`flex-1 overflow-y-auto p-2  ${filteredMachines.length > 0 ? "border-r border-border" : ""}`}
-                  >
-                    {isFetchingProcesses ? (
-                      <div className="h-full flex items-center justify-center text-xs animate-pulse text-muted-foreground">
-                        Prosesler yükleniyor...
-                      </div>
-                    ) : processes && processes.length > 0 ? (
-                      <div className="grid grid-cols-2 gap-2">
-                        {processes.map((proc) => (
-                          <button
-                            key={proc.process_id}
-                            disabled={isOnBreak}
-                            onClick={() => {
-                              setSelectedProcessId(proc.process_id);
-                              setSelectedMachineName(null); // Proses değişince makineyi sıfırla
-                            }}
-                            className={`p-3 rounded-lg border text-left transition-all ${
-                              selectedProcessId === proc.process_id
-                                ? "bg-primary border-primary text-primary-foreground shadow-lg shadow-primary/20 scale-[1.02]"
-                                : "bg-background/50 border-border hover:border-primary/50 text-muted-foreground"
-                            } ${isOnBreak ? "opacity-50 cursor-not-allowed grayscale" : ""}`}
-                          >
-                            <div className="text-xl font-black leading-tight">
-                              {proc.process_name}
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="h-full flex items-center justify-center text-muted-foreground/40 font-bold text-sm italic">
-                        Proses bulunamadı.
-                      </div>
+              ) : (
+                <div className="w-full h-full bg-secondary/20 border border-border rounded-xl flex flex-col overflow-hidden">
+                  <div className="bg-secondary/80 p-0 text-[10px] font-black text-muted-foreground uppercase tracking-widest text-center border-b border-border flex">
+                    <div
+                      className={`flex-1 py-2 ${filteredMachines.length > 0 ? "border-r border-border" : ""}`}
+                    >
+                      İşlem (Proses) Seçimi
+                    </div>
+                    {filteredMachines.length > 0 && (
+                      <div className="flex-1 py-2 text-info">Makine Seçimi</div>
                     )}
                   </div>
 
-                  {/* MAKİNE LİSTESİ */}
-                  {filteredMachines.length > 0 && (
-                    <div className="flex-1 overflow-y-auto p-2 scrollbar-thin scrollbar-thumb-border">
-                      <div className="grid grid-cols-2 gap-2">
-                        {filteredMachines.map((mach) => (
-                          <button
-                            key={mach.id}
-                            disabled={isOnBreak}
-                            onClick={() =>
-                              setSelectedMachineName(mach.machine_name)
-                            }
-                            className={`p-3 rounded-lg border text-center transition-all ${
-                              selectedMachineName === mach.machine_name
-                                ? "bg-info border-info text-info-foreground shadow-lg shadow-info/20 scale-[1.02]"
-                                : "bg-background/50 border-border hover:border-info/50 text-muted-foreground"
-                            } ${isOnBreak ? "opacity-50 cursor-not-allowed grayscale" : ""}`}
-                          >
-                            <div className="text-xl font-black leading-tight">
-                              {mach.machine_name}
-                            </div>
-                          </button>
-                        ))}
-                      </div>
+                  <div className="flex-1 flex overflow-hidden">
+                    <div
+                      className={`flex-1 overflow-y-auto p-2  ${filteredMachines.length > 0 ? "border-r border-border" : ""}`}
+                    >
+                      {isFetchingProcesses ? (
+                        <div className="h-full flex items-center justify-center text-xs animate-pulse text-muted-foreground">
+                          Prosesler yükleniyor...
+                        </div>
+                      ) : processes && processes.length > 0 ? (
+                        <div className="grid grid-cols-2 gap-2">
+                          {processes.map((proc) => (
+                            <button
+                              key={proc.process_id}
+                              disabled={isOnBreak}
+                              onClick={() => {
+                                setSelectedProcessId(proc.process_id);
+                                setSelectedMachineName(null); // Proses değişince makineyi sıfırla
+                              }}
+                              className={`p-3 rounded-lg border text-left transition-all ${
+                                selectedProcessId === proc.process_id
+                                  ? "bg-primary border-primary text-primary-foreground shadow-lg shadow-primary/20 scale-[1.02]"
+                                  : "bg-background/50 border-border hover:border-primary/50 text-muted-foreground"
+                              } ${isOnBreak ? "opacity-50 cursor-not-allowed grayscale" : ""}`}
+                            >
+                              <div className="text-xl font-black leading-tight">
+                                {proc.process_name}
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="h-full flex items-center justify-center text-muted-foreground/40 font-bold text-sm italic">
+                          Proses bulunamadı.
+                        </div>
+                      )}
                     </div>
-                  )}
+
+                    {/* MAKİNE LİSTESİ */}
+                    {filteredMachines.length > 0 && (
+                      <div className="flex-1 overflow-y-auto p-2 scrollbar-thin scrollbar-thumb-border">
+                        <div className="grid grid-cols-2 gap-2">
+                          {filteredMachines.map((mach) => (
+                            <button
+                              key={mach.id}
+                              disabled={isOnBreak}
+                              onClick={() =>
+                                setSelectedMachineName(mach.machine_name)
+                              }
+                              className={`p-3 rounded-lg border text-center transition-all ${
+                                selectedMachineName === mach.machine_name
+                                  ? "bg-info border-info text-info-foreground shadow-lg shadow-info/20 scale-[1.02]"
+                                  : "bg-background/50 border-border hover:border-info/50 text-muted-foreground"
+                              } ${isOnBreak ? "opacity-50 cursor-not-allowed grayscale" : ""}`}
+                            >
+                              <div className="text-xl font-black leading-tight">
+                                {mach.machine_name}
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
         </main>

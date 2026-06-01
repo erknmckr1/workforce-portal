@@ -7,6 +7,7 @@ import {
   Status,
   Operator,
   Department,
+  SectionParticipationLog
 } from "../models";
 import { WorkLog } from "../models/WorkLog";
 import { WorkLogPause } from "../models/WorkLogPause";
@@ -229,24 +230,39 @@ export const startWork = async (req: Request, res: Response) => {
     }
 
     // Kural C: Çekiç bölümünde makine alanındaysak, makinede başka aktif iş olmamalı
-    if (area_name === "cekic" && field === "makine" && machine_name) {
-      const activeMachineJob = await WorkLog.findOne({
+    if (area_name === "cekic") {
+      // Çekiç için alana katılım zorunluluğu kontrolü
+      const activeLogs = await SectionParticipationLog.findAll({
         where: {
+          operator_id,
           area_name: "cekic",
-          machine_name,
-          status: { [Op.in]: [1, 2] },
-        },
+          exit_time: { [Op.is]: null }
+        }
       });
-      if (activeMachineJob) {
-        return res.status(400).json({
-          message: `${machine_name} makinesinde zaten başka bir aktif iş var.`,
+
+      if (activeLogs.length === 0) {
+        return res.status(400).json({ message: "Bölüme katılım sağlamadan iş başlatamazsınız." });
+      }
+
+      // Sadece 'makine' alanında mı? Değilse sorun yok (çünkü makine dışındaki alanlarda zaten tek katılım kuralı join'de çalışıyor).
+      // Eğer makine alanında iseler ve başka iş varsa kontrol et:
+      const inMakine = activeLogs.find((log) => log.field === "makine");
+
+      if (inMakine && machine_name) {
+        const activeMachineJob = await WorkLog.findOne({
+          where: {
+            area_name: "cekic",
+            machine_name,
+            status: { [Op.in]: [1, 2] },
+          },
         });
+        if (activeMachineJob) {
+          return res.status(400).json({
+            message: `${machine_name} makinesinde zaten başka bir aktif iş var.`,
+          });
+        }
       }
     }
-
-    // if (area_name === "kalite") {
-    //   const activeKaliteJob = await WorkLog.findOne({
-    //     where: {
     //       order_no,
     //       status: { [Op.in]: [1, 2] },
     //     },
@@ -1295,6 +1311,133 @@ export const getOperatorById = async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error("getOperatorById Error:", error);
+    return res.status(500).json({ message: "Sunucu hatası." });
+  }
+};
+
+// ==========================================
+// ALAN (FIELD) KATILIM İŞLEMLERİ
+// ==========================================
+
+export const joinField = async (req: Request, res: Response) => {
+  const { operator_id, area_name, field, machine_name } = req.body;
+
+  if (!operator_id || !area_name || !field) {
+    return res.status(400).json({ message: "operator_id, area_name ve field zorunludur." });
+  }
+
+  try {
+    const operator = await Operator.findOne({ where: { id_dec: operator_id } });
+    if (!operator) {
+      return res.status(404).json({ message: "Operatör bulunamadı." });
+    }
+
+    const existingLogs = await SectionParticipationLog.findAll({
+      where: {
+        operator_id,
+        exit_time: { [Op.is]: null }
+      }
+    });
+
+    const sameAreaSameField = existingLogs.find(
+      (log) => log.area_name === area_name && log.field === field
+    );
+
+    if (sameAreaSameField && area_name !== "telcekme") {
+      return res.status(400).json({ message: `"${area_name} / ${field}" alanına zaten katılmışsınız.` });
+    }
+
+    const isInCekicMakine = existingLogs.find(
+      (log) => log.area_name === "cekic" && log.field === "makine"
+    );
+
+    const isInOtherCekicField = existingLogs.find(
+      (log) => log.area_name === "cekic" && log.field !== "makine"
+    );
+
+    if (isInOtherCekicField) {
+      return res.status(400).json({ message: `Başka bir alanda aktif katılımınız var (${isInOtherCekicField.field}). Önce çıkış yapın.` });
+    }
+
+    if (isInCekicMakine && area_name === "cekic" && field !== "makine") {
+      // İzin ver, geçişe devam et
+    } else if (existingLogs.length > 0 && area_name !== "telcekme") {
+      return res.status(409).json({ message: `Başka bir alanda aktif katılımınız var (${existingLogs[0].area_name} / ${existingLogs[0].field}). Önce çıkış yapın.` });
+    }
+
+    // Yeni katılım kaydı oluştur
+    const newLog = await SectionParticipationLog.create({
+      operator_id,
+      op_name: `${operator.name} ${operator.surname}`,
+      section: operator.section ? operator.section.toString() : null,
+      area_name,
+      field,
+      machine_name: machine_name || null,
+      join_time: new Date(),
+      status: "1"
+    });
+
+    return res.status(200).json({ message: "Alana başarıyla katılındı.", data: newLog });
+  } catch (error) {
+    console.error("joinField Hatası:", error);
+    return res.status(500).json({ message: "Sunucu hatası." });
+  }
+};
+
+export const leaveField = async (req: Request, res: Response) => {
+  const { operator_id } = req.body;
+
+  if (!operator_id) {
+    return res.status(400).json({ message: "operator_id zorunludur." });
+  }
+
+  try {
+    const updated = await SectionParticipationLog.update(
+      { exit_time: new Date(), status: "0" },
+      {
+        where: {
+          operator_id,
+          exit_time: { [Op.is]: null }
+        }
+      }
+    );
+
+    if (updated[0] === 0) {
+      return res.status(404).json({ message: "Aktif bir alan katılımı bulunamadı." });
+    }
+
+    return res.status(200).json({ message: "Alandan başarıyla çıkıldı." });
+  } catch (error) {
+    console.error("leaveField Hatası:", error);
+    return res.status(500).json({ message: "Sunucu hatası." });
+  }
+};
+
+export const getActiveFieldParticipants = async (req: Request, res: Response) => {
+  const { areaName, field } = req.query;
+
+  if (!areaName) {
+    return res.status(400).json({ message: "areaName zorunludur." });
+  }
+
+  try {
+    const whereClause: any = {
+      area_name: areaName,
+      exit_time: { [Op.is]: null }
+    };
+
+    if (field) {
+      whereClause.field = field;
+    }
+
+    const participants = await SectionParticipationLog.findAll({
+      where: whereClause,
+      order: [["join_time", "DESC"]]
+    });
+
+    return res.status(200).json({ data: participants });
+  } catch (error) {
+    console.error("getActiveFieldParticipants Hatası:", error);
     return res.status(500).json({ message: "Sunucu hatası." });
   }
 };

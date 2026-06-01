@@ -55,4 +55,9 @@ router.get("/measurements", MesController.getMeasurements);
 router.post("/measurements", MesController.saveMeasurement);
 router.delete("/measurements/:id", MesController.deleteMeasurement);
 
+// Field Participation (Alan Katılım) Rotaları
+router.post("/field/join", MesController.joinField);
+router.post("/field/leave", MesController.leaveField);
+router.get("/field/participants", MesController.getActiveFieldParticipants);
+
 export default router;
