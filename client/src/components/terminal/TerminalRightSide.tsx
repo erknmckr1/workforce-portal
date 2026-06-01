@@ -269,148 +269,244 @@ const TerminalRightSide = ({
     }
   };
 
+  const startSetupMutation = useMutation({
+    mutationFn: async (workData: { workIds: string[]; operator_id: string }) => {
+      const res = await apiClient.post("/mes/start-setup", workData);
+      return res.data;
+    },
+    onSuccess: () => {
+      toast.success("Setup başarıyla başlatıldı!");
+      onJobDeselect();
+      queryClient.invalidateQueries({ queryKey: ["workLogs", areaName] });
+    },
+    onError: (error: AxiosError<{ message: string }>) => {
+      toast.error(error.response?.data?.message || "Setup başlatılırken hata oluştu!");
+    },
+  });
+
+  const finishSetupMutation = useMutation({
+    mutationFn: async (workData: { workIds: string[]; operator_id: string }) => {
+      const res = await apiClient.post("/mes/finish-setup", workData);
+      return res.data;
+    },
+    onSuccess: () => {
+      toast.success("Setup başarıyla bitirildi!");
+      onJobDeselect();
+      queryClient.invalidateQueries({ queryKey: ["workLogs", areaName] });
+    },
+    onError: (error: AxiosError<{ message: string }>) => {
+      toast.error(error.response?.data?.message || "Setup bitirilirken hata oluştu!");
+    },
+  });
+
+  const startProcessMutation = useMutation({
+    mutationFn: async (workData: { workIds: string[]; operator_id: string }) => {
+      const res = await apiClient.post("/mes/start-process", workData);
+      return res.data;
+    },
+    onSuccess: () => {
+      toast.success("Proses başarıyla başlatıldı!");
+      onJobDeselect();
+      queryClient.invalidateQueries({ queryKey: ["workLogs", areaName] });
+    },
+    onError: (error: AxiosError<{ message: string }>) => {
+      toast.error(error.response?.data?.message || "Proses başlatılırken hata oluştu!");
+    },
+  });
+
+  const handleStartSetup = async () => {
+    if (selectedJobs.length === 0) {
+      toast.error("Lütfen işlem yapmak için en az bir iş seçin!");
+      return;
+    }
+    const eligibleJobs = selectedJobs.filter((jobId) => jobs.find((j) => j.id === jobId)?.status === 0);
+    if (eligibleJobs.length === 0) {
+      toast.error("Seçili işler arasında Setup başlatılabilecek (Beklemede) bir iş bulunamadı.");
+      return;
+    }
+    handleGuardedAction(async (opId) => {
+      await startSetupMutation.mutateAsync({ workIds: eligibleJobs, operator_id: opId });
+    });
+  };
+
+  const handleFinishSetup = async () => {
+    if (selectedJobs.length === 0) {
+      toast.error("Lütfen işlem yapmak için en az bir iş seçin!");
+      return;
+    }
+    const eligibleJobs = selectedJobs.filter((jobId) => jobs.find((j) => j.id === jobId)?.status === 5);
+    if (eligibleJobs.length === 0) {
+      toast.error("Seçili işler arasında Setup'ı bitirilecek bir iş bulunamadı.");
+      return;
+    }
+    handleGuardedAction(async (opId) => {
+      await finishSetupMutation.mutateAsync({ workIds: eligibleJobs, operator_id: opId });
+    });
+  };
+
+  const handleStartProcess = async () => {
+    if (selectedJobs.length === 0) {
+      toast.error("Lütfen işlem yapmak için en az bir iş seçin!");
+      return;
+    }
+    const eligibleJobs = selectedJobs.filter((jobId) => jobs.find((j) => j.id === jobId)?.status === 6);
+    if (eligibleJobs.length === 0) {
+      toast.error("Seçili işler arasında Proses başlatılabilecek bir iş bulunamadı.");
+      return;
+    }
+    handleGuardedAction(async (opId) => {
+      await startProcessMutation.mutateAsync({ workIds: eligibleJobs, operator_id: opId });
+    });
+  };
+
   return (
-    <div className="w-[200px] bg-background border-l border-border p-4 flex flex-col justify-center gap-4 ">
-      <button
-        onClick={handleRestartWork}
-        disabled={isOnBreak}
-        className={`group relative w-full bg-secondary hover:bg-info text-foreground hover:text-info-foreground font-black py-6 rounded-xl transition-all duration-300 border border-border hover:border-info/50 active:scale-95 overflow-hidden text-center ${isOnBreak ? "opacity-50 cursor-not-allowed grayscale" : ""}`}
-      >
-        <div className="absolute inset-0 bg-linear-to-br from-info/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-        <div className="relative flex flex-col items-center gap-2">
-          <Play
-            size={24}
-            className="fill-current text-blue-400 group-hover:text-info-foreground"
-          />
-          <span className="text-[10px] uppercase tracking-[0.2em]">
-            Yeniden Başlat
-          </span>
-        </div>
-      </button>
+    <div className="w-[300px] bg-background border-l border-border p-4 flex flex-col justify-start overflow-y-auto custom-scrollbar">
+      <div className="grid grid-cols-2 gap-4">
+        {/* Çekiç - Makine Özel Setup Butonları */}
+        {areaName === "cekic" && (
+          <>
+            <button
+              onClick={handleStartSetup}
+              disabled={isOnBreak}
+              className={`group relative w-full bg-secondary hover:bg-amber-500 text-foreground hover:text-white font-black py-6 rounded-xl transition-all duration-300 border border-border hover:border-amber-500 active:scale-95 overflow-hidden text-center ${isOnBreak ? "opacity-50 cursor-not-allowed grayscale" : ""}`}
+            >
+              <div className="absolute inset-0 bg-linear-to-br from-amber-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+              <div className="relative flex flex-col items-center gap-2">
+                <Play size={24} className="fill-current text-amber-500 group-hover:text-white" />
+                <span className="text-[10px] uppercase tracking-[0.2em] leading-tight">Setup<br/>Başla</span>
+              </div>
+            </button>
+            <button
+              onClick={handleFinishSetup}
+              disabled={isOnBreak}
+              className={`group relative w-full bg-secondary hover:bg-emerald-500 text-foreground hover:text-white font-black py-6 rounded-xl transition-all duration-300 border border-border hover:border-emerald-500 active:scale-95 overflow-hidden text-center ${isOnBreak ? "opacity-50 cursor-not-allowed grayscale" : ""}`}
+            >
+              <div className="absolute inset-0 bg-linear-to-br from-emerald-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+              <div className="relative flex flex-col items-center gap-2">
+                <CheckCircle2 size={24} className="text-emerald-500 group-hover:text-white" />
+                <span className="text-[10px] uppercase tracking-[0.2em] leading-tight">Setup<br/>Bitir</span>
+              </div>
+            </button>
+            <button
+              onClick={handleStartProcess}
+              disabled={isOnBreak}
+              className={`group relative w-full bg-secondary hover:bg-blue-500 text-foreground hover:text-white font-black py-6 rounded-xl transition-all duration-300 border border-border hover:border-blue-500 active:scale-95 overflow-hidden text-center col-span-2 ${isOnBreak ? "opacity-50 cursor-not-allowed grayscale" : ""}`}
+            >
+              <div className="absolute inset-0 bg-linear-to-br from-blue-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+              <div className="relative flex flex-col items-center gap-2">
+                <Play size={24} className="fill-current text-blue-500 group-hover:text-white" />
+                <span className="text-[10px] uppercase tracking-[0.2em]">Prosese Başla</span>
+              </div>
+            </button>
+          </>
+        )}
 
-      <button
-        onClick={() => {
-          if (selectedJobs.length === 0) {
-            toast.error("Lütfen işlem yapmak için bir iş seçin!");
-            return;
-          }
-          const eligibleJobs = selectedJobs.filter(
-            (jobId) => jobs.find((j) => j.id === jobId)?.status === 1
-          );
-          if (eligibleJobs.length === 0) {
-            toast.error("Seçili işler arasında durdurulabilecek (aktif) bir iş bulunamadı.");
-            return;
-          }
-          if (eligibleJobs.length < selectedJobs.length) {
-            toast.info(`Geçersiz olanlar atlandı. ${eligibleJobs.length} aktif iş durdurma işlemine alınacak.`);
-            updateSelectedJobs(eligibleJobs);
-          }
-          handleGuardedAction((opId) => onOpenStopModal(opId));
-        }}
-        disabled={isOnBreak}
-        className={`group relative w-full bg-secondary hover:bg-destructive text-foreground hover:text-destructive-foreground font-black py-6 rounded-xl transition-all duration-300 border border-border hover:border-destructive/50 active:scale-95 overflow-hidden text-center ${isOnBreak ? "opacity-50 cursor-not-allowed grayscale" : ""}`}
-      >
-        <div className="absolute inset-0 bg-linear-to-br from-destructive/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-        <div className="relative flex flex-col items-center gap-2">
-          <Square
-            size={24}
-            className="fill-current text-red-500 group-hover:text-destructive-foreground"
-          />
-          <span className="text-[10px] uppercase tracking-[0.2em]">
-            Siparişi Durdur
-          </span>
-        </div>
-      </button>
-
-      <button
-        onClick={handleFinishWork}
-        disabled={isOnBreak}
-        className={`group relative w-full bg-secondary hover:bg-success text-foreground hover:text-success-foreground font-black py-6 rounded-xl transition-all duration-300 border border-border hover:border-success/50 active:scale-95 overflow-hidden text-center ${isOnBreak ? "opacity-50 cursor-not-allowed grayscale" : ""}`}
-      >
-        <div className="absolute inset-0 bg-linear-to-br from-success/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-        <div className="relative flex flex-col items-center gap-2">
-          <CheckCircle2
-            size={24}
-            className="text-emerald-500 group-hover:text-success-foreground"
-          />
-          <span className="text-[10px] uppercase tracking-[0.2em]">
-            Prosesi Bitir
-          </span>
-        </div>
-      </button>
-
-      <button
-        onClick={handleCancelWork}
-        disabled={isOnBreak}
-        className={`group relative w-full bg-secondary hover:bg-accent text-foreground hover:text-accent-foreground font-black py-6 rounded-xl shadow-lg transition-all duration-300 border border-border hover:border-accent active:scale-95 overflow-hidden text-center ${isOnBreak ? "opacity-50 cursor-not-allowed grayscale" : ""}`}
-      >
-        <div className="relative flex flex-col items-center gap-2">
-          <XCircle
-            size={24}
-            className="text-muted-foreground group-hover:text-accent-foreground"
-          />
-          <span className="text-[10px] uppercase tracking-[0.2em]">
-            Sipariş İptal
-          </span>
-        </div>
-      </button>
-
-      {areaName === "tezgah" && (
         <button
-          onClick={onOpenProductImage}
+          onClick={handleRestartWork}
           disabled={isOnBreak}
-          className={`group relative w-full bg-amber-500/10 hover:bg-amber-500 text-amber-500 hover:text-foreground font-black py-6 rounded-xl transition-all duration-300 border border-amber-500/30 hover:border-amber-500 active:scale-95 overflow-hidden text-center shadow-[0_0_20px_rgba(245,158,11,0.1)] ${isOnBreak ? "opacity-50 cursor-not-allowed grayscale" : ""}`}
+          className={`group relative w-full bg-secondary hover:bg-info text-foreground hover:text-info-foreground font-black py-6 rounded-xl transition-all duration-300 border border-border hover:border-info/50 active:scale-95 overflow-hidden text-center ${isOnBreak ? "opacity-50 cursor-not-allowed grayscale" : ""}`}
         >
-          <div className="absolute inset-0 bg-linear-to-br from-amber-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+          <div className="absolute inset-0 bg-linear-to-br from-info/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
           <div className="relative flex flex-col items-center gap-2">
-            <ImageIcon
-              size={24}
-              className="group-hover:scale-110 transition-transform"
-            />
-            <span className="text-[10px] uppercase tracking-[0.2em]">
-              Ürün Görseli
-            </span>
+            <Play size={24} className="fill-current text-blue-400 group-hover:text-info-foreground" />
+            <span className="text-[10px] uppercase tracking-[0.2em] leading-tight">Yeniden<br/>Başlat</span>
           </div>
         </button>
-      )}
 
-      {areaName === "taslama" && (
         <button
-          onClick={() => handleGuardedAction((opId) => onOpenFireModal(opId))}
+          onClick={() => {
+            if (selectedJobs.length === 0) {
+              toast.error("Lütfen işlem yapmak için bir iş seçin!");
+              return;
+            }
+            const eligibleJobs = selectedJobs.filter(
+              (jobId) => jobs.find((j) => j.id === jobId)?.status === 1
+            );
+            if (eligibleJobs.length === 0) {
+              toast.error("Seçili işler arasında durdurulabilecek (aktif) bir iş bulunamadı.");
+              return;
+            }
+            if (eligibleJobs.length < selectedJobs.length) {
+              toast.info(`Geçersiz olanlar atlandı. ${eligibleJobs.length} aktif iş durdurma işlemine alınacak.`);
+              updateSelectedJobs(eligibleJobs);
+            }
+            handleGuardedAction((opId) => onOpenStopModal(opId));
+          }}
           disabled={isOnBreak}
-          className={`group relative w-full bg-amber-500/10 hover:bg-amber-500 text-amber-500 hover:text-foreground font-black py-6 rounded-xl transition-all duration-300 border border-amber-500/30 hover:border-amber-500 active:scale-95 overflow-hidden text-center shadow-[0_0_20px_rgba(245,158,11,0.1)] ${isOnBreak ? "opacity-50 cursor-not-allowed grayscale" : ""}`}
+          className={`group relative w-full bg-secondary hover:bg-destructive text-foreground hover:text-destructive-foreground font-black py-6 rounded-xl transition-all duration-300 border border-border hover:border-destructive/50 active:scale-95 overflow-hidden text-center ${isOnBreak ? "opacity-50 cursor-not-allowed grayscale" : ""}`}
         >
-          <div className="absolute inset-0 bg-linear-to-br from-amber-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+          <div className="absolute inset-0 bg-linear-to-br from-destructive/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
           <div className="relative flex flex-col items-center gap-2">
-            <Calculator
-              size={24}
-              className="group-hover:scale-110 transition-transform"
-            />
-            <span className="text-[10px] uppercase tracking-[0.2em]">
-              Fire Girişi
-            </span>
+            <Square size={24} className="fill-current text-red-500 group-hover:text-destructive-foreground" />
+            <span className="text-[10px] uppercase tracking-[0.2em] leading-tight">Siparişi<br/>Durdur</span>
           </div>
         </button>
-      )}
 
-      {areaName === "buzlama" && (
         <button
-          onClick={() => handleGuardedAction((opId) => onOpenMeasurementModal(opId))}
+          onClick={handleFinishWork}
           disabled={isOnBreak}
-          className={`group relative w-full bg-orange-500/10 hover:bg-orange-500 text-orange-500 hover:text-foreground font-black py-6 rounded-xl transition-all duration-300 border border-orange-500/30 hover:border-orange-500 active:scale-95 overflow-hidden text-center shadow-[0_0_20px_rgba(249,115,22,0.1)] ${isOnBreak ? "opacity-50 cursor-not-allowed grayscale" : ""}`}
+          className={`group relative w-full bg-secondary hover:bg-success text-foreground hover:text-success-foreground font-black py-6 rounded-xl transition-all duration-300 border border-border hover:border-success/50 active:scale-95 overflow-hidden text-center ${isOnBreak ? "opacity-50 cursor-not-allowed grayscale" : ""}`}
         >
-          <div className="absolute inset-0 bg-linear-to-br from-orange-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+          <div className="absolute inset-0 bg-linear-to-br from-success/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
           <div className="relative flex flex-col items-center gap-2">
-            <Calculator
-              size={24}
-              className="group-hover:scale-110 transition-transform"
-            />
-            <span className="text-[10px] uppercase tracking-[0.2em]">
-              Ölçüm V. Girişi
-            </span>
+            <CheckCircle2 size={24} className="text-emerald-500 group-hover:text-success-foreground" />
+            <span className="text-[10px] uppercase tracking-[0.2em] leading-tight">Prosesi<br/>Bitir</span>
           </div>
         </button>
-      )}
+
+        <button
+          onClick={handleCancelWork}
+          disabled={isOnBreak}
+          className={`group relative w-full bg-secondary hover:bg-accent text-foreground hover:text-accent-foreground font-black py-6 rounded-xl shadow-lg transition-all duration-300 border border-border hover:border-accent active:scale-95 overflow-hidden text-center ${isOnBreak ? "opacity-50 cursor-not-allowed grayscale" : ""}`}
+        >
+          <div className="relative flex flex-col items-center gap-2">
+            <XCircle size={24} className="text-muted-foreground group-hover:text-accent-foreground" />
+            <span className="text-[10px] uppercase tracking-[0.2em] leading-tight">Sipariş<br/>İptal</span>
+          </div>
+        </button>
+
+        {areaName === "tezgah" && (
+          <button
+            onClick={onOpenProductImage}
+            disabled={isOnBreak}
+            className={`group relative w-full bg-amber-500/10 hover:bg-amber-500 text-amber-500 hover:text-foreground font-black py-6 rounded-xl transition-all duration-300 border border-amber-500/30 hover:border-amber-500 active:scale-95 overflow-hidden text-center shadow-[0_0_20px_rgba(245,158,11,0.1)] col-span-2 ${isOnBreak ? "opacity-50 cursor-not-allowed grayscale" : ""}`}
+          >
+            <div className="absolute inset-0 bg-linear-to-br from-amber-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+            <div className="relative flex flex-col items-center gap-2">
+              <ImageIcon size={24} className="group-hover:scale-110 transition-transform" />
+              <span className="text-[10px] uppercase tracking-[0.2em]">Ürün Görseli</span>
+            </div>
+          </button>
+        )}
+
+        {areaName === "taslama" && (
+          <button
+            onClick={() => handleGuardedAction((opId) => onOpenFireModal(opId))}
+            disabled={isOnBreak}
+            className={`group relative w-full bg-amber-500/10 hover:bg-amber-500 text-amber-500 hover:text-foreground font-black py-6 rounded-xl transition-all duration-300 border border-amber-500/30 hover:border-amber-500 active:scale-95 overflow-hidden text-center shadow-[0_0_20px_rgba(245,158,11,0.1)] col-span-2 ${isOnBreak ? "opacity-50 cursor-not-allowed grayscale" : ""}`}
+          >
+            <div className="absolute inset-0 bg-linear-to-br from-amber-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+            <div className="relative flex flex-col items-center gap-2">
+              <Calculator size={24} className="group-hover:scale-110 transition-transform" />
+              <span className="text-[10px] uppercase tracking-[0.2em]">Fire Girişi</span>
+            </div>
+          </button>
+        )}
+
+        {areaName === "buzlama" && (
+          <button
+            onClick={() => handleGuardedAction((opId) => onOpenMeasurementModal(opId))}
+            disabled={isOnBreak}
+            className={`group relative w-full bg-orange-500/10 hover:bg-orange-500 text-orange-500 hover:text-foreground font-black py-6 rounded-xl transition-all duration-300 border border-orange-500/30 hover:border-orange-500 active:scale-95 overflow-hidden text-center shadow-[0_0_20px_rgba(249,115,22,0.1)] col-span-2 ${isOnBreak ? "opacity-50 cursor-not-allowed grayscale" : ""}`}
+          >
+            <div className="absolute inset-0 bg-linear-to-br from-orange-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+            <div className="relative flex flex-col items-center gap-2">
+              <Calculator size={24} className="group-hover:scale-110 transition-transform" />
+              <span className="text-[10px] uppercase tracking-[0.2em]">Ölçüm V. Girişi</span>
+            </div>
+          </button>
+        )}
+      </div>
     </div>
   );
 };

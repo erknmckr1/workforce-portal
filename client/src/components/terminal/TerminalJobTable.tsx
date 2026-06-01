@@ -12,6 +12,8 @@ export interface Job {
   quantity: string;
   materialNo?: string;
   status?: number;
+  statusName?: string;
+  statusColor?: string;
   machine: string;
 }
 
@@ -66,14 +68,18 @@ const TerminalJobTable: React.FC<TerminalJobTableProps> = ({
                 className={`group cursor-pointer transition-all duration-150 border-l-2
                   ${
                     selectedJobs.includes(job.id)
-                      ? "bg-amber-500/10 border-amber-500"
+                      ? "bg-blue-500/20 border-blue-500" // Seçili işin rengini değiştiriyoruz çakışmaması için
                       : job.status === 1
                         ? "bg-success border-transparent hover:bg-success"
-                        : job.status === 2
+                        : job.status === 2 || job.status === 9
                           ? "bg-destructive border-transparent hover:bg-destructive"
-                          : job.status === 9
-                            ? "bg-destructive border-transparent hover:bg-destructive"
-                            : "bg-card/40 border-transparent hover:bg-secondary/40"
+                          : job.status === 0
+                            ? "bg-gray-500/20 border-transparent hover:bg-gray-500/30"
+                            : job.status === 5
+                              ? "bg-amber-500/20 border-transparent hover:bg-amber-500/30"
+                              : job.status === 6
+                                ? "bg-emerald-500/20 border-transparent hover:bg-emerald-500/30"
+                                : "bg-card/40 border-transparent hover:bg-secondary/40"
                   }
                 `}
               >
@@ -111,16 +117,14 @@ const TerminalJobTable: React.FC<TerminalJobTableProps> = ({
                   {job.quantity}
                 </td>
                 <td className="p-3 last:rounded-r-lg text-center">
-                  <div className="flex justify-center">
+                  <div className="flex items-center justify-center gap-2">
                     <span
-                      className={`h-2 w-2 rounded-full ${
-                        job.status === 1
-                          ? "bg-success animate-pulse"
-                          : job.status === 2
-                            ? "bg-destructive"
-                            : "bg-muted"
-                      }`}
+                      className={`h-2 w-2 rounded-full ${job.status === 1 ? 'animate-pulse' : ''}`}
+                      style={{ backgroundColor: job.statusColor || "#6b7280" }}
                     />
+                    <span className="text-xs font-bold" style={{ color: job.statusColor || "#6b7280" }}>
+                      {job.statusName || "Bilinmiyor"}
+                    </span>
                   </div>
                 </td>
               </tr>

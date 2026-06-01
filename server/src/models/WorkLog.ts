@@ -37,6 +37,11 @@ export interface WorkLogAttributes {
   
   // Açıklama
   finish_description?: string | null;
+  
+  // Setup (Hazırlık) Aşaması İçin (Çekiç Makine vs.)
+  setup_start_date?: Date | null;
+  setup_end_date?: Date | null;
+  setup_operator_id?: string | null;
 }
 
 export interface WorkLogCreationAttributes extends Optional<WorkLogAttributes, "id" | "start_date" | "status"> {}
@@ -68,6 +73,10 @@ export class WorkLog extends Model<WorkLogAttributes, WorkLogCreationAttributes>
   public cancelled_by!: string | null;
   public cancelled_at!: Date | null;
   public finish_description!: string | null;
+  
+  public setup_start_date!: Date | null;
+  public setup_end_date!: Date | null;
+  public setup_operator_id!: string | null;
 }
 
 WorkLog.init(
@@ -168,6 +177,18 @@ WorkLog.init(
     },
     finish_description: {
       type: DataTypes.TEXT,
+      allowNull: true,
+    },
+    setup_start_date: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
+    setup_end_date: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
+    setup_operator_id: {
+      type: DataTypes.STRING,
       allowNull: true,
     },
   },

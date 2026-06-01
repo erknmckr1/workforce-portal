@@ -229,37 +229,40 @@ export const startWork = async (req: Request, res: Response) => {
       }
     }
 
-    // Kural C: Çekiç bölümünde makine alanındaysak, makinede başka aktif iş olmamalı
+    // Kural C: Çekiç bölümünde makine alanındaysak katılım şartı aranmaz, diğerlerinde aranır
     if (area_name === "cekic") {
-      // Çekiç için alana katılım zorunluluğu kontrolü
-      const activeLogs = await SectionParticipationLog.findAll({
-        where: {
-          operator_id,
-          area_name: "cekic",
-          exit_time: { [Op.is]: null }
-        }
-      });
-
-      if (activeLogs.length === 0) {
-        return res.status(400).json({ message: "Bölüme katılım sağlamadan iş başlatamazsınız." });
+      if (!field) {
+        return res.status(400).json({ message: "Çekiç bölümünde alt alan seçimi (Tezgah, Makine vb.) zorunludur." });
       }
 
-      // Sadece 'makine' alanında mı? Değilse sorun yok (çünkü makine dışındaki alanlarda zaten tek katılım kuralı join'de çalışıyor).
-      // Eğer makine alanında iseler ve başka iş varsa kontrol et:
-      const inMakine = activeLogs.find((log) => log.field === "makine");
-
-      if (inMakine && machine_name) {
-        const activeMachineJob = await WorkLog.findOne({
+      if (field !== "makine") {
+        const activeLogs = await SectionParticipationLog.findAll({
           where: {
+            operator_id,
             area_name: "cekic",
-            machine_name,
-            status: { [Op.in]: [1, 2] },
-          },
+            field: field,
+            exit_time: { [Op.is]: null }
+          }
         });
-        if (activeMachineJob) {
-          return res.status(400).json({
-            message: `${machine_name} makinesinde zaten başka bir aktif iş var.`,
+
+        if (activeLogs.length === 0) {
+          return res.status(400).json({ message: `"${field}" alt alanına katılım sağlamadan iş başlatamazsınız.` });
+        }
+      } else {
+        // Makine alanındaysa ve makine seçilmişse
+        if (machine_name) {
+          const activeMachineJob = await WorkLog.findOne({
+            where: {
+              area_name: "cekic",
+              machine_name,
+              status: { [Op.in]: [1, 2, 5, 6] }, // Aktif, duraklatılmış, setup'ta veya setup'ı bitmiş işler
+            },
           });
+          if (activeMachineJob) {
+            return res.status(400).json({
+              message: `${machine_name} makinesinde zaten başka bir aktif iş veya setup var.`,
+            });
+          }
         }
       }
     }
@@ -275,6 +278,9 @@ export const startWork = async (req: Request, res: Response) => {
     // }
 
     // 3. Yeni İşi Oluştur (work_logs tablosuna kayıt at)
+    const isCekicMakine = area_name === "cekic" && field === "makine";
+    const initialStatus = isCekicMakine ? 0 : 1; // Çekiç Makine alanında iş statü 0 (Beklemede) başlar
+
     const newWork = await WorkLog.create({
       operator_id,
       order_no,
@@ -285,7 +291,7 @@ export const startWork = async (req: Request, res: Response) => {
       process_name,
       machine_name: machine_name || null,
       material_no: material_no || null,
-      status: 1, // 1: Başladı (STARTED)
+      status: initialStatus,
       start_date: new Date(),
     });
 
@@ -423,6 +429,15 @@ export const getWorkLogs = async (req: Request, res: Response) => {
     if (areaName === "buzlama" || areaName === "kurutiras") {
       // Buzlama ve Kurutiras alanları ortak bir havuzdur, tüm aktif/durdurulmuş işleri gösterir
       whereCondition.status = { [Op.in]: [1, 2, 9] };
+    } else if (areaName === "cekic") {
+      // Çekiç alanında 0, 5 ve 6 statüleri (Makine Setup iş akışı için) dahil edilir
+      const orConditions: any[] = [{ status: { [Op.in]: [0, 2, 5, 6, 9] } }];
+
+      if (operatorId && operatorId !== "undefined") {
+        orConditions.push({ status: 1, operator_id: operatorId as string });
+      }
+
+      whereCondition[Op.or] = orConditions;
     } else {
       // Diğer alanlarda:
       // 1. Durdurulmuş (2) veya mola nedeniyle bekleyen (9) TÜM işler
@@ -1438,6 +1453,124 @@ export const getActiveFieldParticipants = async (req: Request, res: Response) =>
     return res.status(200).json({ data: participants });
   } catch (error) {
     console.error("getActiveFieldParticipants Hatası:", error);
+    return res.status(500).json({ message: "Sunucu hatası." });
+  }
+};
+
+// ==========================================
+// SETUP (HAZIRLIK) AŞAMASI METOTLARI
+// ==========================================
+
+export const startSetup = async (req: Request, res: Response) => {
+  try {
+    const { workIds, operator_id } = req.body;
+
+    if (!workIds || !Array.isArray(workIds) || workIds.length === 0 || !operator_id) {
+      return res.status(400).json({ message: "Geçerli iş ID listesi ve operatör ID gönderilmelidir." });
+    }
+
+    const onBreak = await isOperatorOnBreak(operator_id);
+    if (onBreak) {
+      return res.status(403).json({ message: "Moladayken setup başlatamazsınız." });
+    }
+
+    const updated = await WorkLog.update(
+      {
+        status: 5, // Setup Devam Ediyor
+        setup_start_date: new Date(),
+        setup_operator_id: operator_id,
+      },
+      {
+        where: {
+          id: { [Op.in]: workIds },
+          status: 0, // Sadece beklemedeki işler setup'a alınabilir
+        }
+      }
+    );
+
+    if (updated[0] === 0) {
+      return res.status(404).json({ message: "Setup başlatılabilecek uygun iş bulunamadı (Statüsü 'Beklemede' olmalı)." });
+    }
+
+    return res.status(200).json({ message: `Setup başarıyla başlatıldı. (${updated[0]} iş güncellendi)` });
+  } catch (error) {
+    console.error("startSetup Hatası:", error);
+    return res.status(500).json({ message: "Sunucu hatası." });
+  }
+};
+
+export const finishSetup = async (req: Request, res: Response) => {
+  try {
+    const { workIds, operator_id } = req.body;
+
+    if (!workIds || !Array.isArray(workIds) || workIds.length === 0 || !operator_id) {
+      return res.status(400).json({ message: "Geçerli iş ID listesi ve operatör ID gönderilmelidir." });
+    }
+
+    const onBreak = await isOperatorOnBreak(operator_id);
+    if (onBreak) {
+      return res.status(403).json({ message: "Moladayken setup bitiremezsiniz." });
+    }
+
+    const updated = await WorkLog.update(
+      {
+        status: 6, // Setup Tamamlandı
+        setup_end_date: new Date(),
+      },
+      {
+        where: {
+          id: { [Op.in]: workIds },
+          status: 5, // Sadece setup'ta olan işler
+          setup_end_date: { [Op.is]: null },
+        }
+      }
+    );
+
+    if (updated[0] === 0) {
+      return res.status(404).json({ message: "Setup'ı bitirilecek uygun iş bulunamadı." });
+    }
+
+    return res.status(200).json({ message: `Setup başarıyla bitirildi. (${updated[0]} iş güncellendi)` });
+  } catch (error) {
+    console.error("finishSetup Hatası:", error);
+    return res.status(500).json({ message: "Sunucu hatası." });
+  }
+};
+
+export const startProcessFromSetup = async (req: Request, res: Response) => {
+  try {
+    const { workIds, operator_id } = req.body;
+
+    if (!workIds || !Array.isArray(workIds) || workIds.length === 0 || !operator_id) {
+      return res.status(400).json({ message: "Geçerli iş ID listesi ve operatör ID gönderilmelidir." });
+    }
+
+    const onBreak = await isOperatorOnBreak(operator_id);
+    if (onBreak) {
+      return res.status(403).json({ message: "Moladayken proses başlatamazsınız." });
+    }
+
+    const updated = await WorkLog.update(
+      {
+        status: 1, // Proses Başladı (Aktif)
+        start_date: new Date(), // Asıl üretim süresi şimdi başlar
+        operator_id: operator_id, // Prosesi başlatan kişi olarak güncellenebilir
+      },
+      {
+        where: {
+          id: { [Op.in]: workIds },
+          status: 6, // Sadece setup'ı bitmiş işler
+        }
+      }
+    );
+
+    if (updated[0] === 0) {
+      return res.status(404).json({ message: "Proses başlatılabilecek uygun iş bulunamadı (Setup tamamlanmış olmalı)." });
+    }
+
+    return res.status(200).json({ message: `Proses başarıyla başlatıldı. (${updated[0]} iş güncellendi)` });
+  } catch (error) {
+    console.error("startProcessFromSetup Hatası:", error);
     return res.status(500).json({ message: "Sunucu hatası." });
   }
 };

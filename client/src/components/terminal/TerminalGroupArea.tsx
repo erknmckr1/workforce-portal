@@ -51,8 +51,9 @@ export default function TerminalGroupArea({ areaName, requireOperatorAuth, selec
       toast.success("Alana başarıyla katıldınız.");
       queryClient.invalidateQueries({ queryKey: ["fieldParticipants"] });
     },
-    onError: () => {
-      toast.error("Alana katılırken bir hata oluştu.");
+    onError: (error: any) => {
+      const errorMessage = error.response?.data?.message || "Alana katılırken bir hata oluştu.";
+      toast.error(errorMessage);
     },
   });
 
@@ -67,8 +68,9 @@ export default function TerminalGroupArea({ areaName, requireOperatorAuth, selec
       toast.success("Alandan başarıyla çıktınız.");
       queryClient.invalidateQueries({ queryKey: ["fieldParticipants"] });
     },
-    onError: () => {
-      toast.error("Alandan çıkarken bir hata oluştu.");
+    onError: (error: any) => {
+      const errorMessage = error.response?.data?.message || "Alandan çıkarken bir hata oluştu.";
+      toast.error(errorMessage);
     },
   });
 

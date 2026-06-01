@@ -270,6 +270,7 @@ const UretimTerminal = () => {
             order_no: searchOrderId,
             section_id: section,
             area_name: areaName,
+            field: cekicField,
             process_id: selectedProcessId,
             process_name: selectedProcess?.process_name,
             machine_name: selectedMachineName,
@@ -413,8 +414,8 @@ const UretimTerminal = () => {
         quantity: "-",
         materialNo: log.material_no,
         status: log.status,
-        statusName: log.StatusDetail?.name || "Bilinmiyor",
-        statusColor: log.StatusDetail?.color_code || "#6b7280", // Gri (Varsayılan)
+        statusName: log.status === 0 ? "Beklemede" : log.status === 5 ? "Setup'ta" : log.status === 6 ? "Setup Bitti" : log.StatusDetail?.name || "Bilinmiyor",
+        statusColor: log.status === 0 ? "#9CA3AF" : log.status === 5 ? "#F59E0B" : log.status === 6 ? "#10B981" : log.StatusDetail?.color_code || "#6b7280", // Gri (Varsayılan)
       })) || [];
 
   return (

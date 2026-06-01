@@ -60,4 +60,9 @@ router.post("/field/join", MesController.joinField);
 router.post("/field/leave", MesController.leaveField);
 router.get("/field/participants", MesController.getActiveFieldParticipants);
 
+// Setup (Hazırlık) Rotaları
+router.post("/start-setup", MesController.startSetup);
+router.post("/finish-setup", MesController.finishSetup);
+router.post("/start-process", MesController.startProcessFromSetup);
+
 export default router;
