@@ -81,7 +81,7 @@ const ApproverSelect = memo(function ApproverSelect({ value, onChange, disabled,
           </div>
         </div>
       </SelectTrigger>
-      <SelectContent className="rounded-2xl shadow-xl max-h-[400px] w-64 min-w-[250px]">
+      <SelectContent className="rounded-2xl shadow-xl max-h-100 w-64 min-w-62.5">
         {/* Sabit Arama Kutusu */}
         <div className="sticky top-0 z-10 bg-popover p-2 border-b border-border/50 shadow-sm">
           <div className="relative">
@@ -235,6 +235,10 @@ export default function Approvals() {
   }, [departments, debouncedSearchTerm]);
 
   const getSectionName = useCallback((secId: number) => sectionMap.get(secId) || "Bölüm Belirtilmemiş", [sectionMap]);
+  const getDepartmentSectionName = useCallback((dept: LookupDepartment) => {
+    if (!dept.section_id) return "Bölüm Belirtilmemiş";
+    return getSectionName(Number(dept.section_id));
+  }, [getSectionName]);
 
   const handleSectionAssign = useCallback((id: number, manager_id: string) => {
     updateSectionManagerMutation.mutate({ id, manager_id }, {
@@ -340,7 +344,7 @@ export default function Approvals() {
               <DepartmentRow
                 key={dept.id}
                 dept={dept}
-                sectionName={getSectionName(Number(dept.id))}
+                sectionName={getDepartmentSectionName(dept)}
                 personnel={eligibleApprovers}
                 onAssign={handleDepartmentAssign}
                 isPending={updateDepartmentSupervisorMutation.isPending}
