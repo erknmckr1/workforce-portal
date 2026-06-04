@@ -22,6 +22,7 @@ export class Department extends Model {
     public section_id?: number;
     public name!: string;
     public is_active!: boolean;
+    public ustabasi_id?: string;
     public supervisor_id?: string;
 }
 Department.init(
@@ -30,6 +31,7 @@ Department.init(
         section_id: { type: DataTypes.INTEGER, allowNull: true },
         name: { type: DataTypes.STRING(100), allowNull: false },
         is_active: { type: DataTypes.BOOLEAN },
+        ustabasi_id: { type: DataTypes.STRING(255), allowNull: true },
         supervisor_id: { type: DataTypes.STRING(255), allowNull: true },
     },
     { sequelize, modelName: "Department", tableName: "departments", timestamps: false }

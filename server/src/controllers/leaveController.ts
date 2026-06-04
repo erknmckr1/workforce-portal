@@ -188,12 +188,12 @@ export const createLeave = async (
       (req.body.status === "Approved" || req.body.is_revir === true) &&
       isAuthorizedForAutoApprove;
 
-    // Revir kaydı değilse ve Şef atanmamışsa hata ver
+    // Revir kaydı değilse ve Yönetici atanmamışsa hata ver
     if (!shouldAutoApprove && !auth1) {
       await transaction.rollback();
       return res.status(400).json({
         message:
-          "Seçili personelin 1. onaycısı (Birim Şefi) atanmamış. Lütfen önce onay hiyerarşisini düzenleyin.",
+          "Seçili personelin 1. onaycısı (Birim Yöneticisi) atanmamış. Lütfen önce onay hiyerarşisini düzenleyin.",
       });
     }
 
@@ -413,7 +413,7 @@ export const getLeaves = async (req: Request, res: Response): Promise<any> => {
         }
       }
     }
-    // 2 & 3. Senaryolar (Müdür-3, Şef-2, Personel-1 vb.) => Onay Odaklı ve Sahiplik Odaklı Dinamik Filtreleme
+    // 2 & 3. Senaryolar (Müdür-3, Yönetici-2, Personel-1 vb.) => Onay Odaklı ve Sahiplik Odaklı Dinamik Filtreleme
     else if (loggedUser) {
       if (queryUserId === userId) {
         // Sadece kendi izinlerim sayfası

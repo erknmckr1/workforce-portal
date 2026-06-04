@@ -123,15 +123,23 @@ const ApproverSelect = memo(function ApproverSelect({ value, onChange, disabled,
   );
 });
 
-const SectionRow = memo(({ section, personnel, onAssign, isPending }: {
+const SectionRow = memo(({ section, personnel, onAssign, onSelect, isSelected, isPending }: {
   section: LookupSection,
   count?: number,
   personnel: Personnel[],
   onAssign: (id: number, val: string) => void,
+  onSelect: (id: number) => void,
+  isSelected: boolean,
   isPending: boolean
 }) => {
   return (
-    <div className="group relative flex items-center justify-between gap-4 px-5 py-3 h-16 rounded-xl border border-border/40 bg-card/60 hover:bg-card hover:border-primary/20 transition-all">
+    <div
+      onClick={() => onSelect(Number(section.id))}
+      className={cn(
+        "group relative flex items-center justify-between gap-4 px-5 py-3 h-16 rounded-xl border border-border/40 bg-card/60 hover:bg-card hover:border-primary/20 transition-all cursor-pointer",
+        isSelected && "bg-blue-500/10 border-blue-500/30 shadow-sm"
+      )}
+    >
       <div className="flex-1 flex items-center gap-3">
         <span className="text-sm font-extrabold text-foreground flex items-center gap-2">
           {section.name}
@@ -140,7 +148,7 @@ const SectionRow = memo(({ section, personnel, onAssign, isPending }: {
           )}
         </span>
       </div>
-      <div className="shrink-0">
+      <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
         <ApproverSelect
           value={section.manager_id || undefined}
           onChange={(val: string) => onAssign(Number(section.id), val)}
@@ -153,20 +161,22 @@ const SectionRow = memo(({ section, personnel, onAssign, isPending }: {
   );
 });
 
-const DepartmentRow = memo(({ dept, sectionName, personnel, onAssign, isPending }: {
+const DepartmentRow = memo(({ dept, sectionName, personnel, ustabasiPersonnel, onSupervisorAssign, onUstabasiAssign, isPending }: {
   dept: LookupDepartment,
   count?: number,
   sectionName: string,
   personnel: Personnel[],
-  onAssign: (id: number, val: string) => void,
+  ustabasiPersonnel: Personnel[],
+  onSupervisorAssign: (id: number, val: string) => void,
+  onUstabasiAssign: (id: number, val: string) => void,
   isPending: boolean
 }) => {
   return (
-    <div className="group relative flex items-center justify-between gap-4 px-5 py-3 h-16 ml-6 rounded-xl border border-border/40 bg-card/40 hover:bg-card hover:border-primary/20 transition-all ">
+    <div className="group relative flex flex-col 2xl:flex-row 2xl:items-center justify-between gap-4 px-5 py-3 min-h-16 ml-6 rounded-xl border border-border/40 bg-card/40 hover:bg-card hover:border-primary/20 transition-all ">
       <div className="flex-1 flex items-center gap-3 flex-wrap">
         <span className="text-sm font-extrabold text-foreground flex items-center gap-2 leading-none">
           {dept.name}
-          {!dept.supervisor_id && (
+          {(!dept.supervisor_id || !dept.ustabasi_id) && (
             <span className="flex h-1.5 w-1.5 rounded-full bg-destructive animate-pulse" title="Atama Bekliyor"></span>
           )}
         </span>
@@ -174,13 +184,20 @@ const DepartmentRow = memo(({ dept, sectionName, personnel, onAssign, isPending 
           <Building2 size={12} /> {sectionName}
         </span>
       </div>
-      <div className="shrink-0">
+      <div className="flex flex-col sm:flex-row gap-3 shrink-0">
+        <ApproverSelect
+          value={dept.ustabasi_id || undefined}
+          onChange={(val: string) => onUstabasiAssign(Number(dept.id), val)}
+          disabled={isPending}
+          personnel={ustabasiPersonnel}
+          placeholder="Ustabaşı Ata..."
+        />
         <ApproverSelect
           value={dept.supervisor_id || undefined}
-          onChange={(val: string) => onAssign(Number(dept.id), val)}
+          onChange={(val: string) => onSupervisorAssign(Number(dept.id), val)}
           disabled={isPending}
           personnel={personnel}
-          placeholder="Şef Ata..."
+          placeholder="Yönetici Ata..."
         />
       </div>
     </div>
@@ -189,6 +206,7 @@ const DepartmentRow = memo(({ dept, sectionName, personnel, onAssign, isPending 
 
 export default function Approvals() {
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedSectionId, setSelectedSectionId] = useState<number | null>(null);
   const debouncedSearchTerm = useDebounce(searchTerm, 500);
 
   const { data: lookups, isLoading: lookupsLoading, refetch: refetchLookups } = useLookups();
@@ -197,12 +215,13 @@ export default function Approvals() {
     isLoading: personnelLoading,
     updateSectionManagerMutation,
     updateDepartmentSupervisorMutation,
+    updateDepartmentUstabasiMutation,
     syncApprovalsMutation
   } = usePersonnel(1, 200, "", true);
 
   const personnel = useMemo(() => personnelResponse?.data || [], [personnelResponse]);
 
-  const { sectionMap, sections, departments, eligibleApprovers } = useMemo(() => {
+  const { sectionMap, sections, departments, eligibleApprovers, ustabasiApprovers } = useMemo(() => {
     const sMap = new Map<number, string>();
     const rMap = new Map<number, string>();
     const sArray = lookups?.sections || [];
@@ -213,13 +232,14 @@ export default function Approvals() {
     sArray.forEach(s => sMap.set(Number(s.id), s.name));
     rArray.forEach(r => rMap.set(Number(r.id), r.name));
 
-    const allowedRolesRegex = /^(şef|müdür|admin|test)$/i;
+    const allowedRolesRegex = /^(yönetici|müdür|admin|test)$/i;
     const approvers = actData.filter(p => {
       const rn = rMap.get(p.role_id) || "";
       return allowedRolesRegex.test(rn);
     });
+    const ustabasi = actData.filter(p => Number(p.role_id) === 9);
 
-    return { sectionMap: sMap, roleMap: rMap, sections: sArray, departments: dArray, eligibleApprovers: approvers };
+    return { sectionMap: sMap, roleMap: rMap, sections: sArray, departments: dArray, eligibleApprovers: approvers, ustabasiApprovers: ustabasi };
   }, [lookups, personnel]);
 
   const filteredSections = useMemo(() => {
@@ -229,16 +249,28 @@ export default function Approvals() {
   }, [sections, debouncedSearchTerm]);
 
   const filteredDepartments = useMemo(() => {
-    if (!debouncedSearchTerm) return departments;
     const lowerSearch = debouncedSearchTerm.toLowerCase();
-    return departments.filter(d => d.name.toLowerCase().includes(lowerSearch));
-  }, [departments, debouncedSearchTerm]);
+    return departments.filter(d => {
+      const matchesSection = selectedSectionId ? Number(d.section_id) === selectedSectionId : true;
+      const matchesSearch = debouncedSearchTerm ? d.name.toLowerCase().includes(lowerSearch) : true;
+      return matchesSection && matchesSearch;
+    });
+  }, [departments, debouncedSearchTerm, selectedSectionId]);
 
   const getSectionName = useCallback((secId: number) => sectionMap.get(secId) || "Bölüm Belirtilmemiş", [sectionMap]);
   const getDepartmentSectionName = useCallback((dept: LookupDepartment) => {
     if (!dept.section_id) return "Bölüm Belirtilmemiş";
     return getSectionName(Number(dept.section_id));
   }, [getSectionName]);
+
+  const selectedSectionName = useMemo(() => {
+    if (!selectedSectionId) return null;
+    return sectionMap.get(selectedSectionId) || null;
+  }, [sectionMap, selectedSectionId]);
+
+  const handleSectionFilter = useCallback((sectionId: number) => {
+    setSelectedSectionId((current) => current === sectionId ? null : sectionId);
+  }, []);
 
   const handleSectionAssign = useCallback((id: number, manager_id: string) => {
     updateSectionManagerMutation.mutate({ id, manager_id }, {
@@ -257,6 +289,15 @@ export default function Approvals() {
       }
     });
   }, [updateDepartmentSupervisorMutation, refetchLookups]);
+
+  const handleDepartmentUstabasiAssign = useCallback((id: number, ustabasi_id: string) => {
+    updateDepartmentUstabasiMutation.mutate({ id, ustabasi_id }, {
+      onSuccess: async () => {
+        await refetchLookups();
+        toast.success("Birim ustabaşısı atandı.");
+      }
+    });
+  }, [updateDepartmentUstabasiMutation, refetchLookups]);
 
   if ((lookupsLoading || personnelLoading) && (!lookups || !personnel.length)) {
     return (
@@ -322,6 +363,8 @@ export default function Approvals() {
                 section={section}
                 personnel={eligibleApprovers}
                 onAssign={handleSectionAssign}
+                onSelect={handleSectionFilter}
+                isSelected={selectedSectionId === Number(section.id)}
                 isPending={updateSectionManagerMutation.isPending}
               />
             ))}
@@ -333,10 +376,22 @@ export default function Approvals() {
             <div className="w-10 h-10 rounded-[1rem] bg-orange-500/10 text-orange-500 flex items-center justify-center">
               <GitMerge size={20} />
             </div>
-            <div>
+            <div className="flex-1">
               Birim Sorumluları {filteredDepartments.length !== departments.length && <span className="ml-2 text-sm text-primary">({filteredDepartments.length} sonuç)</span>}
-              <span className="block text-[11px] text-muted-foreground font-bold tracking-widest uppercase mt-0.5">1. Aşama Onaycılar (Supervisor)</span>
+              {selectedSectionName && <span className="ml-2 text-sm text-blue-500">({selectedSectionName})</span>}
+              <span className="block text-[11px] text-muted-foreground font-bold tracking-widest uppercase mt-0.5">1. Aşama Onaycılar (Yönetici)</span>
             </div>
+            {selectedSectionName && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedSectionId(null)}
+                className="h-9 rounded-lg px-3 text-xs font-bold text-muted-foreground hover:text-foreground shrink-0"
+              >
+                Tümü
+              </Button>
+            )}
           </h4>
 
           <div className="space-y-4">
@@ -346,8 +401,10 @@ export default function Approvals() {
                 dept={dept}
                 sectionName={getDepartmentSectionName(dept)}
                 personnel={eligibleApprovers}
-                onAssign={handleDepartmentAssign}
-                isPending={updateDepartmentSupervisorMutation.isPending}
+                ustabasiPersonnel={ustabasiApprovers}
+                onSupervisorAssign={handleDepartmentAssign}
+                onUstabasiAssign={handleDepartmentUstabasiAssign}
+                isPending={updateDepartmentSupervisorMutation.isPending || updateDepartmentUstabasiMutation.isPending}
               />
             ))}
           </div>

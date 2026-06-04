@@ -29,19 +29,19 @@ const menuItems = [
     title: "Panel",
     icon: LayoutDashboard,
     path: "/panel",
-    roles: ["Admin", "Müdür", "Şef", "Personel", "İK", "Revir"],
+    roles: ["Admin", "Müdür", "Yönetici", "Personel", "İK", "Revir"],
   },
   {
     title: "İzinlerim",
     icon: CalendarDays,
     path: "/leaves",
-    roles: ["Admin", "Müdür", "Şef", "Personel", "İK", "Revir", "Güvenlik"],
+    roles: ["Admin", "Müdür", "Yönetici", "Personel", "İK", "Revir", "Güvenlik"],
   },
   {
     title: "Onay Bekleyenler",
     icon: ClipboardCheck,
     path: "/leave-approvals",
-    roles: ["Admin", "Müdür", "Şef", "İK"],
+    roles: ["Admin", "Müdür", "Yönetici", "İK"],
   },
   {
     title: "Personel Yönetimi",
@@ -76,25 +76,25 @@ const menuItems = [
   {
     title: "Araçlar",
     icon: Wrench,
-    roles: ["Admin", "İK", "Müdür", "Şef", "Personel", "Revir", "Güvenlik"],
+    roles: ["Admin", "İK", "Müdür", "Yönetici", "Personel", "Revir", "Güvenlik"],
     children: [
       {
         title: "Senelik Plan",
         path: "/yearly-plan",
         icon: CalendarRange,
-        roles: ["Admin", "İK", "Müdür", "Şef", "Personel", "Revir", "Güvenlik"],
+        roles: ["Admin", "İK", "Müdür", "Yönetici", "Personel", "Revir", "Güvenlik"],
       },
       {
         title: "Yemek Menüsü",
         path: "/food-menu",
         icon: FileText,
-        roles: ["Admin", "İK", "Müdür", "Şef", "Personel", "Revir", "Güvenlik"],
+        roles: ["Admin", "İK", "Müdür", "Yönetici", "Personel", "Revir", "Güvenlik"],
       },
       {
         title: "Telefon Rehberi",
         path: "/phone-directory",
         icon: Phone,
-        roles: ["Admin", "İK", "Müdür", "Şef", "Personel", "Revir", "Güvenlik"],
+        roles: ["Admin", "İK", "Müdür", "Yönetici", "Personel", "Revir", "Güvenlik"],
       },
     ],
   },

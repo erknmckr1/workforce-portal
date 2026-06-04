@@ -745,7 +745,7 @@ export function PersonnelFormModal({
                               { shouldValidate: true, shouldDirty: true },
                             );
                           } else {
-                            setValue("auth1", ""); // O birimin şefi yoksa boşalt
+                            setValue("auth1", ""); // O birimin yöneticisi yoksa boşalt
                           }
                         }}
                         items={lookups.departments}

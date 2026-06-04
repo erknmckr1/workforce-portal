@@ -9,7 +9,7 @@ const seedRoles = async () => {
 
         const roles = [
             { id: 1, name: "Personel", description: "Standart personel yetkisine sahip kullanıcı" },
-            { id: 2, name: "Şef", description: "1. Onay makamı - Birim Amiri" },
+            { id: 2, name: "Yönetici", description: "1. Onay makamı - Birim Yöneticisi" },
             { id: 3, name: "Müdür", description: "2. Onay makamı - Bölüm Amiri" },
             { id: 4, name: "İK", description: "İnsan Kaynakları personeli" },
             { id: 5, name: "Revir", description: "Revir ve sağlık görevlileri" },

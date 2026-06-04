@@ -39,7 +39,7 @@ Personel ünvanları için sabit liste.
 | Sütun       | Tip                    | Açıklama                                         |
 | ----------- | ---------------------- | ------------------------------------------------ |
 | `id`        | INT PK AUTO            |                                                  |
-| `name`      | NVARCHAR(100) NOT NULL | "Operatör", "Şef", "Müdür", "Uzman", "Teknisyen" |
+| `name`      | NVARCHAR(100) NOT NULL | "Operatör", "Yönetici", "Müdür", "Uzman", "Teknisyen" |
 | `is_active` | BIT DEFAULT 1          |                                                  |
 
 ### 1.4 `leave_statuses` (İzin Durumları)
@@ -104,7 +104,7 @@ Tam gün, yarım gün ve saatlik izin senaryolarını destekler.
 | Sütun         | Tip                   | Açıklama                                                       |
 | ------------- | --------------------- | -------------------------------------------------------------- |
 | `id`          | INT PK AUTO           |                                                                |
-| `name`        | NVARCHAR(50) NOT NULL | "Personel", "Şef", "Müdür", "İK", "Revir", "Güvenlik", "Admin" |
+| `name`        | NVARCHAR(50) NOT NULL | "Personel", "Yönetici", "Müdür", "İK", "Revir", "Güvenlik", "Admin" |
 | `description` | NVARCHAR(200) NULL    | Açıklama                                                       |
 
 ### 2.2 `permissions` (Yetkiler)
@@ -122,7 +122,7 @@ Tam gün, yarım gün ve saatlik izin senaryolarını destekler.
 | --------------------------- | ----------------------------------------------- | ------------ |
 | `leave.create_own`          | Kendi adına izin talebi oluştur                 | Herkes       |
 | `leave.create_for_others`   | Başkası adına izin oluştur                      | İK, Revir    |
-| `leave.approve_first`       | 1. onaycı olarak onaylayabilir                  | Şef, Müdür   |
+| `leave.approve_first`       | 1. onaycı olarak onaylayabilir                  | Yönetici, Müdür |
 | `leave.approve_second`      | 2. onaycı olarak onaylayabilir                  | Müdür        |
 | `leave.approve_any`         | Herhangi bir izni onaylayabilir (bypass)        | İK           |
 | `leave.cancel_own`          | Kendi talebini iptal edebilir                   | Herkes       |

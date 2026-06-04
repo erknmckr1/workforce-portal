@@ -108,17 +108,17 @@ function App() {
               element={isAuthenticated ? <MainLayout /> : <Navigate to="/login" />}
             >
               {/* Panel (Eski Dashboard) */}
-              <Route element={<ProtectedRoute allowedRoles={["Admin", "Müdür", "Şef", "Personel", "İK", "Revir"]} />}>
+              <Route element={<ProtectedRoute allowedRoles={["Admin", "Müdür", "Yönetici", "Personel", "İK", "Revir"]} />}>
                 <Route path="panel" element={<Dashboard />} />
               </Route>
 
               {/* İzinlerim (Herkes Görebilir) */}
-              <Route element={<ProtectedRoute allowedRoles={["Admin", "Müdür", "Şef", "Personel", "İK", "Revir", "Güvenlik"]} />}>
+              <Route element={<ProtectedRoute allowedRoles={["Admin", "Müdür", "Yönetici", "Personel", "İK", "Revir", "Güvenlik"]} />}>
                 <Route path="leaves" element={<Leaves />} />
               </Route>
 
               {/* Onay Bekleyenler */}
-              <Route element={<ProtectedRoute allowedRoles={["Admin", "Müdür", "Şef", "İK"]} />}>
+              <Route element={<ProtectedRoute allowedRoles={["Admin", "Müdür", "Yönetici", "İK"]} />}>
                 <Route path="leave-approvals" element={<LeaveApprovals />} />
               </Route>
 
@@ -161,11 +161,11 @@ function App() {
               </Route>
 
               {/* Senelik Plan - Tüm personel görebilir */}
-              <Route element={<ProtectedRoute allowedRoles={["Admin", "İK", "Müdür", "Şef", "Personel", "Revir", "Güvenlik"]} />}>
+              <Route element={<ProtectedRoute allowedRoles={["Admin", "İK", "Müdür", "Yönetici", "Personel", "Revir", "Güvenlik"]} />}>
                 <Route path="yearly-plan" element={<YearlyCalendarPage />} />
               </Route>
               
-              <Route element={<ProtectedRoute allowedRoles={["Admin", "İK", "Müdür", "Şef", "Personel", "Revir", "Güvenlik"]} />}>
+              <Route element={<ProtectedRoute allowedRoles={["Admin", "İK", "Müdür", "Yönetici", "Personel", "Revir", "Güvenlik"]} />}>
                 <Route path="food-menu" element={<FoodMenuPage />} />
                 <Route path="phone-directory" element={<PhoneDirectoryPage />} />
               </Route>

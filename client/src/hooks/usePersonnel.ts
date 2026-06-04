@@ -106,6 +106,16 @@ export const usePersonnel = (page: number = 1, limit: number = 50, search: strin
     },
   });
 
+  const updateDepartmentUstabasiMutation = useMutation({
+    mutationFn: async ({ id, ustabasi_id }: { id: number; ustabasi_id: string }) => {
+      return apiClient.put(`/personnel/department-ustabasi/${id}`, { ustabasi_id });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["personnel"] });
+      queryClient.invalidateQueries({ queryKey: ["lookups"] });
+    },
+  });
+
   const syncApprovalsMutation = useMutation({
     mutationFn: async () => {
       return apiClient.post(`/personnel/sync-approvals`);
@@ -122,6 +132,7 @@ export const usePersonnel = (page: number = 1, limit: number = 50, search: strin
     deleteMutation,
     updateSectionManagerMutation,
     updateDepartmentSupervisorMutation,
+    updateDepartmentUstabasiMutation,
     syncApprovalsMutation
   };
 };

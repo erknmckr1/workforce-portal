@@ -51,7 +51,9 @@ export const getAllPersonnel = async (req: Request, res: Response): Promise<Resp
         if (isApprover) {
             roleWhere.name = { [Op.or]: [
                 { [Op.like]: "%Müdür%" },
-                { [Op.like]: "%Şef%" },
+                { [Op.like]: "%Yönetici%" },
+                { [Op.like]: "%Ustabasi%" },
+                { [Op.like]: "%Ustabaşı%" },
                 { [Op.like]: "%Admin%" },
                 { [Op.like]: "%İK%" }
             ] };
@@ -295,6 +297,23 @@ export const updateDepartmentSupervisor = async (req: Request, res: Response): P
 };
 
 // Tüm Onaycı Yetkilerini Yeniden Senkronize Et
+export const updateDepartmentUstabasi = async (req: Request, res: Response): Promise<Response> => {
+    try {
+        const { id } = req.params;
+        const { ustabasi_id } = req.body;
+
+        const dept = await Department.findByPk(id as string);
+        if (!dept) return res.status(404).json({ message: "Birim (Department) bulunamadı." });
+
+        await dept.update({ ustabasi_id: ustabasi_id || null });
+
+        return res.status(200).json({ message: "Birim ustabaşısı atandı." });
+    } catch(err) {
+        console.error("UpdateDepartmentUstabasi Hatası:", err);
+        return res.status(500).json({ message: "Birim ustabaşısı atanırken hata oluştu" });
+    }
+};
+
 export const syncAllApprovals = async (req: Request, res: Response): Promise<Response> => {
     try {
         const sections = await Section.findAll();

@@ -8,6 +8,7 @@ import {
     getPersonnelLookups,
     updateSectionManager,
     updateDepartmentSupervisor,
+    updateDepartmentUstabasi,
     syncAllApprovals,
     syncLeaveBalances,
     syncLeaveBalancesLocal
@@ -33,6 +34,7 @@ router.post("/sync-leaves-local", syncLeaveBalancesLocal);
 router.post("/sync-approvals", syncAllApprovals);
 router.put("/section-manager/:id", updateSectionManager);
 router.put("/department-supervisor/:id", updateDepartmentSupervisor);
+router.put("/department-ustabasi/:id", updateDepartmentUstabasi);
 
 // Personel bilgilerini güncelle
 router.put("/:id_dec", updatePersonnel);

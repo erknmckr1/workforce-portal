@@ -278,7 +278,7 @@ export function PersonnelDetailModal({
                     <div className="space-y-4">
                       <div className="p-4 rounded-2xl bg-warning/5 border border-warning/10">
                         <span className="text-[10px] font-bold text-warning uppercase block mb-1 tracking-widest">
-                          1. Onaycı (Şef)
+                          1. Onaycı (Yönetici)
                         </span>
                         <p className="font-bold text-foreground">
                           {personnel?.Auth1

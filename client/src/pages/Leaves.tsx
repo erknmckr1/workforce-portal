@@ -204,7 +204,7 @@ export default function Leaves() {
                   <div className="flex flex-col text-right">
                     <span className="text-[10px] font-black text-muted-foreground/40 uppercase tracking-widest mb-2">Onay Durumu</span>
                     <div className="flex items-center justify-end gap-3">
-                      {/* 1. Onaycı (Şef) */}
+                      {/* 1. Onaycı (Yönetici) */}
                       <div className="flex flex-col items-center gap-1.5">
                         <div className={cn(
                           "w-2.5 h-2.5 rounded-full transition-all duration-500",

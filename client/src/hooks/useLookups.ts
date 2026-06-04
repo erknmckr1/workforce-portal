@@ -12,6 +12,7 @@ export interface LookupSection extends LookupItem {
 
 export interface LookupDepartment extends LookupItem {
   section_id?: number | string | null;
+  ustabasi_id?: string | null;
   supervisor_id?: string | null;
 }
 
