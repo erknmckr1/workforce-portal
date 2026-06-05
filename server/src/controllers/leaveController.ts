@@ -187,9 +187,12 @@ export const createLeave = async (
     const shouldAutoApprove =
       (req.body.status === "Approved" || req.body.is_revir === true) &&
       isAuthorizedForAutoApprove;
+    const hasNoApprovalChain = !auth1 && !auth2;
+    const shouldApproveWithoutChain = !shouldAutoApprove && hasNoApprovalChain;
+    const isApprovedOnCreate = shouldAutoApprove || shouldApproveWithoutChain;
 
     // Revir kaydı değilse ve Yönetici atanmamışsa hata ver
-    if (!shouldAutoApprove && !auth1) {
+    if (!isApprovedOnCreate && !auth1) {
       await transaction.rollback();
       return res.status(400).json({
         message:
@@ -220,8 +223,8 @@ export const createLeave = async (
       });
     }
 
-    // 2. İlk durumu belirle (Revir/Admin ise direkt Onaylı=3, değilse Bekleyen=1)
-    const initialStatus = shouldAutoApprove ? 3 : 1;
+    // 2. İlk durumu belirle (Revir/Admin veya onay zinciri yoksa direkt Onaylı=3, değilse Bekleyen=1)
+    const initialStatus = isApprovedOnCreate ? 3 : 1;
 
     // 3. Kaydı oluştur
     const newLeave = await LeaveRecord.create(
@@ -230,7 +233,7 @@ export const createLeave = async (
         leave_reason_id,
         leave_status_id: initialStatus,
         leave_duration_type_id: leave_duration_type_id || 4,
-        auth1_user_id: shouldAutoApprove ? auth1 || creator_id : auth1,
+        auth1_user_id: shouldAutoApprove ? auth1 || creator_id : auth1 || null,
         auth2_user_id: auth2 || null,
         start_date,
         end_date,
@@ -247,6 +250,7 @@ export const createLeave = async (
     // 4. Aktivite logu yaz
     let actionEnum = "CREATED";
     if (shouldAutoApprove) actionEnum = "CREATED_BY_REVIR";
+    else if (shouldApproveWithoutChain) actionEnum = "APPROVED";
     else if (creator_id !== user_id) actionEnum = "CREATED_BY_HR";
 
     await LeaveActivityLog.create(
@@ -257,7 +261,9 @@ export const createLeave = async (
         new_status_id: initialStatus,
         details: shouldAutoApprove
           ? "Revir tarafından doğrudan onaylı kayıt oluşturuldu."
-          : "İzin talebi oluşturuldu.",
+          : shouldApproveWithoutChain
+            ? "Onay zinciri bulunmadığı için izin talebi otomatik onaylandı."
+            : "İzin talebi oluşturuldu.",
       },
       { transaction },
     );
@@ -297,13 +303,15 @@ export const createLeave = async (
       } catch (mailError) {
         console.error("1. Onaycıya e-posta gönderilemedi:", mailError);
       }
-    } else if (shouldAutoApprove) {
-      // Revir İzni: Personele bildir (Zaten onaylı)
+    } else if (shouldAutoApprove || shouldApproveWithoutChain) {
+      // Revir/Admin veya onay zinciri olmayan izin: Personele bildir (Zaten onaylı)
       await Notification.create(
         {
           user_id: user_id,
-          title: "Revir İzni Oluşturuldu",
-          message: `Revir tarafından adınıza ${req.body.leave_type || "doktor sevk/istirahat"} izni oluşturulmuştur.`,
+          title: shouldApproveWithoutChain ? "İzniniz Otomatik Onaylandı" : "Revir İzni Oluşturuldu",
+          message: shouldApproveWithoutChain
+            ? "Onay zinciriniz bulunmadığı için izin talebiniz otomatik olarak onaylandı."
+            : `Revir tarafından adınıza ${req.body.leave_type || "doktor sevk/istirahat"} izni oluşturulmuştur.`,
           type: "APPROVED",
           related_id: (newLeave as any).id,
         },
@@ -757,8 +765,10 @@ export const cancelLeave = async (
     const roleId = loggedUser?.role_id;
     const isAdminOrRevir = roleId === 7 || roleId === 4 || roleId === 5; // Admin, İK, Revir
 
+    const isOwner = leave.getDataValue("user_id") === user_id;
+
     // 1. Sadece sahibi VEYA Yetkili (Admin/Revir/İK) iptal edebilir
-    if (leave.getDataValue("user_id") !== user_id && !isAdminOrRevir) {
+    if (!isOwner && !isAdminOrRevir) {
       await transaction.rollback();
       return res
         .status(403)
@@ -766,6 +776,10 @@ export const cancelLeave = async (
     }
 
     const currentStatus = leave.getDataValue("leave_status_id") as number;
+    const isAutoApprovedWithoutChain =
+      currentStatus === 3 &&
+      !leave.getDataValue("auth1_user_id") &&
+      !leave.getDataValue("auth2_user_id");
 
     // 2. Zaten bitmiş/iptal edilmiş süreçler
     if (currentStatus === 4 || currentStatus === 5) {
@@ -775,8 +789,9 @@ export const cancelLeave = async (
         .json({ message: "Bu izin talebi zaten bitmiş veya iptal edilmiş." });
     }
 
-    // 3. Normal personel sadece bekleyenleri (1,2) iptal edebilir. Yetkililer ise onaylanmışı (3) da iptal edebilir.
-    if (!isAdminOrRevir && currentStatus !== 1 && currentStatus !== 2) {
+    // 3. Normal personel bekleyenleri (1,2) ve sadece otomatik onaylanmış zincirsiz kendi iznini iptal edebilir.
+    // Yetkililer ise onaylanmışı (3) da iptal edebilir.
+    if (!isAdminOrRevir && currentStatus !== 1 && currentStatus !== 2 && !(isOwner && isAutoApprovedWithoutChain)) {
       await transaction.rollback();
       return res.status(400).json({
         message:
@@ -784,7 +799,14 @@ export const cancelLeave = async (
       });
     }
 
-    await leave.update({ leave_status_id: 4 }, { transaction }); // Status 4 = CANCELLED
+    await leave.update(
+      {
+        leave_status_id: 4,
+        cancelled_at: new Date(),
+        cancelled_by: user_id,
+      },
+      { transaction },
+    ); // Status 4 = CANCELLED
 
     await LeaveActivityLog.create(
       {

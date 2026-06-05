@@ -33,6 +33,8 @@ export interface ILeave {
     leave_reason_id: number;
     leave_status_id: number;
     leave_duration_type_id: number;
+    auth1_user_id?: string | null;
+    auth2_user_id?: string | null;
     start_date: string;
     end_date: string;
     description?: string;

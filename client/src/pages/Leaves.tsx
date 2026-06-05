@@ -167,7 +167,14 @@ export default function Leaves() {
               <span className="font-bold text-muted-foreground uppercase tracking-widest text-xs">Gösterilecek kayıt bulunamadı.</span>
             </div>
           ) : (
-            filteredLeaves.map((leave: ILeave) => (
+            // suan auth1 ve auth2 boş ise kullanıcıya onaylanmıs ıznı iptal etmesi için buton sağlanıyor. 
+            filteredLeaves.map((leave: ILeave) => {
+              const isPendingLeave = leave.leave_status_id === 1 || leave.leave_status_id === 2;
+              const isAutoApprovedWithoutChain =
+                leave.leave_status_id === 3 && !leave.auth1_user_id && !leave.auth2_user_id;
+              const canCancelLeave = isPendingLeave || isAutoApprovedWithoutChain;
+
+              return (
               <div
                 key={leave.id}
                 className="group p-5 sm:p-6 rounded-2xl border border-border/50 bg-card hover:shadow-xl hover:shadow-primary/5 hover:border-primary/20 transition-all flex flex-col lg:flex-row lg:items-center justify-between gap-4"
@@ -246,7 +253,7 @@ export default function Leaves() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-48 rounded-2xl p-2 border-border/50 shadow-xl">
-                      {(leave.leave_status_id === 1 || leave.leave_status_id === 2) && (
+                      {isPendingLeave && (
                         <>
                           <DropdownMenuItem
                             onClick={() => handleEdit(leave)}
@@ -264,6 +271,15 @@ export default function Leaves() {
                           </DropdownMenuItem>
                         </>
                       )}
+                      {!isPendingLeave && canCancelLeave && (
+                        <DropdownMenuItem
+                          onClick={() => handleCancel(leave.id!)}
+                          className="flex items-center gap-2 p-3 rounded-xl font-bold text-destructive cursor-pointer hover:bg-destructive/10"
+                        >
+                          <Trash2 size={18} />
+                          İptal Et
+                        </DropdownMenuItem>
+                      )}
                       <DropdownMenuItem className="flex items-center gap-2 p-3 rounded-xl font-bold cursor-pointer">
                         <AlertCircle size={18} className="text-muted-foreground" />
                         Detaylar
@@ -272,7 +288,8 @@ export default function Leaves() {
                   </DropdownMenu>
                 </div>
               </div>
-            ))
+              );
+            })
           )}
         </div>
       </div>

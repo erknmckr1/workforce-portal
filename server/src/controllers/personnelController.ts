@@ -6,6 +6,99 @@ import fs from "fs";
 import path from "path";
 import * as XLSX from "xlsx";
 
+const ROLE_PERSONEL = 1;
+const ROLE_YONETICI = 2;
+const ROLE_MUDUR = 3;
+const ROLE_USTABASI = 9;
+
+const resolveApprovalChain = (operator: Operator, dept?: Department | null, section?: Section | null) => {
+    const roleId = Number(operator.role_id);
+    const operatorId = operator.id_dec;
+    const departmentUstabasi = dept?.ustabasi_id || null;
+    const departmentSupervisor = dept?.supervisor_id || null;
+    const sectionManager = section?.manager_id || null;
+    const isSectionManager = sectionManager === operatorId;
+    const isDepartmentSupervisor = departmentSupervisor === operatorId;
+    const isDepartmentUstabasi = departmentUstabasi === operatorId;
+
+    if (isSectionManager || roleId === ROLE_MUDUR) {
+        return {
+            auth1: null,
+            auth2: null
+        };
+    }
+
+    if (isDepartmentSupervisor || roleId === ROLE_YONETICI) {
+        return {
+            auth1: sectionManager,
+            auth2: null
+        };
+    }
+
+    if (isDepartmentUstabasi || roleId === ROLE_USTABASI) {
+        return {
+            auth1: departmentSupervisor,
+            auth2: sectionManager
+        };
+    }
+
+    if (roleId === ROLE_PERSONEL || roleId > 0) {
+        return {
+            auth1: departmentUstabasi || departmentSupervisor,
+            auth2: departmentUstabasi && departmentSupervisor ? departmentSupervisor : sectionManager
+        };
+    }
+
+    return {
+        auth1: operator.auth1 || null,
+        auth2: operator.auth2 || null
+    };
+};
+
+const syncOperatorApprovalChains = async (where: any = {}) => {
+    const operators = await Operator.findAll({
+        where: { is_active: 1, ...where }
+    });
+
+    if (!operators.length) return 0;
+
+    const departments = await Department.findAll();
+    const sections = await Section.findAll();
+    const departmentMap = new Map(departments.map(dept => [Number(dept.id), dept]));
+    const sectionMap = new Map(sections.map(section => [Number(section.id), section]));
+
+    let updateCount = 0;
+    for (const operator of operators) {
+        const dept = operator.department ? departmentMap.get(Number(operator.department)) : null;
+        const sectionId = dept?.section_id || operator.section;
+        const section = sectionId ? sectionMap.get(Number(sectionId)) : null;
+        const nextApproval = resolveApprovalChain(operator, dept, section);
+
+        if ((operator.auth1 || null) !== nextApproval.auth1 || (operator.auth2 || null) !== nextApproval.auth2) {
+            await operator.update(nextApproval);
+            updateCount++;
+        }
+    }
+
+    return updateCount;
+};
+
+const syncDepartmentApprovalChains = async (departmentId: string | number) => {
+    return syncOperatorApprovalChains({ department: departmentId });
+};
+
+const syncSectionApprovalChains = async (sectionId: string | number) => {
+    const departments = await Department.findAll({ where: { section_id: sectionId } });
+    const departmentIds = departments.map(dept => dept.id);
+
+    return syncOperatorApprovalChains({
+        [Op.or]: [
+            { section: sectionId },
+            ...(departmentIds.length ? [{ department: { [Op.in]: departmentIds } }] : [])
+        ]
+    });
+};
+
 // Gelen base64 resmi masaüstü klasörüne kaydeder ve dosya adını döner
 const savePhotoToDisk = (photoData: string, personnelId: string): string | null => {
     try {
@@ -259,13 +352,9 @@ export const updateSectionManager = async (req: Request, res: Response): Promise
         
         await section.update({ manager_id: manager_id || null });
         
-        // Operatör tablosunu güncelle (auth2)
-        await Operator.update(
-            { auth2: manager_id || null },
-            { where: { section: id, is_active: 1 } }
-        );
+        const updateCount = await syncSectionApprovalChains(String(id));
         
-        return res.status(200).json({ message: "Bölüm yöneticisi atandı ve bağlı personeller güncellendi." });
+        return res.status(200).json({ message: `Bölüm yöneticisi atandı ve ${updateCount} personelin onay zinciri güncellendi.` });
     } catch(err) {
         console.error("UpdateSectionManager Hatası:", err);
         return res.status(500).json({ message: "Bölüm yöneticisi atanırken hata oluştu" });
@@ -283,13 +372,9 @@ export const updateDepartmentSupervisor = async (req: Request, res: Response): P
         
         await dept.update({ supervisor_id: supervisor_id || null });
         
-        // Operatör tablosunu güncelle (auth1)
-        await Operator.update(
-            { auth1: supervisor_id || null },
-            { where: { department: id, is_active: 1 } }
-        );
+        const updateCount = await syncDepartmentApprovalChains(String(id));
         
-        return res.status(200).json({ message: "Birim sorumlusu atandı ve bağlı personeller güncellendi." });
+        return res.status(200).json({ message: `Birim sorumlusu atandı ve ${updateCount} personelin onay zinciri güncellendi.` });
     } catch(err) {
         console.error("UpdateDepartmentSupervisor Hatası:", err);
         return res.status(500).json({ message: "Birim sorumlusu atanırken hata oluştu" });
@@ -307,7 +392,9 @@ export const updateDepartmentUstabasi = async (req: Request, res: Response): Pro
 
         await dept.update({ ustabasi_id: ustabasi_id || null });
 
-        return res.status(200).json({ message: "Birim ustabaşısı atandı." });
+        const updateCount = await syncDepartmentApprovalChains(String(id));
+
+        return res.status(200).json({ message: `Birim ustabaşısı atandı ve ${updateCount} personelin onay zinciri güncellendi.` });
     } catch(err) {
         console.error("UpdateDepartmentUstabasi Hatası:", err);
         return res.status(500).json({ message: "Birim ustabaşısı atanırken hata oluştu" });
@@ -316,17 +403,9 @@ export const updateDepartmentUstabasi = async (req: Request, res: Response): Pro
 
 export const syncAllApprovals = async (req: Request, res: Response): Promise<Response> => {
     try {
-        const sections = await Section.findAll();
-        for (const sec of sections) {
-            await Operator.update({ auth2: sec.manager_id || null }, { where: { section: sec.id, is_active: 1 } });
-        }
+        const updateCount = await syncOperatorApprovalChains();
         
-        const depts = await Department.findAll();
-        for (const dept of depts) {
-            await Operator.update({ auth1: dept.supervisor_id || null }, { where: { department: dept.id, is_active: 1 } });
-        }
-        
-        return res.status(200).json({ message: "Tüm sistem yetki hiyerarşisi personellere başarıyla senkronize edildi." });
+        return res.status(200).json({ message: `Tüm sistem yetki hiyerarşisi başarıyla senkronize edildi. Güncellenen personel: ${updateCount}` });
     } catch(err) {
         console.error("SyncAllApprovals Hatası:", err);
         return res.status(500).json({ message: "Senkronizasyon işlemi sırasında hata oluştu" });

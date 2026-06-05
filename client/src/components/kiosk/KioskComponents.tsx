@@ -179,6 +179,9 @@ export function KioskMyRequests() {
     <div className="flex flex-col gap-4 pb-10">
       {leaves.map((leave) => {
         const isPending = leave.leave_status_id === 1; // 1: Bekliyor
+        const isAutoApprovedWithoutChain =
+          leave.leave_status_id === 3 && !leave.auth1_user_id && !leave.auth2_user_id;
+        const canCancel = isPending || isAutoApprovedWithoutChain;
         let statusColor = "bg-muted text-muted-foreground border-border/50";
         if (leave.leave_status_id === 1) statusColor = "bg-orange-500/10 text-orange-600 border-orange-500/20";
         else if (leave.leave_status_id === 3) statusColor = "bg-green-500/10 text-green-600 border-green-500/20";
@@ -231,7 +234,7 @@ export function KioskMyRequests() {
             </div>
 
             <div className="shrink-0 flex items-center w-full xl:w-37.5 justify-center xl:justify-end">
-                {isPending ? (
+                {canCancel ? (
                    <Button variant="ghost" onClick={() => handleCancel(leave.id)} className="w-full xl:w-auto text-destructive hover:bg-destructive/10 hover:text-destructive rounded-xl h-14 xl:h-12 px-6 font-black transition-all uppercase tracking-widest text-[11px] bg-destructive/5">
                       İptal Et
                    </Button>
