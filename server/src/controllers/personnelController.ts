@@ -17,9 +17,9 @@ const resolveApprovalChain = (operator: Operator, dept?: Department | null, sect
     const departmentUstabasi = dept?.ustabasi_id || null;
     const departmentSupervisor = dept?.supervisor_id || null;
     const sectionManager = section?.manager_id || null;
-    const isSectionManager = sectionManager === operatorId;
-    const isDepartmentSupervisor = departmentSupervisor === operatorId;
-    const isDepartmentUstabasi = departmentUstabasi === operatorId;
+    const isSectionManager = sectionManager === operatorId; // Ilgılını bölümün müdürü mü izin alıyor ?
+    const isDepartmentSupervisor = departmentSupervisor === operatorId; // Bölüm yöneticisi mi izin alıyor ?
+    const isDepartmentUstabasi = departmentUstabasi === operatorId; // Usta başı mı izin alıyor ?
 
     if (isSectionManager || roleId === ROLE_MUDUR) {
         return {

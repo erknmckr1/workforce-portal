@@ -12,7 +12,7 @@ export function ModuleWrapperPopup() {
 
   if (!isPopupOpen) return null;
 
-  const rolesAllowedToApprove = [1, 2, 3, 7];
+  const rolesAllowedToApprove = [1, 2, 3, 7, 9];
   const canApprove = user?.role_id ? rolesAllowedToApprove.includes(user.role_id) : false;
 
   return (

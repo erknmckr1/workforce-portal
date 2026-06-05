@@ -53,6 +53,12 @@ next-env.d.ts
 # Scripts
 /server/src/scripts
 server/src/scripts
+!/server/src/scripts/
+!server/src/scripts/
+!/server/src/scripts/inspect_mes_leaves.ts
+!server/src/scripts/inspect_mes_leaves.ts
+!/server/src/scripts/migrate_mes_leaves.ts
+!server/src/scripts/migrate_mes_leaves.ts
 /server/scripts
 server/scripts
 
