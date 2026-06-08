@@ -414,14 +414,24 @@ const PersonnelRow = memo(
         </td>
         <td className="px-6 py-3">
           <div className="flex items-center gap-2">
-            <div className={cn(
-               "h-2 w-2 rounded-full",
-               p.leave_balance > 5 ? "bg-emerald-500" : p.leave_balance > 0 ? "bg-orange-500" : "bg-destructive"
-            )} />
+            <div
+              className={cn(
+                "h-2 w-2 rounded-full",
+                p.leave_balance > 5
+                  ? "bg-emerald-500"
+                  : p.leave_balance > 0
+                    ? "bg-orange-500"
+                    : "bg-destructive",
+              )}
+            />
             <span
               className={cn(
                 "text-xs font-black tracking-tight",
-                p.leave_balance > 5 ? "text-emerald-600 dark:text-emerald-400" : p.leave_balance > 0 ? "text-orange-600 dark:text-orange-400" : "text-destructive",
+                p.leave_balance > 5
+                  ? "text-emerald-600 dark:text-emerald-400"
+                  : p.leave_balance > 0
+                    ? "text-orange-600 dark:text-orange-400"
+                    : "text-destructive",
               )}
             >
               {p.leave_balance} Gün

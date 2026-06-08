@@ -108,7 +108,7 @@ function App() {
               element={isAuthenticated ? <MainLayout /> : <Navigate to="/login" />}
             >
               {/* Panel (Eski Dashboard) */}
-              <Route element={<ProtectedRoute allowedRoles={["Admin", "Müdür", "Yönetici", "Personel", "İK", "Revir"]} />}>
+              <Route element={<ProtectedRoute allowedRoles={["Admin", "Müdür", "Yönetici", "Personel", "İK", "Revir", "Güvenlik"]} />}>
                 <Route path="panel" element={<Dashboard />} />
               </Route>
 

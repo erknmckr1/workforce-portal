@@ -294,8 +294,19 @@ const UretimTerminal = () => {
     globalLogin(userData);
   };
 
-  const handleLogout = () => {
-    globalLogout();
+  const handleLogout = async () => {
+    try {
+      await apiClient.post("/auth/logout");
+      toast.success("Güvenli çıkış yapıldı.");
+    } catch {
+      toast.error("Çıkış yapılırken oturum çerezi temizlenemedi.");
+    } finally {
+      setSelectedJobs([]);
+      setActiveOperatorId(null);
+      setIsKioskOpen(false);
+      closePopup();
+      globalLogout();
+    }
   };
 
   //! process listesini cekecek query
@@ -389,7 +400,7 @@ const UretimTerminal = () => {
     workLogs
       ?.filter((log: WorkLog) => {
         // Proses Filtresi (Eğer bir proses seçildiyse)
-        if (selectedProcessId && log.process_id !== selectedProcessId) return false;
+        if (areaName !== "kalite" && selectedProcessId && log.process_id !== selectedProcessId) return false;
         
         // Makine Filtresi (Eğer bir makine seçildiyse)
         if (selectedMachineName && log.machine_name !== selectedMachineName) return false;

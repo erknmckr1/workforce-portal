@@ -29,7 +29,7 @@ const menuItems = [
     title: "Panel",
     icon: LayoutDashboard,
     path: "/panel",
-    roles: ["Admin", "Müdür", "Yönetici", "Personel", "İK", "Revir"],
+    roles: ["Admin", "Müdür", "Yönetici", "Personel", "İK", "Revir", "Güvenlik"],
   },
   {
     title: "İzinlerim",
