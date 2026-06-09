@@ -10,6 +10,7 @@ import {
   ChevronDown,
   Briefcase,
   FileText,
+  Files,
   ClipboardCheck,
   ShieldCheck,
   Stethoscope,
@@ -57,6 +58,12 @@ const menuItems = [
     icon: ClipboardCheck,
     path: "/leave-approvals",
     roles: ["Admin", "Müdür", "Yönetici", "İK"],
+  },
+  {
+    title: "Tüm İzinler",
+    icon: Files,
+    path: "/all-leaves",
+    roles: ["Admin", "İK"],
   },
   {
     title: "Personel Yönetimi",
@@ -168,7 +175,7 @@ const menuItems = [
       {
         title: "Şifre Talepleri",
         path: "/password-resets",
-        roles: ["Admin", "İK"],
+        roles: ["Admin"],
       },
       {
         title: "Yemek Yönetimi",

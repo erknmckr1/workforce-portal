@@ -813,7 +813,8 @@ export const getFactoryEntryTime = async (req: Request, res: Response) => {
       return res.status(200).json({ entryTime: null });
     }
 
-    const todayStart = new Date().setHours(0, 0, 0, 0);
+    const todayStart = new Date();
+    todayStart.setUTCHours(0, 0, 0, 0);
 
     // 1. Bugünkü en son giriş
     const lastEntry = await ExternalMovement.findOne({

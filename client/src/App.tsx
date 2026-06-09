@@ -11,6 +11,7 @@ import SettingsIndex from "./pages/settings/SettingsIndex";
 import Approvals from "./pages/settings/Approvals";
 import Leaves from "./pages/Leaves";
 import LeaveApprovals from "./pages/LeaveApprovals";
+import AllLeaves from "./pages/AllLeaves";
 import SecurityScreen from "./pages/SecurityScreen";
 import Infirmary from "./pages/Infirmary";
 import KioskPage from "./pages/KioskPage";
@@ -120,6 +121,11 @@ function App() {
               {/* Onay Bekleyenler */}
               <Route element={<ProtectedRoute allowedRoles={["Admin", "Müdür", "Yönetici", "İK"]} />}>
                 <Route path="leave-approvals" element={<LeaveApprovals />} />
+              </Route>
+
+              {/* Tüm İzinler (Sadece İK ve Admin görebilir) */}
+              <Route element={<ProtectedRoute allowedRoles={["Admin", "İK"]} />}>
+                <Route path="all-leaves" element={<AllLeaves />} />
               </Route>
 
               {/* Personel Yönetimi */}

@@ -166,8 +166,10 @@ export const createLeave = async (
       total_hours,
     } = req.body;
 
+    const loggedUser = (req as any).user;
+    
     // İşlemi yapan kullanıcı ID'si (Auth middleware'den gelmeli, şimdilik body'den veya manuel)
-    const creator_id = req.body.creator_id || user_id;
+    const creator_id = loggedUser?.id_dec || req.body.creator_id || user_id;
 
     // 1. Hedef kullanıcının onaycılarını bul
     const targetUser = await Operator.findByPk(user_id);
@@ -179,7 +181,6 @@ export const createLeave = async (
     const auth1 = targetUser.auth1;
     const auth2 = targetUser.auth2;
 
-    const loggedUser = (req as any).user;
     const isAuthorizedForAutoApprove =
       loggedUser?.role_id === 7 ||
       loggedUser?.role_id === 4 ||
@@ -233,8 +234,10 @@ export const createLeave = async (
         leave_reason_id,
         leave_status_id: initialStatus,
         leave_duration_type_id: leave_duration_type_id || 4,
-        auth1_user_id: shouldAutoApprove ? auth1 || creator_id : auth1 || null,
-        auth2_user_id: auth2 || null,
+        auth1_user_id: shouldAutoApprove ? creator_id : auth1 || null,
+        auth2_user_id: shouldAutoApprove ? null : auth2 || null,
+        auth1_responded_at: shouldAutoApprove ? new Date() : undefined,
+        auth2_responded_at: undefined,
         start_date,
         end_date,
         total_days: total_days || null,
@@ -689,7 +692,11 @@ export const rejectLeave = async (
       });
     }
 
+    const loggedUser = (req as any).user;
+    const isAdmin = loggedUser?.role_id === 7 || loggedUser?.role_id === 4;
+
     if (
+      !isAdmin &&
       currentStatus === 1 &&
       leave.getDataValue("auth1_user_id") !== approver_id
     ) {
@@ -700,6 +707,7 @@ export const rejectLeave = async (
     }
 
     if (
+      !isAdmin &&
       currentStatus === 2 &&
       leave.getDataValue("auth2_user_id") !== approver_id
     ) {
@@ -854,8 +862,12 @@ export const updateLeave = async (
       return res.status(404).json({ message: "İzin talebi bulunamadı." });
     }
 
-    // 1. Sadece sahibi değiştirebilir
-    if (leave.getDataValue("user_id") !== user_id) {
+    const loggedUser = (req as any).user;
+    const roleId = loggedUser?.role_id;
+    const isAdminOrRevir = roleId === 7 || roleId === 4 || roleId === 5;
+
+    // 1. Sadece sahibi VEYA Yetkili (Admin/Revir/İK) değiştirebilir
+    if (leave.getDataValue("user_id") !== user_id && !isAdminOrRevir) {
       await transaction.rollback();
       return res
         .status(403)

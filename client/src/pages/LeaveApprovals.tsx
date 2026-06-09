@@ -17,9 +17,11 @@ import { format } from "date-fns";
 import { tr } from "date-fns/locale";
 import { useAuthStore } from "@/store/authStore";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { useConfirm } from "@/providers/ConfirmProvider";
 
 export default function LeaveApprovals() {
   const { user } = useAuthStore();
+  const { confirm } = useConfirm();
   const [activeTab, setActiveTab] = useState<"pending" | "history">("pending");
   const [currentPage, setCurrentPage] = useState(1);
   const { leaves, totalPages, isLoading, approveLeave, rejectLeave } = useLeaves({
@@ -33,6 +35,16 @@ export default function LeaveApprovals() {
 
   const handleApprove = async (id: number) => {
     if (!user?.id_dec) return;
+
+    const isConfirmed = await confirm({
+      title: "İzni Onayla",
+      description: "Bu izin talebini onaylamak istediğinizden emin misiniz?",
+      confirmText: "Onayla",
+      variant: "success"
+    });
+    
+    if (!isConfirmed) return;
+
     setProcessingId(id);
     try {
       await approveLeave({ id, approver_id: user.id_dec });
@@ -43,6 +55,16 @@ export default function LeaveApprovals() {
 
   const handleReject = async (id: number) => {
     if (!user?.id_dec) return;
+
+    const isConfirmed = await confirm({
+      title: "İzni Reddet",
+      description: "Bu izin talebini reddetmek istediğinizden emin misiniz?",
+      confirmText: "Reddet",
+      variant: "destructive"
+    });
+    
+    if (!isConfirmed) return;
+
     setProcessingId(id);
     try {
       await rejectLeave({ id, approver_id: user.id_dec });
@@ -199,6 +221,7 @@ export default function LeaveApprovals() {
                         <span className="font-bold text-foreground/70">İşe Dönüş:</span>
                         <span>{format(new Date(leave.end_date), "d MMM yyyy HH:mm", { locale: tr })}</span>
                       </div>
+
                       {leave.description && (
                         <div className="mt-2 p-3 bg-muted/30 rounded-xl text-xs italic border border-border/50">
                           "{leave.description}"
@@ -209,31 +232,40 @@ export default function LeaveApprovals() {
                 </div>
 
                 <div className="flex flex-col lg:items-end gap-6 mt-4 lg:mt-0 pt-6 lg:pt-0 border-t border-border/50 lg:border-none">
-                  <div className="flex flex-col lg:text-right">
+                  <div className="flex flex-col lg:items-end">
                     <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2">Mevcut Durum</span>
-                    <div className="flex items-center gap-1">
-                        {/* 1. Onay Noktası */}
-                        <div className={cn(
-                          "w-2.5 h-2.5 rounded-full transition-colors",
-                          // DURUM 5 (RED) iken: Eğer auth1 tarihi varsa ve auth2 tarihi yoksa, auth1 reddetmiştir.
-                          (leave.leave_status_id === 5 && leave.auth1_responded_at && !leave.auth2_responded_at) ? "bg-destructive shadow-[0_0_8px_rgba(var(--destructive),0.5)]" :
-                          // Eğer auth1 onaylamışsa (bu duruma sadece auth1 onay verip 2. aşamaya geçtiyse veya onaylandıysa gelinir)
-                          (leave.auth1_responded_at || leave.leave_status_id === 3 || leave.leave_status_id === 2) ? "bg-success" : 
-                          // Süreç iptal edildiyse
-                          (leave.leave_status_id === 4) ? "bg-destructive" : "bg-muted"
-                        )} />
+                    <div className="flex items-start gap-1">
+                        {/* 1. Onay Noktası ve İsim */}
+                        <div className="flex flex-col items-center gap-1.5 min-w-[60px]">
+                          <div className={cn(
+                            "w-2.5 h-2.5 rounded-full transition-colors",
+                            (leave.leave_status_id === 5 && leave.auth1_responded_at && !leave.auth2_responded_at) ? "bg-destructive shadow-[0_0_8px_rgba(var(--destructive),0.5)]" :
+                            (leave.auth1_responded_at || leave.leave_status_id === 3 || leave.leave_status_id === 2) ? "bg-success" : 
+                            (leave.leave_status_id === 4) ? "bg-destructive" : "bg-muted"
+                          )} />
+                          {leave.Approver1 && (
+                            <span className="text-[9px] font-medium text-muted-foreground whitespace-nowrap text-center">
+                              {leave.Approver1.name} {leave.Approver1.surname}
+                            </span>
+                          )}
+                        </div>
                         
-                        <div className="w-4 h-[2px] bg-muted/50" />
+                        <div className="w-4 h-[2px] bg-muted/50 mt-1" />
                         
-                        {/* 2. Onay Noktası */}
-                        <div className={cn(
-                          "w-2.5 h-2.5 rounded-full transition-colors",
-                          // DURUM 5 (RED) iken: Eğer hem auth1 hem auth2 tarihi varsa, 2. kişi reddetmiştir.
-                          (leave.leave_status_id === 5 && leave.auth1_responded_at && leave.auth2_responded_at) ? "bg-destructive shadow-[0_0_8px_rgba(var(--destructive),0.5)]" :
-                          // Sadece tam onaylandı durumunda yeşil.
-                          (leave.leave_status_id === 3) ? "bg-success shadow-[0_0_8px_rgba(var(--success),0.5)]" : 
-                          "bg-muted"
-                        )} />
+                        {/* 2. Onay Noktası ve İsim */}
+                        <div className="flex flex-col items-center gap-1.5 min-w-[60px]">
+                          <div className={cn(
+                            "w-2.5 h-2.5 rounded-full transition-colors",
+                            (leave.leave_status_id === 5 && leave.auth2_responded_at) ? "bg-destructive shadow-[0_0_8px_rgba(var(--destructive),0.5)]" :
+                            (leave.leave_status_id === 3) ? "bg-success" : 
+                            (leave.leave_status_id === 4) ? "bg-destructive" : "bg-muted"
+                          )} />
+                          {leave.Approver2 && (
+                            <span className="text-[9px] font-medium text-muted-foreground whitespace-nowrap text-center">
+                              {leave.Approver2.name} {leave.Approver2.surname}
+                            </span>
+                          )}
+                        </div>
                     </div>
                   </div>
 
