@@ -88,7 +88,7 @@ const TerminalJobTable: React.FC<TerminalJobTableProps> = ({
                 </td>
                 <td className="p-3">
                   <div className="flex flex-col">
-                    <span className="font-bold text-foreground">
+                    <span className="font-bold text-lg text-foreground">
                       {job.operatorName}
                     </span>
                     <span className="text-[10px] text-muted-foreground font-mono italic">
@@ -96,13 +96,13 @@ const TerminalJobTable: React.FC<TerminalJobTableProps> = ({
                     </span>
                   </div>
                 </td>
-                <td className="p-3 font-mono font-bold text-zinc-300">
+                <td className="p-3 text-lg font-mono font-bold text-zinc-300">
                   {job.orderId}
                 </td>
                 <td className="p-3 text-muted-foreground/70">{job.oldCode}</td>
                 <td className="p-3">
                   <div className="flex flex-col">
-                    <span className="text-foreground font-medium">
+                    <span className="text-foreground text-lg ">
                       {job.process}
                     </span>
                     <span className="text-[10px] text-muted-foreground uppercase tracking-tighter">
@@ -119,10 +119,13 @@ const TerminalJobTable: React.FC<TerminalJobTableProps> = ({
                 <td className="p-3 last:rounded-r-lg text-center">
                   <div className="flex items-center justify-center gap-2">
                     <span
-                      className={`h-2 w-2 rounded-full ${job.status === 1 ? 'animate-pulse' : ''}`}
+                      className={`h-2 w-2 rounded-full ${job.status === 1 ? "animate-pulse" : ""}`}
                       style={{ backgroundColor: job.statusColor || "#6b7280" }}
                     />
-                    <span className="text-xs font-bold" style={{ color: job.statusColor || "#6b7280" }}>
+                    <span
+                      className="text-xs font-bold"
+                      style={{ color: job.statusColor || "#6b7280" }}
+                    >
                       {job.statusName || "Bilinmiyor"}
                     </span>
                   </div>

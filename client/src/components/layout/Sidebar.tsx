@@ -20,7 +20,6 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/authStore";
-import { useModuleStore } from "@/store/moduleStore";
 import apiClient from "@/lib/api";
 import { toast } from "sonner";
 
@@ -29,13 +28,29 @@ const menuItems = [
     title: "Panel",
     icon: LayoutDashboard,
     path: "/panel",
-    roles: ["Admin", "Müdür", "Yönetici", "Personel", "İK", "Revir", "Güvenlik"],
+    roles: [
+      "Admin",
+      "Müdür",
+      "Yönetici",
+      "Personel",
+      "İK",
+      "Revir",
+      "Güvenlik",
+    ],
   },
   {
     title: "İzinlerim",
     icon: CalendarDays,
     path: "/leaves",
-    roles: ["Admin", "Müdür", "Yönetici", "Personel", "İK", "Revir", "Güvenlik"],
+    roles: [
+      "Admin",
+      "Müdür",
+      "Yönetici",
+      "Personel",
+      "İK",
+      "Revir",
+      "Güvenlik",
+    ],
   },
   {
     title: "Onay Bekleyenler",
@@ -76,25 +91,57 @@ const menuItems = [
   {
     title: "Araçlar",
     icon: Wrench,
-    roles: ["Admin", "İK", "Müdür", "Yönetici", "Personel", "Revir", "Güvenlik"],
+    roles: [
+      "Admin",
+      "İK",
+      "Müdür",
+      "Yönetici",
+      "Personel",
+      "Revir",
+      "Güvenlik",
+    ],
     children: [
       {
         title: "Senelik Plan",
         path: "/yearly-plan",
         icon: CalendarRange,
-        roles: ["Admin", "İK", "Müdür", "Yönetici", "Personel", "Revir", "Güvenlik"],
+        roles: [
+          "Admin",
+          "İK",
+          "Müdür",
+          "Yönetici",
+          "Personel",
+          "Revir",
+          "Güvenlik",
+        ],
       },
       {
         title: "Yemek Menüsü",
         path: "/food-menu",
         icon: FileText,
-        roles: ["Admin", "İK", "Müdür", "Yönetici", "Personel", "Revir", "Güvenlik"],
+        roles: [
+          "Admin",
+          "İK",
+          "Müdür",
+          "Yönetici",
+          "Personel",
+          "Revir",
+          "Güvenlik",
+        ],
       },
       {
         title: "Telefon Rehberi",
         path: "/phone-directory",
         icon: Phone,
-        roles: ["Admin", "İK", "Müdür", "Yönetici", "Personel", "Revir", "Güvenlik"],
+        roles: [
+          "Admin",
+          "İK",
+          "Müdür",
+          "Yönetici",
+          "Personel",
+          "Revir",
+          "Güvenlik",
+        ],
       },
     ],
   },
@@ -103,15 +150,15 @@ const menuItems = [
     icon: Settings,
     roles: ["Admin", "İK"],
     children: [
-      { 
-        title: "Genel Ayarlar", 
+      {
+        title: "Genel Ayarlar",
         path: "/settings/general",
-        roles: ["Admin"]
+        roles: ["Admin"],
       },
-      { 
-        title: "Onay Hiyerarşisi", 
+      {
+        title: "Onay Hiyerarşisi",
         path: "/settings/approvals",
-        roles: ["Admin"]
+        roles: ["Admin"],
       },
       {
         title: "Takvim Yönetimi",
@@ -354,7 +401,7 @@ export default function Sidebar({
         {/* Alt Kısım: İşlemler & Çıkış */}
         <div className="p-4 border-t border-border/50 space-y-2">
           {/* Kiosk Açma Butonu */}
-          <button
+          {/* <button
             onClick={() => useModuleStore.getState().openPopup()}
             className={cn(
               "flex items-center gap-4 px-4 h-12 w-full rounded-xl transition-all  bg-orange-500/10 hover:bg-orange-500 text-foreground hover:text-card group",
@@ -373,8 +420,8 @@ export default function Sidebar({
             >
               Kiosk Ekranı
             </span>
-          </button>
-
+          </button>*/}
+          
           {/* Oturumu Kapat */}
           <button
             onClick={handleLogout}

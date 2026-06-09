@@ -50,6 +50,7 @@ import { Input } from "../components/ui/input";
 import { Button } from "../components/ui/button";
 import { Phone as PhoneIcon } from "lucide-react";
 import ShiftRunner from "../components/game/ShiftRunner";
+import { toast } from "sonner";
 
 interface CalendarEvent {
   id?: number;
@@ -100,6 +101,10 @@ const Home = () => {
       setLogoClicks(newClicks);
       setTimeout(() => setLogoClicks(0), 3000);
     }
+  };
+
+  const notifyComingSoon = () => {
+    toast.info("Üzerinde çalışıyoruz");
   };
 
   // Phone Directory Modal States
@@ -240,16 +245,16 @@ const Home = () => {
           </div>
           <div className="h-4 w-px bg-primary-foreground/20 ml-2"></div>
           <div className="hidden md:flex gap-6 text-[11px] font-bold uppercase tracking-wider opacity-80">
-            <span className="hover:opacity-100 cursor-pointer">Dokümanlar</span>
-            <span className="hover:opacity-100 cursor-pointer">Belgeler</span>
-            <span className="hover:opacity-100 cursor-pointer">Formlar</span>
+            <span onClick={notifyComingSoon} className="hover:opacity-100 cursor-pointer">Dokümanlar</span>
+            <span onClick={notifyComingSoon} className="hover:opacity-100 cursor-pointer">Belgeler</span>
+            <span onClick={notifyComingSoon} className="hover:opacity-100 cursor-pointer">Formlar</span>
             <span
               onClick={() => setIsPhoneModalOpen(true)}
               className="hover:opacity-100 cursor-pointer text-card animate-pulse"
             >
               Numaralar
             </span>
-            <span className="hover:opacity-100 cursor-pointer">Anketler</span>
+            <span onClick={notifyComingSoon} className="hover:opacity-100 cursor-pointer">Anketler</span>
           </div>
         </div>
         <div className="flex items-center gap-4">
@@ -922,7 +927,7 @@ const Home = () => {
       {isGameOpen && (
         <ShiftRunner 
           onClose={() => setIsGameOpen(false)} 
-          operatorId={user?.external_id?.toString()} 
+          operatorId={user?.id_dec?.toString()} 
         />
       )}
     </div>

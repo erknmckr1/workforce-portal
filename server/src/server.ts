@@ -13,6 +13,7 @@ import foodMenuRoutes from "./routes/foodMenuRoutes";
 import mesRoutes from "./routes/mesRoutes";
 import phoneDirectoryRoutes from "./routes/phoneDirectoryRoutes";
 import gameRoutes from "./routes/gameRoutes";
+import { startLeaveBalanceSyncScheduler } from "./services/leaveBalanceSyncScheduler";
 import path from "path";
 import fs from "fs";
 
@@ -90,6 +91,8 @@ const startServer = async () => {
         await statusItem.update(s);
       }
     }
+
+    startLeaveBalanceSyncScheduler();
 
     const startListening = (portToTry: number) => {
       const server = app

@@ -18,7 +18,6 @@ interface TerminalHeaderProps {
 
 const TerminalHeader: React.FC<TerminalHeaderProps> = ({
   areaName,
-  section,
   searchOrderId,
   setSearchOrderId,
   handleSearch,
@@ -56,23 +55,25 @@ const TerminalHeader: React.FC<TerminalHeaderProps> = ({
               Terminal
             </span>
           </h1>
-          <div className="flex items-center gap-2 text-[10px] text-muted-foreground font-bold uppercase tracking-widest">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            Sistem Aktif • {section}
-          </div>
         </div>
 
         {/* SEARCH BAR */}
         <div className="relative ml-10 group">
           <div className="absolute inset-0 bg-amber-500/10 blur-xl opacity-0 group-focus-within:opacity-100 transition-opacity" />
-          <div className={`relative flex items-center bg-secondary/50 border border-border rounded-xl px-4 py-2 w-[400px] focus-within:border-amber-500/50 transition-all focus-within:bg-secondary ${isOnBreak ? "opacity-50 grayscale pointer-events-none" : ""}`}>
+          <div
+            className={`relative flex items-center bg-secondary/50 border border-border rounded-xl px-4 py-2 w-[400px] focus-within:border-amber-500/50 transition-all focus-within:bg-secondary ${isOnBreak ? "opacity-50 grayscale pointer-events-none" : ""}`}
+          >
             <Search
               className="text-muted-foreground group-focus-within:text-amber-500 transition-colors"
               size={18}
             />
             <input
               type="text"
-              placeholder={isOnBreak ? "MOLADAYKEN İŞ BAŞLATILAMAZ" : "SİPARİŞ NO VEYA BARKOD OKUTUN..."}
+              placeholder={
+                isOnBreak
+                  ? "MOLADAYKEN İŞ BAŞLATILAMAZ"
+                  : "SİPARİŞ NO VEYA BARKOD OKUTUN..."
+              }
               value={searchOrderId}
               disabled={isOnBreak}
               onChange={(e) => setSearchOrderId(e.target.value)}
@@ -90,15 +91,15 @@ const TerminalHeader: React.FC<TerminalHeaderProps> = ({
         {/* REUSABLE FACTORY TIMES */}
         <FactoryStatus externalId={externalId} />
 
-        <div className="flex flex-col items-end">
-          <div className="text-3xl font-mono font-black tracking-tighter text-amber-500 tabular-nums drop-shadow-[0_0_15px_rgba(245,158,11,0.3)]">
+        <div className="flex items-center gap-3 shrink-0">
+          <div className="text-[50px] leading-none font-mono font-black tracking-tighter text-amber-500 tabular-nums drop-shadow-[0_0_15px_rgba(245,158,11,0.3)]">
             {currentTime.toLocaleTimeString([], {
               hour: "2-digit",
               minute: "2-digit",
               second: "2-digit",
             })}
           </div>
-          <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+          <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest whitespace-nowrap">
             {currentTime.toLocaleDateString("tr-TR", {
               day: "2-digit",
               month: "long",
