@@ -92,6 +92,8 @@ export const useLeaves = (filters?: {
     approver_id?: string; 
     is_history?: boolean;
     is_security?: boolean;
+    start_date?: string;
+    end_date?: string;
     page?: number;
     limit?: number;
 }) => {

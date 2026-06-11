@@ -38,13 +38,16 @@ export default function AllLeaves() {
   const [editingLeave, setEditingLeave] = useState<ILeave | null>(null);
   const [detailLeave, setDetailLeave] = useState<ILeave | null>(null);
 
-  // Tüm izinleri çekmek için filtre göndermiyoruz (Admin/İK yetkisi backend'de tümünü döndürür)
-  const { leaves, isLoading, cancelLeave, approveLeave, rejectLeave } =
-    useLeaves({});
   const [searchTerm, setSearchTerm] = useState("");
   const today = format(new Date(), "yyyy-MM-dd");
   const [startDate, setStartDate] = useState(today);
   const [endDate, setEndDate] = useState(today);
+  const { leaves, isLoading, cancelLeave, approveLeave, rejectLeave } =
+    useLeaves({
+      start_date: startDate || undefined,
+      end_date: endDate || undefined,
+      limit: 200,
+    });
   const [processingId, setProcessingId] = useState<number | null>(null);
 
   const handleEdit = (leave: ILeave) => {
@@ -160,18 +163,7 @@ export default function AllLeaves() {
       leave.User?.surname?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       leave.id?.toString().includes(searchTerm);
 
-    let matchesDate = true;
-    if (startDate) {
-      matchesDate =
-        matchesDate && new Date(leave.start_date) >= new Date(startDate);
-    }
-    if (endDate) {
-      const endD = new Date(endDate);
-      endD.setHours(23, 59, 59, 999);
-      matchesDate = matchesDate && new Date(leave.start_date) <= endD;
-    }
-
-    return matchesSearch && matchesDate;
+    return matchesSearch;
   });
 
   return (

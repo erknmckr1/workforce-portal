@@ -469,6 +469,22 @@ export const getLeaves = async (req: Request, res: Response): Promise<any> => {
     }
 
     // Veritabanı Sorgusu (Sayfalamalı ve Sayımlı)
+    if (start_date || end_date) {
+      const dateFilter: any = {};
+
+      if (start_date) {
+        const [year, month, day] = String(start_date).split("-").map(Number);
+        dateFilter[Op.gte] = new Date(year, month - 1, day, 0, 0, 0, 0);
+      }
+
+      if (end_date) {
+        const [year, month, day] = String(end_date).split("-").map(Number);
+        dateFilter[Op.lte] = new Date(year, month - 1, day, 23, 59, 59, 999);
+      }
+
+      where.start_date = dateFilter;
+    }
+
     let operatorWhere: any = {};
     if (search) {
       operatorWhere = {
