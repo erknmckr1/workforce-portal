@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { useLeaves, type ILeave } from "@/hooks/useLeaves";
 import { CreateLeaveModal } from "@/components/leaves/CreateLeaveModal";
+import { LeaveActivityDialog } from "@/components/leaves/LeaveActivityDialog";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { format } from "date-fns";
 import { tr } from "date-fns/locale";
@@ -33,6 +34,7 @@ export default function Leaves() {
   const { user } = useAuthStore();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingLeave, setEditingLeave] = useState<ILeave | null>(null);
+  const [detailLeave, setDetailLeave] = useState<ILeave | null>(null);
   const { leaves, isLoading, cancelLeave } = useLeaves({ user_id: user?.id_dec });
   const [searchTerm, setSearchTerm] = useState("");
   const [processingId, setProcessingId] = useState<number | null>(null);
@@ -280,7 +282,10 @@ export default function Leaves() {
                           İptal Et
                         </DropdownMenuItem>
                       )}
-                      <DropdownMenuItem className="flex items-center gap-2 p-3 rounded-xl font-bold cursor-pointer">
+                      <DropdownMenuItem
+                        onClick={() => setDetailLeave(leave)}
+                        className="flex items-center gap-2 p-3 rounded-xl font-bold cursor-pointer"
+                      >
                         <AlertCircle size={18} className="text-muted-foreground" />
                         Detaylar
                       </DropdownMenuItem>
@@ -301,6 +306,13 @@ export default function Leaves() {
           if (!open) setEditingLeave(null);
         }}
         editingLeave={editingLeave}
+      />
+      <LeaveActivityDialog
+        leave={detailLeave}
+        open={Boolean(detailLeave)}
+        onOpenChange={(open) => {
+          if (!open) setDetailLeave(null);
+        }}
       />
     </div>
   );

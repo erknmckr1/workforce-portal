@@ -124,6 +124,14 @@ const FirePopup: React.FC<FirePopupProps> = ({
           id: selectedId,
         });
         toast.success("Ölçüm güncellendi.");
+        setForm({
+          orderId: "",
+          goldSetting: 0,
+          entryGramage: 0,
+          exitGramage: 0,
+          gold_pure_scrap: 0,
+          diffirence: 0,
+        });
       } else {
         await apiClient.post("/mes/scrap-measurements", {
           formState: form,

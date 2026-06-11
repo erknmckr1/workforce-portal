@@ -1,4 +1,4 @@
-import { ShieldCheck, Building2, GitMerge, Loader2, Search } from "lucide-react";
+import { ShieldCheck, Building2, GitMerge, Loader2, Search, UserRoundX } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useState, useMemo, useEffect, memo, useCallback } from "react";
@@ -10,6 +10,8 @@ import type { Personnel } from "@/hooks/usePersonnel";
 import { useLookups } from "@/hooks/useLookups";
 import type { LookupSection, LookupDepartment } from "@/hooks/useLookups";
 import { toast } from "sonner";
+
+const CLEAR_APPROVER_VALUE = "__clear_approver__";
 
 const ApproverSelect = memo(function ApproverSelect({ value, onChange, disabled, personnel, placeholder }: {
   value: string | undefined,
@@ -28,8 +30,9 @@ const ApproverSelect = memo(function ApproverSelect({ value, onChange, disabled,
   }, [value]);
 
   const handleSelect = (val: string) => {
-    setLocalValue(val); // UI anında güncellensin
-    onChange(val);      // Mutasyon arkada başlasın
+    const nextValue = val === CLEAR_APPROVER_VALUE ? "" : val;
+    setLocalValue(nextValue); // UI anında güncellensin
+    onChange(nextValue);      // Mutasyon arkada başlasın
   };
 
   const selectedName = useMemo(() => {
@@ -98,6 +101,12 @@ const ApproverSelect = memo(function ApproverSelect({ value, onChange, disabled,
         </div>
 
         <div className="p-1">
+          <SelectItem value={CLEAR_APPROVER_VALUE} className="py-3 cursor-pointer rounded-xl text-destructive focus:text-destructive">
+            <div className="flex items-center gap-2 font-extrabold">
+              <UserRoundX size={15} />
+              Atamayı kaldır / Boş bırak
+            </div>
+          </SelectItem>
           {/* PERFORMANS: Liste sadece dropdown açıkken render edilir, donmayı önleyen asıl hamle budur. */}
           {open && (filteredApprovers.length > 0 ? (
             filteredApprovers.map((p) => (
@@ -276,7 +285,9 @@ export default function Approvals() {
     updateSectionManagerMutation.mutate({ id, manager_id }, {
       onSuccess: async () => {
         await refetchLookups();
-        toast.success("Bölüm Yöneticisi atandı ve izin hiyerarşisi güncellendi.");
+        toast.success(manager_id
+          ? "Bölüm yöneticisi atandı ve izin hiyerarşisi güncellendi."
+          : "Bölüm yöneticisi kaldırıldı ve izin hiyerarşisi güncellendi.");
       }
     });
   }, [updateSectionManagerMutation, refetchLookups]);
@@ -285,7 +296,9 @@ export default function Approvals() {
     updateDepartmentSupervisorMutation.mutate({ id, supervisor_id }, {
       onSuccess: async () => {
         await refetchLookups();
-        toast.success("Birim Sorumlusu atandı ve izin hiyerarşisi güncellendi.");
+        toast.success(supervisor_id
+          ? "Birim sorumlusu atandı ve izin hiyerarşisi güncellendi."
+          : "Birim sorumlusu kaldırıldı ve izin hiyerarşisi güncellendi.");
       }
     });
   }, [updateDepartmentSupervisorMutation, refetchLookups]);
@@ -294,7 +307,9 @@ export default function Approvals() {
     updateDepartmentUstabasiMutation.mutate({ id, ustabasi_id }, {
       onSuccess: async () => {
         await refetchLookups();
-        toast.success("Birim ustabaşısı atandı.");
+        toast.success(ustabasi_id
+          ? "Birim ustabaşısı atandı."
+          : "Birim ustabaşısı kaldırıldı.");
       }
     });
   }, [updateDepartmentUstabasiMutation, refetchLookups]);

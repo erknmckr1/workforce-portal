@@ -13,6 +13,12 @@ LeaveActivityLog.init(
         new_status_id: { type: DataTypes.INTEGER, allowNull: true },
         details: { type: DataTypes.STRING(500), allowNull: true },
         ip_address: { type: DataTypes.STRING(45), allowNull: true },
+        target_user_id: { type: DataTypes.STRING(255), allowNull: true },
+        channel: { type: DataTypes.STRING(30), allowNull: true },
+        delivery_status: { type: DataTypes.STRING(30), allowNull: true },
+        recipient_address: { type: DataTypes.STRING(255), allowNull: true },
+        error_message: { type: DataTypes.STRING(1000), allowNull: true },
+        metadata: { type: DataTypes.TEXT, allowNull: true },
     },
     { 
         sequelize, 

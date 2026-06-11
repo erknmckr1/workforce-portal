@@ -56,6 +56,36 @@ export interface ILeave {
     Approver2?: { name: string; surname: string };
 }
 
+export interface LeaveActivity {
+    id: number;
+    leave_record_id: number;
+    performed_by: string;
+    target_user_id?: string | null;
+    action: string;
+    details?: string | null;
+    channel?: string | null;
+    delivery_status?: "SENT" | "FAILED" | "SKIPPED" | null;
+    recipient_address?: string | null;
+    error_message?: string | null;
+    metadata?: string | null;
+    created_at: string;
+    Performer?: { id_dec: string; name: string; surname: string };
+    Recipient?: { id_dec: string; name: string; surname: string; email?: string | null };
+    OldStatus?: { id: number; label: string; code: string };
+    NewStatus?: { id: number; label: string; code: string };
+}
+
+export const useLeaveActivity = (leaveId?: number) =>
+    useQuery<{ data: LeaveActivity[] }>({
+        queryKey: ["leave-activity", leaveId],
+        queryFn: async () => {
+            const { data } = await apiClient.get(`/leave/${leaveId}/activity`);
+            return data;
+        },
+        enabled: Boolean(leaveId),
+        staleTime: 15000,
+    });
+
 export const useLeaves = (filters?: { 
     user_id?: string; 
     status_id?: number; 
@@ -115,6 +145,7 @@ export const useLeaves = (filters?: {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["leaves"] });
+            queryClient.invalidateQueries({ queryKey: ["leave-activity"] });
             toast.success("İzin talebini onayladınız.");
         },
         onError: (error: AxiosError<{message: string}>) => {
@@ -130,6 +161,7 @@ export const useLeaves = (filters?: {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["leaves"] });
+            queryClient.invalidateQueries({ queryKey: ["leave-activity"] });
             toast.success("İzin talebini reddettiniz.");
         },
         onError: (error: AxiosError<{message: string}>) => {
@@ -145,6 +177,7 @@ export const useLeaves = (filters?: {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["leaves"] });
+            queryClient.invalidateQueries({ queryKey: ["leave-activity"] });
             toast.success("İzin talebi iptal edildi.");
         },
         onError: (error: AxiosError<{message: string}>) => {
@@ -160,6 +193,7 @@ export const useLeaves = (filters?: {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["leaves"] });
+            queryClient.invalidateQueries({ queryKey: ["leave-activity"] });
             toast.success("İzin talebi güncellendi.");
         },
         onError: (error: AxiosError<{message: string}>) => {

@@ -89,6 +89,8 @@ LeaveActivityLog.belongsTo(LeaveRecord, { foreignKey: "leave_record_id" });
 LeaveRecord.hasMany(LeaveActivityLog, { foreignKey: "leave_record_id" });
 
 LeaveActivityLog.belongsTo(Operator, { foreignKey: "performed_by" });
+LeaveActivityLog.belongsTo(Operator, { as: "Performer", foreignKey: "performed_by" });
+LeaveActivityLog.belongsTo(Operator, { as: "Recipient", foreignKey: "target_user_id" });
 LeaveActivityLog.belongsTo(LeaveStatus, { as: "OldStatus", foreignKey: "old_status_id" });
 LeaveActivityLog.belongsTo(LeaveStatus, { as: "NewStatus", foreignKey: "new_status_id" });
 

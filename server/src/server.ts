@@ -14,6 +14,7 @@ import mesRoutes from "./routes/mesRoutes";
 import phoneDirectoryRoutes from "./routes/phoneDirectoryRoutes";
 import gameRoutes from "./routes/gameRoutes";
 import { startLeaveBalanceSyncScheduler } from "./services/leaveBalanceSyncScheduler";
+import { ensureApplicationSchema } from "./services/schemaMigrationService";
 import path from "path";
 import fs from "fs";
 
@@ -73,6 +74,7 @@ const startServer = async () => {
   try {
     await sequelize.authenticate();
     await sequelize.sync();
+    await ensureApplicationSchema();
 
     // Statik İş Durumlarını Veritabanına Ekle (Seed) - MSSQL Uyumlu Yöntem
     const statuses = [

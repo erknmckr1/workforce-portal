@@ -11,7 +11,7 @@ import {
 } from "../models";
 import { Op, fn } from "sequelize";
 import sequelize from "../config/database";
-import { sendLeaveApprovalEmail } from "../services/emailService";
+import { sendLeaveApprovalEmailAndLog } from "../services/leaveEmailNotificationService";
 import jwt from "jsonwebtoken";
 
 interface EmailActionPayload {
@@ -287,22 +287,20 @@ export const createLeave = async (
 
       // E-Posta Gönderimi
       try {
-        const approver = await Operator.findByPk(auth1, { transaction });
         const reasonDoc = await LeaveReason.findByPk(leave_reason_id, {
           transaction,
         });
-        if (approver && approver.email) {
-          await sendLeaveApprovalEmail(
-            approver.email,
-            `${approver.name} ${approver.surname}`,
-            `${targetUser.name} ${targetUser.surname}`,
-            start_date,
-            end_date,
-            reasonDoc ? reasonDoc.getDataValue("label") : "İzin",
-            (newLeave as any).id,
-            auth1,
-          );
-        }
+        await sendLeaveApprovalEmailAndLog({
+          leaveId: (newLeave as any).id,
+          performedBy: creator_id,
+          recipientUserId: auth1,
+          employeeName: `${targetUser.name} ${targetUser.surname}`,
+          startDate: start_date,
+          endDate: end_date,
+          reason: reasonDoc ? reasonDoc.getDataValue("label") : "İzin",
+          approvalStage: 1,
+          transaction,
+        });
       } catch (mailError) {
         console.error("1. Onaycıya e-posta gönderilemedi:", mailError);
       }
@@ -521,6 +519,77 @@ export const getLeaves = async (req: Request, res: Response): Promise<any> => {
   }
 };
 
+export const getLeaveActivity = async (req: Request, res: Response): Promise<Response> => {
+  try {
+    const leave = await LeaveRecord.findByPk(String(req.params.id));
+    if (!leave) {
+      return res.status(404).json({ message: "İzin kaydı bulunamadı." });
+    }
+
+    const loggedUser = req.user;
+    const roleId = loggedUser?.role_id;
+    const userId = loggedUser?.id_dec;
+    const hasBroadAccess = roleId === 7 || roleId === 4 || roleId === 5;
+    const canView =
+      hasBroadAccess ||
+      leave.getDataValue("user_id") === userId ||
+      leave.getDataValue("auth1_user_id") === userId ||
+      leave.getDataValue("auth2_user_id") === userId;
+
+    if (!canView) {
+      return res.status(403).json({ message: "Bu izin kaydının geçmişini görüntüleme yetkiniz yok." });
+    }
+
+    const activity = await LeaveActivityLog.findAll({
+      where: { leave_record_id: leave.getDataValue("id") },
+      include: [
+        {
+          model: Operator,
+          as: "Performer",
+          attributes: ["id_dec", "name", "surname"],
+          required: false,
+        },
+        {
+          model: Operator,
+          as: "Recipient",
+          attributes: ["id_dec", "name", "surname", "email"],
+          required: false,
+        },
+        {
+          model: LeaveStatus,
+          as: "OldStatus",
+          attributes: ["id", "label", "code"],
+          required: false,
+        },
+        {
+          model: LeaveStatus,
+          as: "NewStatus",
+          attributes: ["id", "label", "code"],
+          required: false,
+        },
+      ],
+      order: [["created_at", "ASC"]],
+    });
+
+    const data = activity.map((item) => {
+      const activityItem = item.toJSON() as any;
+      if (roleId !== 7) {
+        activityItem.recipient_address = null;
+        activityItem.error_message = null;
+        if (activityItem.Recipient) {
+          activityItem.Recipient.email = null;
+        }
+      }
+      return activityItem;
+    });
+
+    return res.status(200).json({ data });
+  } catch (error) {
+    console.error("GetLeaveActivity Hatası:", error);
+    return res.status(500).json({ message: "İzin geçmişi alınırken bir hata oluştu." });
+  }
+};
+
 // İzin Onayla
 export const approveLeave = async (
   req: Request,
@@ -615,22 +684,22 @@ export const approveLeave = async (
 
       // E-Posta Gönderimi
       try {
-        const approver2 = await Operator.findByPk(auth2Id, { transaction });
         const reasonDoc = await LeaveReason.findByPk(
           leave.getDataValue("leave_reason_id"),
           { transaction },
         );
-        if (approver2 && approver2.email && leaveOwner) {
-          await sendLeaveApprovalEmail(
-            approver2.email,
-            `${approver2.name} ${approver2.surname}`,
-            `${leaveOwner.name} ${leaveOwner.surname}`,
-            leave.getDataValue("start_date"),
-            leave.getDataValue("end_date"),
-            reasonDoc ? reasonDoc.getDataValue("label") : "İzin",
-            leave.getDataValue("id"),
-            auth2Id,
-          );
+        if (leaveOwner) {
+          await sendLeaveApprovalEmailAndLog({
+            leaveId: leave.getDataValue("id"),
+            performedBy: approver_id,
+            recipientUserId: auth2Id,
+            employeeName: `${leaveOwner.name} ${leaveOwner.surname}`,
+            startDate: leave.getDataValue("start_date"),
+            endDate: leave.getDataValue("end_date"),
+            reason: reasonDoc ? reasonDoc.getDataValue("label") : "İzin",
+            approvalStage: 2,
+            transaction,
+          });
         }
       } catch (mailError) {
         console.error("2. Onaycıya e-posta gönderilemedi:", mailError);
@@ -1101,22 +1170,22 @@ export const handleEmailAction = async (
         );
 
         try {
-          const approver2 = await Operator.findByPk(auth2Id, { transaction });
           const reasonDoc = await LeaveReason.findByPk(
             leave.getDataValue("leave_reason_id"),
             { transaction },
           );
-          if (approver2 && approver2.email && leaveOwner) {
-            await sendLeaveApprovalEmail(
-              approver2.email,
-              `${approver2.name} ${approver2.surname}`,
-              `${leaveOwner.name} ${leaveOwner.surname}`,
-              leave.getDataValue("start_date"),
-              leave.getDataValue("end_date"),
-              reasonDoc ? reasonDoc.getDataValue("label") : "İzin",
-              leave_id,
-              auth2Id,
-            );
+          if (leaveOwner) {
+            await sendLeaveApprovalEmailAndLog({
+              leaveId: leave_id,
+              performedBy: approver_id,
+              recipientUserId: auth2Id,
+              employeeName: `${leaveOwner.name} ${leaveOwner.surname}`,
+              startDate: leave.getDataValue("start_date"),
+              endDate: leave.getDataValue("end_date"),
+              reason: reasonDoc ? reasonDoc.getDataValue("label") : "İzin",
+              approvalStage: 2,
+              transaction,
+            });
           }
         } catch (mailError) {
           console.error("2. Onaycı mail hatası", mailError);

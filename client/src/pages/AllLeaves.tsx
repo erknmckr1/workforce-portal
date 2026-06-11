@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { useLeaves, type ILeave } from "@/hooks/useLeaves";
 import { CreateLeaveModal } from "@/components/leaves/CreateLeaveModal";
+import { LeaveActivityDialog } from "@/components/leaves/LeaveActivityDialog";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { format } from "date-fns";
 import { tr } from "date-fns/locale";
@@ -35,6 +36,7 @@ export default function AllLeaves() {
   const { confirm } = useConfirm();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingLeave, setEditingLeave] = useState<ILeave | null>(null);
+  const [detailLeave, setDetailLeave] = useState<ILeave | null>(null);
 
   // Tüm izinleri çekmek için filtre göndermiyoruz (Admin/İK yetkisi backend'de tümünü döndürür)
   const { leaves, isLoading, cancelLeave, approveLeave, rejectLeave } =
@@ -471,6 +473,13 @@ export default function AllLeaves() {
                             İptal Et
                           </DropdownMenuItem>
                         )}
+                        <DropdownMenuItem
+                          onClick={() => setDetailLeave(leave)}
+                          className="flex items-center gap-2 p-3 rounded-xl font-bold cursor-pointer"
+                        >
+                          <AlertCircle size={18} className="text-muted-foreground" />
+                          Detaylar
+                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
@@ -488,6 +497,13 @@ export default function AllLeaves() {
           if (!open) setEditingLeave(null);
         }}
         editingLeave={editingLeave}
+      />
+      <LeaveActivityDialog
+        leave={detailLeave}
+        open={Boolean(detailLeave)}
+        onOpenChange={(open) => {
+          if (!open) setDetailLeave(null);
+        }}
       />
     </div>
   );

@@ -1,6 +1,10 @@
 import nodemailer from "nodemailer";
 import jwt from "jsonwebtoken";
 
+export type EmailDeliveryResult =
+    | { status: "SENT"; messageId?: string; accepted: string[]; rejected: string[] }
+    | { status: "FAILED"; errorMessage: string };
+
 // NodeMail taşıyıcı ayarları
 const transporter = nodemailer.createTransport({
     // @ts-ignore
@@ -36,7 +40,7 @@ export const sendLeaveApprovalEmail = async (
     reason: string,
     leaveId: number,
     approverId: string
-) => {
+): Promise<EmailDeliveryResult> => {
     // Tokenları Üret
     const approveToken = generateEmailActionToken(leaveId, approverId, "approve");
     const rejectToken = generateEmailActionToken(leaveId, approverId, "reject");
@@ -155,14 +159,36 @@ export const sendLeaveApprovalEmail = async (
     `;
 
     try {
-        await transporter.sendMail({
+        const info = await transporter.sendMail({
             from: process.env.EMAIL_FROM || process.env.EMAIL_USERNAME,
             to: toEmail,
             subject: `İzin Onayı Gerekli: ${employeeName}`,
             html: htmlContent
         });
+        const accepted = (info.accepted || []).map(String);
+        const rejected = (info.rejected || []).map(String);
+
+        if (accepted.length === 0) {
+            return {
+                status: "FAILED",
+                errorMessage: rejected.length > 0
+                    ? `SMTP alıcıyı reddetti: ${rejected.join(", ")}`
+                    : "SMTP gönderimi kabul etmedi.",
+            };
+        }
+
         console.log(`İzin onay maili gönderildi -> ${toEmail}`);
+        return {
+            status: "SENT",
+            messageId: info.messageId,
+            accepted,
+            rejected,
+        };
     } catch (error) {
         console.error("Mail gönderme hatası:", error);
+        return {
+            status: "FAILED",
+            errorMessage: error instanceof Error ? error.message : String(error),
+        };
     }
 };

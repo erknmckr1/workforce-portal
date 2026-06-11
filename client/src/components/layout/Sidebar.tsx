@@ -37,6 +37,7 @@ const menuItems = [
       "İK",
       "Revir",
       "Güvenlik",
+      "Ustabasi",
     ],
   },
   {
@@ -51,13 +52,14 @@ const menuItems = [
       "İK",
       "Revir",
       "Güvenlik",
+      "Ustabasi",
     ],
   },
   {
     title: "Onay Bekleyenler",
     icon: ClipboardCheck,
-    path: "/leave-approvals",
-    roles: ["Admin", "Müdür", "Yönetici", "İK"],
+path: "/leave-approvals",
+    roles: ["Admin", "Müdür", "Yönetici", "İK", "Ustabasi"],
   },
   {
     title: "Tüm İzinler",
@@ -103,9 +105,9 @@ const menuItems = [
       "İK",
       "Müdür",
       "Yönetici",
-      "Personel",
       "Revir",
       "Güvenlik",
+      "Ustabasi",
     ],
     children: [
       {
@@ -120,6 +122,7 @@ const menuItems = [
           "Personel",
           "Revir",
           "Güvenlik",
+          "Ustabasi",
         ],
       },
       {
@@ -134,6 +137,7 @@ const menuItems = [
           "Personel",
           "Revir",
           "Güvenlik",
+          "Ustabasi",
         ],
       },
       {
@@ -148,6 +152,7 @@ const menuItems = [
           "Personel",
           "Revir",
           "Güvenlik",
+          "Ustabasi",
         ],
       },
     ],
@@ -428,7 +433,7 @@ export default function Sidebar({
               Kiosk Ekranı
             </span>
           </button>*/}
-          
+
           {/* Oturumu Kapat */}
           <button
             onClick={handleLogout}

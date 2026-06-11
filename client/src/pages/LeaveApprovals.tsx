@@ -7,7 +7,9 @@ import {
   XCircle,
   AlertCircle,
   Loader2,
-  CalendarDays
+  CalendarDays,
+  History,
+  MoreVertical
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +20,13 @@ import { tr } from "date-fns/locale";
 import { useAuthStore } from "@/store/authStore";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { useConfirm } from "@/providers/ConfirmProvider";
+import { LeaveActivityDialog } from "@/components/leaves/LeaveActivityDialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export default function LeaveApprovals() {
   const { user } = useAuthStore();
@@ -32,6 +41,7 @@ export default function LeaveApprovals() {
   });
   const [searchTerm, setSearchTerm] = useState("");
   const [processingId, setProcessingId] = useState<number | null>(null);
+  const [detailLeave, setDetailLeave] = useState<ILeave | null>(null);
 
   const handleApprove = async (id: number) => {
     if (!user?.id_dec) return;
@@ -172,7 +182,7 @@ export default function LeaveApprovals() {
       </div>
 
       {/* KAYDIRILABİLİR İÇERİK: TALEP LİSTELERİ */}
-      <div className="flex-1 min-h-0 overflow-y-auto pr-2 custom-scrollbar pb-6 space-y-4">
+      <div className="flex-1 min-h-0 overflow-y-auto pr-2 custom-scrollbar pb-6 space-y-2.5">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-20 opacity-50">
             <Loader2 className="animate-spin text-primary mb-4" size={32} />
@@ -196,15 +206,15 @@ export default function LeaveApprovals() {
           filteredLeaves.map((leave: ILeave) => (
             <div
               key={leave.id}
-              className="group p-5 sm:p-6 rounded-3xl border border-border/50 bg-card hover:shadow-lg hover:shadow-primary/5 hover:border-primary/20 transition-all flex flex-col lg:flex-row lg:items-center justify-between gap-6"
+              className="group px-4 py-3.5 sm:px-5 rounded-2xl border border-border/50 bg-card hover:shadow-lg hover:shadow-primary/5 hover:border-primary/20 transition-all flex flex-col lg:flex-row lg:items-center justify-between gap-4"
             >
               <div className="flex items-start sm:items-center gap-4">
-                <div className="w-14 h-14 rounded-2xl bg-warning/10 flex items-center justify-center text-warning shrink-0">
-                  <CalendarDays size={24} />
+                <div className="w-11 h-11 rounded-xl bg-warning/10 flex items-center justify-center text-warning shrink-0">
+                  <CalendarDays size={19} />
                 </div>
                   <div>
-                    <div className="flex flex-wrap items-center gap-3 mb-2">
-                      <h3 className="text-xl font-black text-foreground tracking-tight">
+                    <div className="flex flex-wrap items-center gap-2 mb-1">
+                      <h3 className="text-base font-black text-foreground tracking-tight">
                         {leave.User?.name} {leave.User?.surname}
                       </h3>
                       {getStatusBadge(leave.leave_status_id)}
@@ -212,18 +222,18 @@ export default function LeaveApprovals() {
                         {leave.LeaveReason?.label}
                       </span>
                     </div>
-                    <div className="flex flex-col gap-1 text-sm text-muted-foreground font-medium">
-                      <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-muted-foreground font-medium">
+                      <div className="flex items-center gap-1.5">
                         <span className="font-bold text-foreground/70">Başlangıç:</span>
                         <span>{format(new Date(leave.start_date), "d MMM yyyy HH:mm", { locale: tr })}</span>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1.5">
                         <span className="font-bold text-foreground/70">İşe Dönüş:</span>
                         <span>{format(new Date(leave.end_date), "d MMM yyyy HH:mm", { locale: tr })}</span>
                       </div>
 
                       {leave.description && (
-                        <div className="mt-2 p-3 bg-muted/30 rounded-xl text-xs italic border border-border/50">
+                        <div className="basis-full mt-1 px-3 py-2 bg-muted/30 rounded-lg text-xs italic border border-border/50">
                           "{leave.description}"
                         </div>
                       )}
@@ -231,7 +241,7 @@ export default function LeaveApprovals() {
                   </div>
                 </div>
 
-                <div className="flex flex-col lg:items-end gap-6 mt-4 lg:mt-0 pt-6 lg:pt-0 border-t border-border/50 lg:border-none">
+                <div className="flex flex-col lg:flex-row lg:items-center gap-3 mt-3 lg:mt-0 pt-3 lg:pt-0 border-t border-border/50 lg:border-none">
                   <div className="flex flex-col lg:items-end">
                     <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2">Mevcut Durum</span>
                     <div className="flex items-start gap-1">
@@ -269,14 +279,14 @@ export default function LeaveApprovals() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 lg:ml-2">
                     {(leave.leave_status_id === 1 || leave.leave_status_id === 2) && (
                       <>
                         <Button 
                           variant="outline" 
                           onClick={() => handleReject(leave.id!)}
                           disabled={processingId === leave.id}
-                          className="h-11 px-5 rounded-xl font-bold border-destructive/20 text-destructive hover:bg-destructive hover:text-destructive-foreground transition-all disabled:opacity-50 text-xs"
+                          className="h-9 px-4 rounded-lg font-bold border-destructive/20 text-destructive hover:bg-destructive hover:text-destructive-foreground transition-all disabled:opacity-50 text-xs"
                         >
                           {processingId === leave.id ? <Loader2 className="animate-spin mr-2" size={16} /> : <XCircle size={16} className="mr-2" />} 
                           Reddet
@@ -284,13 +294,32 @@ export default function LeaveApprovals() {
                         <Button 
                           onClick={() => handleApprove(leave.id!)}
                           disabled={processingId === leave.id}
-                          className="h-11 px-6 rounded-xl bg-success hover:bg-success/90 text-success-foreground font-black shadow-lg shadow-success/20 transition-all disabled:opacity-50 text-xs"
+                          className="h-9 px-4 rounded-lg bg-success hover:bg-success/90 text-success-foreground font-black shadow-lg shadow-success/20 transition-all disabled:opacity-50 text-xs"
                         >
                           {processingId === leave.id ? <Loader2 className="animate-spin mr-2" size={16} /> : <CheckCircle2 size={16} className="mr-2" />} 
                           Onayla
                         </Button>
                       </>
                     )}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          className="w-9 h-9 rounded-lg border border-border/50 hover:bg-muted p-0"
+                        >
+                          <MoreVertical size={19} />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-48 rounded-2xl p-2 border-border/50 shadow-xl">
+                        <DropdownMenuItem
+                          onClick={() => setDetailLeave(leave)}
+                          className="flex items-center gap-2 p-3 rounded-xl font-bold cursor-pointer"
+                        >
+                          <History size={18} className="text-muted-foreground" />
+                          Detaylar
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </div>
               </div>
@@ -332,6 +361,13 @@ export default function LeaveApprovals() {
           </div>
         )}
       </div>
+      <LeaveActivityDialog
+        leave={detailLeave}
+        open={Boolean(detailLeave)}
+        onOpenChange={(open) => {
+          if (!open) setDetailLeave(null);
+        }}
+      />
     </div>
   );
 }

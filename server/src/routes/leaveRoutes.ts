@@ -8,9 +8,11 @@ import {
     cancelLeave,
     updateLeave,
     confirmExit,
-    handleEmailAction
+    handleEmailAction,
+    getLeaveActivity
 } from "../controllers/leaveController";
 import { requireKioskOrAuth } from "../middlewares/kioskMiddleware";
+import { requireAuth } from "../middlewares/authMiddleware";
 
 const router = Router();
 
@@ -19,6 +21,7 @@ router.get("/email-action", handleEmailAction);
 
 // --- İzin İşlemleri (Kiosk Anahtarı veya Giriş Bileti Şart!) ---
 router.get("/lookups", requireKioskOrAuth, getLeaveLookups);
+router.get("/:id/activity", requireAuth, getLeaveActivity);
 router.get("/", requireKioskOrAuth, getLeaves);
 router.post("/", requireKioskOrAuth, createLeave);
 
