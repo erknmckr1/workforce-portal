@@ -53,6 +53,7 @@ router.get("/machines", MesController.getMachines);
 router.get("/measure-limits/:materialNo", MesController.getMeasureLimits);
 router.get("/measurements", MesController.getMeasurements);
 router.post("/measurements", MesController.saveMeasurement);
+router.put("/measurements/:id", MesController.updateMeasurement);
 router.delete("/measurements/:id", MesController.deleteMeasurement);
 
 // Field Participation (Alan Katılım) Rotaları

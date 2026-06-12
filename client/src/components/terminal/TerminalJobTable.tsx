@@ -99,7 +99,7 @@ const TerminalJobTable: React.FC<TerminalJobTableProps> = ({
                 <td className="p-3 text-lg font-mono font-bold text-zinc-300">
                   {job.orderId}
                 </td>
-                <td className="p-3 text-muted-foreground/70">{job.oldCode}</td>
+                <td className="p-3 text-primary">{job.materialNo}</td>
                 <td className="p-3">
                   <div className="flex flex-col">
                     <span className="text-foreground text-lg ">

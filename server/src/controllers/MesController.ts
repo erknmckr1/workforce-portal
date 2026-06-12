@@ -1263,6 +1263,59 @@ export const saveMeasurement = async (req: Request, res: Response) => {
   }
 };
 
+export const updateMeasurement = async (req: Request, res: Response) => {
+  try {
+    const measurement = await Measurement.findByPk(String(req.params.id));
+    if (!measurement) {
+      return res.status(404).json({ message: "Ölçüm bulunamadı." });
+    }
+
+    const {
+      order_no,
+      material_no,
+      operator,
+      area_name,
+      entry_measurement,
+      exit_measurement,
+      entry_weight_50cm,
+      exit_weight_50cm,
+      description,
+      measurement_package,
+    } = req.body;
+
+    if (!order_no || !material_no || !operator || !area_name) {
+      return res.status(400).json({ message: "Zorunlu ölçüm bilgileri eksik." });
+    }
+
+    const operatorCheck = await Operator.findOne({
+      where: { id_dec: operator },
+    });
+    if (!operatorCheck) {
+      return res.status(404).json({
+        message: `Geçersiz Operatör ID (${operator})! Lütfen sistemde kayıtlı bir ID giriniz.`,
+      });
+    }
+
+    await measurement.update({
+      order_no,
+      material_no,
+      operator,
+      area_name,
+      entry_measurement: entry_measurement || null,
+      exit_measurement: exit_measurement || null,
+      entry_weight_50cm,
+      exit_weight_50cm,
+      description: description || null,
+      measurement_package,
+    });
+
+    return res.json(measurement);
+  } catch (error) {
+    console.error("Ölçüm verisi güncellenirken hata:", error);
+    return res.status(500).json({ message: "Sunucu hatası." });
+  }
+};
+
 export const deleteMeasurement = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;

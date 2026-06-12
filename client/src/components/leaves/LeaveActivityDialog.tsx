@@ -132,7 +132,7 @@ export function LeaveActivityDialog({
                       </div>
                     )}
                     {activity.error_message && (
-                      <div className="mt-2 rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive break-words">
+                      <div className="mt-2 rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive wrap-break-word">
                         {activity.error_message}
                       </div>
                     )}

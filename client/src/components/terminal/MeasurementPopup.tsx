@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { X, Save, Trash2, Search, History, Scale } from "lucide-react";
+import { X, Save, Trash2, Search, History, Scale, Undo2 } from "lucide-react";
 import { toast } from "sonner";
 import apiClient from "../../lib/api";
 import { useAuthStore } from "../../store/authStore";
@@ -20,7 +20,6 @@ const MeasurementPopup: React.FC<MeasurementPopupProps> = ({
   const [loading, setLoading] = useState(false);
   const [history, setHistory] = useState<MeasurementRecord[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
-
   const [form, setForm] = useState({
     orderId: "",
     materialNo: "",
@@ -37,6 +36,20 @@ const MeasurementPopup: React.FC<MeasurementPopupProps> = ({
     upperLimit: number;
     weight_50cm: number;
   } | null>(null);
+
+  const resetForm = () => {
+    setSelectedId(null);
+    setForm({
+      orderId: "",
+      materialNo: "",
+      entryMeasurement: "",
+      exitMeasurement: "",
+      entryWeight50cm: "",
+      exitWeight50cm: "",
+      quantity: "",
+      description: "",
+    });
+  };
 
   const isOutOfRange = React.useMemo(() => {
     if (!limits || !form.exitWeight50cm) return false;
@@ -107,6 +120,7 @@ const MeasurementPopup: React.FC<MeasurementPopupProps> = ({
 
     try {
       setLoading(true);
+      const materialNo = form.materialNo;
       await apiClient.post("/mes/measurements", {
         order_no: form.orderId,
         material_no: form.materialNo,
@@ -122,22 +136,68 @@ const MeasurementPopup: React.FC<MeasurementPopupProps> = ({
 
       toast.success("Ölçüm başarıyla kaydedildi.");
 
-      // Temizle
-      setForm({
-        orderId: "",
-        materialNo: "",
-        entryMeasurement: "",
-        exitMeasurement: "",
-        entryWeight50cm: "",
-        exitWeight50cm: "",
-        quantity: "",
-        description: "",
-      });
-
-      await fetchHistory(form.materialNo);
+      await fetchHistory(materialNo);
+      resetForm();
     } catch (error) {
       console.log(error);
       toast.error("Kaydedilemedi.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSelectedRow = (row: MeasurementRecord) => {
+    if (selectedId === row.id) {
+      resetForm();
+      return;
+    }
+
+    setSelectedId(row.id);
+    setForm({
+      orderId: row.order_no,
+      materialNo: row.material_no,
+      entryMeasurement: row.entry_measurement || "",
+      exitMeasurement: row.exit_measurement || "",
+      entryWeight50cm: String(row.entry_weight_50cm ?? ""),
+      exitWeight50cm: String(row.exit_weight_50cm ?? ""),
+      quantity: String(row.measurement_package ?? ""),
+      description: row.description || "",
+    });
+  };
+
+  const handleUpdate = async () => {
+    if (!selectedId) {
+      toast.error("Lütfen güncellemek için tablodan bir ölçüm seçin.");
+      return;
+    }
+    if (!form.orderId || !form.materialNo) {
+      toast.error("Lütfen sipariş ve malzeme bilgilerini doldurunuz.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const materialNo = form.materialNo;
+      await apiClient.put(`/mes/measurements/${selectedId}`, {
+        order_no: form.orderId,
+        material_no: form.materialNo,
+        operator: operatorId || user?.id_dec || "SYSTEM",
+        area_name: areaName,
+        entry_measurement: form.entryMeasurement,
+        exit_measurement: form.exitMeasurement,
+        entry_weight_50cm: parseFloat(form.entryWeight50cm) || 0,
+        exit_weight_50cm: parseFloat(form.exitWeight50cm) || 0,
+        measurement_package: parseFloat(form.quantity) || 0,
+        description: form.description,
+      });
+
+      toast.success("Ölçüm güncellendi.");
+
+      await fetchHistory(materialNo);
+      resetForm();
+    } catch (error) {
+      console.log(error);
+      toast.error("Güncellenemedi.");
     } finally {
       setLoading(false);
     }
@@ -151,11 +211,12 @@ const MeasurementPopup: React.FC<MeasurementPopupProps> = ({
 
     try {
       setLoading(true);
+      const materialNo = form.materialNo;
       await apiClient.delete(`/mes/measurements/${selectedId}`);
       toast.success("Ölçüm silindi.");
-      setSelectedId(null);
-      await fetchHistory(form.materialNo);
-    } catch (error) {
+      await fetchHistory(materialNo);
+      resetForm();
+    } catch {
       toast.error("Silinemedi.");
     } finally {
       setLoading(false);
@@ -344,14 +405,35 @@ const MeasurementPopup: React.FC<MeasurementPopupProps> = ({
 
             {/* ACTIONS */}
             <div className="mt-auto pt-6 flex gap-3">
-              <button
-                onClick={handleSave}
-                disabled={loading}
-                className="flex-1 h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-black uppercase tracking-widest rounded-xl shadow-lg shadow-primary/20 transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50"
-              >
-                <Save size={18} />
-                Kaydet
-              </button>
+              {selectedId && (
+                <button
+                  onClick={resetForm}
+                  disabled={loading}
+                  className="h-12 px-4 bg-secondary hover:bg-secondary/80 text-secondary-foreground font-black uppercase tracking-widest rounded-xl transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50"
+                >
+                  <Undo2 size={18} />
+                  Vazgeç
+                </button>
+              )}
+              {!selectedId ? (
+                <button
+                  onClick={handleSave}
+                  disabled={loading}
+                  className="flex-1 h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-black uppercase tracking-widest rounded-xl shadow-lg shadow-primary/20 transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50"
+                >
+                  <Save size={18} />
+                  Kaydet
+                </button>
+              ) : (
+                <button
+                  onClick={handleUpdate}
+                  disabled={loading}
+                  className="flex-1 h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-black uppercase tracking-widest rounded-xl shadow-lg shadow-primary/20 transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50"
+                >
+                  <Save size={18} />
+                  Güncelle
+                </button>
+              )}
             </div>
           </div>
 
@@ -395,9 +477,7 @@ const MeasurementPopup: React.FC<MeasurementPopupProps> = ({
                   history.map((row) => (
                     <div
                       key={row.id}
-                      onClick={() =>
-                        setSelectedId(row.id === selectedId ? null : row.id)
-                      }
+                      onClick={() => handleSelectedRow(row)}
                       className={`grid grid-cols-6 gap-4 p-4 rounded-xl text-xs font-mono font-bold cursor-pointer transition-all ${
                         row.id === selectedId
                           ? "bg-primary/10 border-primary text-primary"
