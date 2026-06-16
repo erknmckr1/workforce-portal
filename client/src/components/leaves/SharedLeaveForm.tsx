@@ -75,7 +75,9 @@ export function SharedLeaveForm({
   onSuccess,
   onCancel
 }: SharedLeaveFormProps) {
-  const { lookups, createLeave, updateLeave, isCreating, isUpdating } = useLeaves();
+  const { lookups, createLeave, updateLeave, isCreating, isUpdating } = useLeaves(
+    isKioskMode ? { kioskMode: true } : undefined,
+  );
 
   const {
     register,

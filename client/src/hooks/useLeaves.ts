@@ -86,7 +86,7 @@ export const useLeaveActivity = (leaveId?: number) =>
         staleTime: 15000,
     });
 
-export const useLeaves = (filters?: { 
+type LeaveFilters = {
     user_id?: string; 
     status_id?: number; 
     approver_id?: string; 
@@ -96,8 +96,15 @@ export const useLeaves = (filters?: {
     end_date?: string;
     page?: number;
     limit?: number;
-}) => {
+    kioskMode?: boolean;
+};
+
+export const useLeaves = (filters?: LeaveFilters) => {
     const queryClient = useQueryClient();
+    const { kioskMode, ...requestFilters } = filters || {};
+    const kioskRequestConfig = kioskMode
+        ? { headers: { "X-Kiosk-Context": "true" } }
+        : undefined;
 
     // İzin kayıtlarını çek
     const { data: leaves, isLoading: isLoadingLeaves, error: errorLeaves } = useQuery<{
@@ -108,7 +115,10 @@ export const useLeaves = (filters?: {
     }>({
         queryKey: ["leaves", filters],
         queryFn: async () => {
-            const { data } = await apiClient.get("/leave", { params: filters });
+            const { data } = await apiClient.get("/leave", {
+                params: requestFilters,
+                ...kioskRequestConfig,
+            });
             return data; // Artık bu bir obje: { data: ILeave[], totalCount, totalPages, currentPage }
         },
         refetchInterval: 20000, // Her 20 saniyede bir listeyi tazele
@@ -119,7 +129,7 @@ export const useLeaves = (filters?: {
     const { data: lookups, isLoading: isLoadingLookups, error: errorLookups } = useQuery<LeaveLookups>({
         queryKey: ["leave-lookups"],
         queryFn: async () => {
-            const { data } = await apiClient.get("/leave/lookups");
+            const { data } = await apiClient.get("/leave/lookups", kioskRequestConfig);
             return data;
         }
     });
@@ -127,7 +137,7 @@ export const useLeaves = (filters?: {
     // Yeni izin oluştur
     const createMutation = useMutation({
         mutationFn: async (newLeave: LeaveRequest) => {
-            const { data } = await apiClient.post("/leave", newLeave);
+            const { data } = await apiClient.post("/leave", newLeave, kioskRequestConfig);
             return data;
         },
         onSuccess: () => {
@@ -142,7 +152,7 @@ export const useLeaves = (filters?: {
 
     const approveMutation = useMutation({
         mutationFn: async ({ id, approver_id, notes }: { id: number; approver_id: string; notes?: string }) => {
-            const response = await apiClient.put(`/leave/${id}/approve`, { approver_id, notes });
+            const response = await apiClient.put(`/leave/${id}/approve`, { approver_id, notes }, kioskRequestConfig);
             return response.data;
         },
         onSuccess: () => {
@@ -158,7 +168,7 @@ export const useLeaves = (filters?: {
 
     const rejectMutation = useMutation({
         mutationFn: async ({ id, approver_id, notes }: { id: number; approver_id: string; notes?: string }) => {
-            const response = await apiClient.put(`/leave/${id}/reject`, { approver_id, notes });
+            const response = await apiClient.put(`/leave/${id}/reject`, { approver_id, notes }, kioskRequestConfig);
             return response.data;
         },
         onSuccess: () => {
@@ -174,7 +184,7 @@ export const useLeaves = (filters?: {
 
     const cancelMutation = useMutation({
         mutationFn: async ({ id, user_id }: { id: number; user_id: string }) => {
-            const response = await apiClient.put(`/leave/${id}/cancel`, { user_id });
+            const response = await apiClient.put(`/leave/${id}/cancel`, { user_id }, kioskRequestConfig);
             return response.data;
         },
         onSuccess: () => {
@@ -190,7 +200,7 @@ export const useLeaves = (filters?: {
 
     const updateMutation = useMutation({
         mutationFn: async ({ id, data }: { id: number; data: Partial<LeaveRequest> & { user_id: string } }) => {
-            const response = await apiClient.put(`/leave/${id}`, data);
+            const response = await apiClient.put(`/leave/${id}`, data, kioskRequestConfig);
             return response.data;
         },
         onSuccess: () => {
@@ -206,7 +216,7 @@ export const useLeaves = (filters?: {
 
     const confirmExitMutation = useMutation({
         mutationFn: async ({ id, confirmed_by }: { id: number; confirmed_by: string }) => {
-            const response = await apiClient.put(`/leave/${id}/confirm-exit`, { confirmed_by });
+            const response = await apiClient.put(`/leave/${id}/confirm-exit`, { confirmed_by }, kioskRequestConfig);
             return response.data;
         },
         onSuccess: () => {

@@ -146,7 +146,10 @@ export function KioskLeaveForm() {
 
 export function KioskMyRequests() {
   const { user } = useModuleStore();
-  const { leaves, isLoading, cancelLeave } = useLeaves({ user_id: user?.id_dec });
+  const { leaves, isLoading, cancelLeave } = useLeaves({
+    user_id: user?.id_dec,
+    kioskMode: true,
+  });
   const { confirm } = useConfirm();
 
   if (isLoading) {
@@ -251,9 +254,10 @@ export function KioskMyRequests() {
 
 export function KioskApproveRequests() {
   const { user } = useModuleStore();
-  const { leaves, isLoading, approveLeave, rejectLeave } = useLeaves({ 
-    approver_id: user?.id_dec, 
-    status_id: 1
+  const { leaves, isLoading, approveLeave, rejectLeave } = useLeaves({
+    approver_id: user?.id_dec,
+    status_id: 1,
+    kioskMode: true,
   });
   const { confirm } = useConfirm();
 
