@@ -2,7 +2,6 @@ import React from "react";
 import { Search, RefreshCcw, Sun, Moon } from "lucide-react";
 import { useTheme } from "../theme-provider";
 import FactoryStatus from "../common/FactoryStatus";
-
 interface TerminalHeaderProps {
   areaName?: string;
   section?: string;
@@ -91,22 +90,24 @@ const TerminalHeader: React.FC<TerminalHeaderProps> = ({
         {/* REUSABLE FACTORY TIMES */}
         <FactoryStatus externalId={externalId} />
 
-        <div className="flex items-center gap-3 shrink-0">
-          <div className="text-[50px] leading-none font-mono font-black tracking-tighter text-amber-500 tabular-nums drop-shadow-[0_0_15px_rgba(245,158,11,0.3)]">
-            {currentTime.toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-              second: "2-digit",
-            })}
+        {areaName !== "kalite" && (
+          <div className="flex items-center gap-3 shrink-0">
+            <div className="text-[50px] leading-none font-mono font-black tracking-tighter text-amber-500 tabular-nums drop-shadow-[0_0_15px_rgba(245,158,11,0.3)]">
+              {currentTime.toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+              })}
+            </div>
+            <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest whitespace-nowrap">
+              {currentTime.toLocaleDateString("tr-TR", {
+                day: "2-digit",
+                month: "long",
+                year: "numeric",
+              })}
+            </div>
           </div>
-          <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest whitespace-nowrap">
-            {currentTime.toLocaleDateString("tr-TR", {
-              day: "2-digit",
-              month: "long",
-              year: "numeric",
-            })}
-          </div>
-        </div>
+        )}
 
         {/* RELOAD BUTTON */}
         <button

@@ -13,6 +13,7 @@ import foodMenuRoutes from "./routes/foodMenuRoutes";
 import mesRoutes from "./routes/mesRoutes";
 import phoneDirectoryRoutes from "./routes/phoneDirectoryRoutes";
 import gameRoutes from "./routes/gameRoutes";
+import documentRoutes from "./routes/documentRoutes";
 import { startLeaveBalanceSyncScheduler } from "./services/leaveBalanceSyncScheduler";
 import { ensureApplicationSchema } from "./services/schemaMigrationService";
 import path from "path";
@@ -59,6 +60,7 @@ app.use("/api/food-menu", foodMenuRoutes);
 app.use("/api/mes", mesRoutes);
 app.use("/api/phone-directory", phoneDirectoryRoutes);
 app.use("/api/game", gameRoutes);
+app.use("/api/documents", documentRoutes);
 
 // Fotoğrafları frontend için /photos adresi ile dışarı aç
 const photoPath =
@@ -68,6 +70,15 @@ if (!fs.existsSync(photoPath)) {
   fs.mkdirSync(photoPath, { recursive: true });
 }
 app.use("/photos", express.static(photoPath));
+
+// Dökümanları tarayıcıdan doğrudan önizlemek için dışarı aç
+const documentPath =
+  process.env.DOCUMENT_STORAGE_PATH ||
+  path.join(__dirname, "../uploads/documents");
+if (!fs.existsSync(documentPath)) {
+  fs.mkdirSync(documentPath, { recursive: true });
+}
+app.use("/uploads/documents", express.static(documentPath));
 
 // DB bağlantısı ve sunucu başlatma
 const startServer = async () => {

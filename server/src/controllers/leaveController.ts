@@ -959,12 +959,12 @@ export const updateLeave = async (
         .json({ message: "Bu izin talebini düzenleme yetkiniz yok." });
     }
 
-    // 2. Sadece bekleyen (1 veya 2) durumdakiler düzenlenebilir
+    // 2. Sadece bekleyen (1 veya 2) durumdakiler düzenlenebilir (Yetkililer hariç)
     const currentStatus = leave.getDataValue("leave_status_id") as number;
-    if (currentStatus !== 1 && currentStatus !== 2) {
+    if (currentStatus !== 1 && currentStatus !== 2 && !isAdminOrRevir) {
       await transaction.rollback();
       return res.status(400).json({
-        message: "Onaylanmış veya sonuçlanmış izin talepleri düzenlenemez.",
+        message: "Sadece onay bekleyen izin talepleri düzenlenebilir.",
       });
     }
 

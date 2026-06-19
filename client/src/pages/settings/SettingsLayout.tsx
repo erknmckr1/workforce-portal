@@ -1,10 +1,11 @@
 import { Outlet, NavLink } from "react-router-dom";
-import { Settings, ShieldCheck } from "lucide-react";
+import { Settings, ShieldCheck, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const settingsLinks = [
   { path: "/settings", label: "Genel Ayarlar", icon: Settings, end: true },
   { path: "/settings/approvals", label: "Onay Hiyerarşisi", icon: ShieldCheck, end: false },
+  { path: "/settings/documents", label: "Döküman Yönetimi", icon: FileText, end: false },
 ];
 
 export default function SettingsLayout() {

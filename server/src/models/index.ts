@@ -26,6 +26,7 @@ import { GameScore } from "./GameScore";
 import { GameProfile } from "./GameProfile";
 import { GameSession } from "./GameSession";
 import { SectionParticipationLog } from "./SectionParticipationLog";
+import { IntranetDocument } from "./IntranetDocument";
 
 // --- Lookups & Operator Associations ---
 Section.hasMany(Department, { foreignKey: "section_id" });
@@ -113,6 +114,10 @@ Operator.hasMany(OperatorBreak, { foreignKey: "operator_id", sourceKey: "id_dec"
 SectionParticipationLog.belongsTo(Operator, { as: "Operator", foreignKey: "operator_id", targetKey: "id_dec" });
 Operator.hasMany(SectionParticipationLog, { foreignKey: "operator_id", sourceKey: "id_dec" });
 
+// --- IntranetDocument Associations ---
+IntranetDocument.belongsTo(Operator, { as: "Creator", foreignKey: "created_by" });
+Operator.hasMany(IntranetDocument, { foreignKey: "created_by" });
+
 export {
     sequelize,
     Section,
@@ -148,5 +153,6 @@ export {
     GameScore,
     GameProfile,
     GameSession,
-    SectionParticipationLog
+    SectionParticipationLog,
+    IntranetDocument
 };

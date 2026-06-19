@@ -447,14 +447,16 @@ export default function AllLeaves() {
                               <XCircle size={18} />
                               Reddet
                             </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => handleEdit(leave)}
-                              className="flex items-center gap-2 p-3 rounded-xl font-bold cursor-pointer"
-                            >
-                              <PencilLine size={18} className="text-primary" />
-                              Düzenle
-                            </DropdownMenuItem>
                           </>
+                        )}
+                        {isAdminOrHr && (
+                          <DropdownMenuItem
+                            onClick={() => handleEdit(leave)}
+                            className="flex items-center gap-2 p-3 rounded-xl font-bold cursor-pointer"
+                          >
+                            <PencilLine size={18} className="text-primary" />
+                            Düzenle
+                          </DropdownMenuItem>
                         )}
                         {!isPendingLeave && canCancelLeave && (
                           <DropdownMenuItem
@@ -469,7 +471,10 @@ export default function AllLeaves() {
                           onClick={() => setDetailLeave(leave)}
                           className="flex items-center gap-2 p-3 rounded-xl font-bold cursor-pointer"
                         >
-                          <AlertCircle size={18} className="text-muted-foreground" />
+                          <AlertCircle
+                            size={18}
+                            className="text-muted-foreground"
+                          />
                           Detaylar
                         </DropdownMenuItem>
                       </DropdownMenuContent>

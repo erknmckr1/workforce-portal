@@ -22,6 +22,9 @@ import {
   Droplets,
   Video,
   Loader2,
+  Eye,
+  Download,
+  FileText,
 } from "lucide-react";
 import {
   Tabs,
@@ -133,6 +136,19 @@ const Home = () => {
   });
 
   const parsedFood = todayMenu?.items ? JSON.parse(todayMenu.items) : null;
+
+  // Belgeler States
+  const [selectedDoc, setSelectedDoc] = useState<any>(null);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+
+  // Fetch Documents for Home Page Tab
+  const { data: documents = [], isLoading: isDocsLoading } = useQuery<any[]>({
+    queryKey: ["documents"],
+    queryFn: async () => {
+      const res = await apiClient.get("/documents");
+      return res.data;
+    },
+  });
 
   const { data: eventsResponse } = useQuery({
     queryKey: ["public-events"],
@@ -521,6 +537,12 @@ const Home = () => {
                     >
                       Haberler
                     </TabsTrigger>
+                    <TabsTrigger
+                      value="belgeler"
+                      className="rounded-none border-b-2 border-transparent data-[state=active]:border-info data-[state=active]:text-info data-[state=active]:shadow-none data-[state=active]:bg-transparent px-0 py-1"
+                    >
+                      Belgeler
+                    </TabsTrigger>
                   </TabsList>
                   <MoreHorizontal size={16} className="opacity-40 mb-1" />
                 </div>
@@ -610,6 +632,88 @@ const Home = () => {
                       </a>
                     ))}
                   </div>
+                </TabsContent>
+
+                <TabsContent
+                  value="belgeler"
+                  className="m-0 focus-visible:outline-none"
+                >
+                  {isDocsLoading ? (
+                    <div className="py-12 flex flex-col items-center justify-center text-center">
+                      <Loader2 className="animate-spin text-primary" size={24} />
+                      <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-2">
+                        Belgeler Yükleniyor...
+                      </p>
+                    </div>
+                  ) : documents.length === 0 ? (
+                    <div className="py-12 flex flex-col items-center justify-center text-center opacity-60">
+                      <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
+                        Henüz bir belge bulunmuyor
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-border max-h-[380px] overflow-y-auto">
+                      {documents.map((doc: any) => (
+                        <div
+                          key={doc.id}
+                          className="p-4 hover:bg-muted/30 transition-colors flex items-center justify-between gap-4 group"
+                        >
+                          <div className="flex items-center gap-4 min-w-0">
+                            <div className="w-12 h-12 bg-rose-500/10 text-rose-600 dark:bg-rose-500/5 dark:text-rose-400 shrink-0 flex items-center justify-center rounded border border-border overflow-hidden">
+                              <FileText size={20} />
+                            </div>
+                            <div className="min-w-0 leading-tight">
+                              <div className="flex items-center gap-3 mb-1">
+                                <span className="text-[10px] font-black text-info uppercase tracking-widest px-1.5 py-0.5 rounded bg-info/10">
+                                  {doc.category}
+                                </span>
+                                <span className="text-[10px] font-medium text-muted-foreground">
+                                  {new Date(doc.created_at).toLocaleDateString("tr-TR")}
+                                </span>
+                              </div>
+                              <h4 className="text-sm font-bold text-foreground group-hover:text-info transition-colors tracking-tight truncate max-w-sm sm:max-w-md">
+                                {doc.title}
+                              </h4>
+                              {doc.description && (
+                                <p className="text-xs text-muted-foreground truncate max-w-sm sm:max-w-md font-medium mt-0.5">
+                                  {doc.description}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center gap-2 shrink-0">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedDoc(doc);
+                                setIsPreviewOpen(true);
+                              }}
+                              className="h-8 rounded-lg font-black text-xs gap-1 text-primary hover:bg-primary/10"
+                            >
+                              <Eye size={14} />
+                              <span className="hidden sm:inline">Önizle</span>
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                const serverBaseUrl =
+                                  import.meta.env.VITE_API_BASE_URL?.replace("/api", "") ||
+                                  "http://localhost:3003";
+                                window.open(`${serverBaseUrl}${doc.filePath}`, "_blank");
+                              }}
+                              className="h-8 rounded-lg font-black text-xs gap-1 text-emerald-600 hover:bg-emerald-600/10 dark:text-emerald-400"
+                            >
+                              <Download size={14} />
+                              <span className="hidden sm:inline">İndir</span>
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </TabsContent>
 
                 <div className="p-3 border-t border-border bg-muted/20 text-center">
@@ -920,6 +1024,54 @@ const Home = () => {
             >
               Kapat
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+      {/* Belgeler PDF Önizleme Modalı */}
+      <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
+        <DialogContent className="max-w-[90vw] w-[90vw] sm:max-w-[90vw] h-[90vh] rounded-3xl p-6 bg-card border border-border/80 shadow-2xl flex flex-col">
+          <DialogHeader className="flex flex-row items-center justify-between pb-2 border-b border-border/50 shrink-0">
+            <div className="space-y-0.5 leading-tight">
+              <DialogTitle className="text-xl font-black text-foreground tracking-tight flex items-center gap-2">
+                <FileText className="text-rose-500" size={22} />
+                {selectedDoc?.title}
+              </DialogTitle>
+              <DialogDescription className="font-semibold text-muted-foreground text-xs">
+                Kategori: {selectedDoc?.category}
+              </DialogDescription>
+            </div>
+            <div className="flex items-center gap-2 pr-8">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  if (selectedDoc) {
+                    const serverBaseUrl =
+                      import.meta.env.VITE_API_BASE_URL?.replace("/api", "") ||
+                      "http://localhost:3003";
+                    window.open(`${serverBaseUrl}${selectedDoc.filePath}`, "_blank");
+                  }
+                }}
+                className="h-9 px-4 rounded-xl font-bold text-xs gap-1.5"
+              >
+                <Download size={14} />
+                Tam Ekran İndir
+              </Button>
+            </div>
+          </DialogHeader>
+
+          <div className="flex-1 w-full h-full bg-muted/20 rounded-2xl overflow-hidden mt-4 border border-border/50">
+            {selectedDoc ? (
+              <iframe
+                src={`${import.meta.env.VITE_API_BASE_URL?.replace("/api", "") || "http://localhost:3003"}${selectedDoc.filePath}#toolbar=1&navpanes=0`}
+                title={selectedDoc.title}
+                className="w-full h-full border-none"
+              />
+            ) : (
+              <div className="flex items-center justify-center h-full text-muted-foreground font-bold">
+                Döküman yüklenemedi.
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>

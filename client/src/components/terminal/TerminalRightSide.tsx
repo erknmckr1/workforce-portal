@@ -27,7 +27,11 @@ interface TerminalRightSideProps {
   onOpenMeasurementModal: (opId: string) => void;
   isOnBreak: boolean;
   updateSelectedJobs: (jobIds: string[]) => void;
-  requireOperatorAuth?: (options?: { skipBreakCheck?: boolean; actionType?: "break" | "job" }) => Promise<string>;
+  requireOperatorAuth?: (options?: {
+    skipBreakCheck?: boolean;
+    actionType?: "break" | "job";
+  }) => Promise<string>;
+  currentTime: Date;
 }
 
 const TerminalRightSide = ({
@@ -42,6 +46,7 @@ const TerminalRightSide = ({
   onOpenMeasurementModal,
   isOnBreak,
   requireOperatorAuth,
+  currentTime,
 }: TerminalRightSideProps) => {
   const { areaName } = useParams<{ areaName: string }>();
   const queryClient = useQueryClient();
@@ -85,23 +90,24 @@ const TerminalRightSide = ({
       return;
     }
 
-    const eligibleJobs = selectedJobs.filter(
-      (jobId) => {
-        const status = jobs.find((j) => j.id === jobId)?.status;
-        return status === 1 || status === 2 || status === 9; // İptal edilebilecek durumlar
-      }
-    );
+    const eligibleJobs = selectedJobs.filter((jobId) => {
+      const status = jobs.find((j) => j.id === jobId)?.status;
+      return status === 1 || status === 2 || status === 9; // İptal edilebilecek durumlar
+    });
 
     if (eligibleJobs.length === 0) {
-      toast.error("Seçili işler arasında iptal edilebilecek uygun bir iş bulunamadı.");
+      toast.error(
+        "Seçili işler arasında iptal edilebilecek uygun bir iş bulunamadı.",
+      );
       return;
     }
 
     const isConfirmed = await confirm({
       title: "İş İptali",
-      description: eligibleJobs.length < selectedJobs.length
-        ? `Seçtiğiniz ${selectedJobs.length} işin ${selectedJobs.length - eligibleJobs.length} adedi iptal edilmeye uygun değil. Sadece uygun olan ${eligibleJobs.length} adet işi iptal etmek istediğinize emin misiniz? Bu işlem geri alınamaz!`
-        : `${eligibleJobs.length} adet işi iptal etmek istediğinize emin misiniz? Bu işlem geri alınamaz!`,
+      description:
+        eligibleJobs.length < selectedJobs.length
+          ? `Seçtiğiniz ${selectedJobs.length} işin ${selectedJobs.length - eligibleJobs.length} adedi iptal edilmeye uygun değil. Sadece uygun olan ${eligibleJobs.length} adet işi iptal etmek istediğinize emin misiniz? Bu işlem geri alınamaz!`
+          : `${eligibleJobs.length} adet işi iptal etmek istediğinize emin misiniz? Bu işlem geri alınamaz!`,
       confirmText: "Evet, İptal Et",
       cancelText: "Vazgeç",
       variant: "destructive",
@@ -152,23 +158,24 @@ const TerminalRightSide = ({
       return;
     }
 
-    const eligibleJobs = selectedJobs.filter(
-      (jobId) => {
-        const status = jobs.find((j) => j.id === jobId)?.status;
-        return status === 2 || status === 9; // Yeniden başlatılabilecek durumlar
-      }
-    );
+    const eligibleJobs = selectedJobs.filter((jobId) => {
+      const status = jobs.find((j) => j.id === jobId)?.status;
+      return status === 2 || status === 9; // Yeniden başlatılabilecek durumlar
+    });
 
     if (eligibleJobs.length === 0) {
-      toast.error("Seçili işler arasında yeniden başlatılabilecek (durdurulmuş) bir iş bulunamadı.");
+      toast.error(
+        "Seçili işler arasında yeniden başlatılabilecek (durdurulmuş) bir iş bulunamadı.",
+      );
       return;
     }
 
     const isConfirmed = await confirm({
       title: "İşi Yeniden Başlat",
-      description: eligibleJobs.length < selectedJobs.length
-        ? `Seçtiğiniz ${selectedJobs.length} işin ${selectedJobs.length - eligibleJobs.length} adedi geçerli durumda değil. Sadece durdurulmuş olan ${eligibleJobs.length} iş yeniden başlatılacaktır. Devam edilsin mi?`
-        : `${eligibleJobs.length} adet işi yeniden başlatmak istediğinize emin misiniz?`,
+      description:
+        eligibleJobs.length < selectedJobs.length
+          ? `Seçtiğiniz ${selectedJobs.length} işin ${selectedJobs.length - eligibleJobs.length} adedi geçerli durumda değil. Sadece durdurulmuş olan ${eligibleJobs.length} iş yeniden başlatılacaktır. Devam edilsin mi?`
+          : `${eligibleJobs.length} adet işi yeniden başlatmak istediğinize emin misiniz?`,
       confirmText: "Evet, Başlat",
       cancelText: "Vazgeç",
       variant: "success",
@@ -219,11 +226,13 @@ const TerminalRightSide = ({
     }
 
     const eligibleJobs = selectedJobs.filter(
-      (jobId) => jobs.find((j) => j.id === jobId)?.status === 1
+      (jobId) => jobs.find((j) => j.id === jobId)?.status === 1,
     );
 
     if (eligibleJobs.length === 0) {
-      toast.error("Seçili işler arasında bitirilebilecek (aktif) bir iş bulunamadı.");
+      toast.error(
+        "Seçili işler arasında bitirilebilecek (aktif) bir iş bulunamadı.",
+      );
       return;
     }
 
@@ -233,16 +242,19 @@ const TerminalRightSide = ({
         return;
       }
       if (eligibleJobs.length < selectedJobs.length) {
-        toast.info(`Geçersiz olanlar atlandı. ${eligibleJobs.length} adet uygun iş işleme alındı.`);
+        toast.info(
+          `Geçersiz olanlar atlandı. ${eligibleJobs.length} adet uygun iş işleme alındı.`,
+        );
         updateSelectedJobs(eligibleJobs);
       }
       handleGuardedAction((opId) => onOpenFinishModal(opId));
     } else {
       const isConfirmed = await confirm({
         title: "İşi Bitir",
-        description: eligibleJobs.length < selectedJobs.length
-          ? `Seçtiğiniz ${selectedJobs.length} işin ${selectedJobs.length - eligibleJobs.length} adedi aktif değil. Sadece aktif olan ${eligibleJobs.length} iş tamamlanacaktır. Devam edilsin mi?`
-          : `${eligibleJobs.length} adet işi tamamlamak istediğinize emin misiniz?`,
+        description:
+          eligibleJobs.length < selectedJobs.length
+            ? `Seçtiğiniz ${selectedJobs.length} işin ${selectedJobs.length - eligibleJobs.length} adedi aktif değil. Sadece aktif olan ${eligibleJobs.length} iş tamamlanacaktır. Devam edilsin mi?`
+            : `${eligibleJobs.length} adet işi tamamlamak istediğinize emin misiniz?`,
         confirmText: "Evet, Bitir",
         cancelText: "Vazgeç",
         variant: "success",
@@ -270,7 +282,10 @@ const TerminalRightSide = ({
   };
 
   const startSetupMutation = useMutation({
-    mutationFn: async (workData: { workIds: string[]; operator_id: string }) => {
+    mutationFn: async (workData: {
+      workIds: string[];
+      operator_id: string;
+    }) => {
       const res = await apiClient.post("/mes/start-setup", workData);
       return res.data;
     },
@@ -280,12 +295,17 @@ const TerminalRightSide = ({
       queryClient.invalidateQueries({ queryKey: ["workLogs", areaName] });
     },
     onError: (error: AxiosError<{ message: string }>) => {
-      toast.error(error.response?.data?.message || "Setup başlatılırken hata oluştu!");
+      toast.error(
+        error.response?.data?.message || "Setup başlatılırken hata oluştu!",
+      );
     },
   });
 
   const finishSetupMutation = useMutation({
-    mutationFn: async (workData: { workIds: string[]; operator_id: string }) => {
+    mutationFn: async (workData: {
+      workIds: string[];
+      operator_id: string;
+    }) => {
       const res = await apiClient.post("/mes/finish-setup", workData);
       return res.data;
     },
@@ -295,12 +315,17 @@ const TerminalRightSide = ({
       queryClient.invalidateQueries({ queryKey: ["workLogs", areaName] });
     },
     onError: (error: AxiosError<{ message: string }>) => {
-      toast.error(error.response?.data?.message || "Setup bitirilirken hata oluştu!");
+      toast.error(
+        error.response?.data?.message || "Setup bitirilirken hata oluştu!",
+      );
     },
   });
 
   const startProcessMutation = useMutation({
-    mutationFn: async (workData: { workIds: string[]; operator_id: string }) => {
+    mutationFn: async (workData: {
+      workIds: string[];
+      operator_id: string;
+    }) => {
       const res = await apiClient.post("/mes/start-process", workData);
       return res.data;
     },
@@ -310,7 +335,9 @@ const TerminalRightSide = ({
       queryClient.invalidateQueries({ queryKey: ["workLogs", areaName] });
     },
     onError: (error: AxiosError<{ message: string }>) => {
-      toast.error(error.response?.data?.message || "Proses başlatılırken hata oluştu!");
+      toast.error(
+        error.response?.data?.message || "Proses başlatılırken hata oluştu!",
+      );
     },
   });
 
@@ -319,13 +346,20 @@ const TerminalRightSide = ({
       toast.error("Lütfen işlem yapmak için en az bir iş seçin!");
       return;
     }
-    const eligibleJobs = selectedJobs.filter((jobId) => jobs.find((j) => j.id === jobId)?.status === 0);
+    const eligibleJobs = selectedJobs.filter(
+      (jobId) => jobs.find((j) => j.id === jobId)?.status === 0,
+    );
     if (eligibleJobs.length === 0) {
-      toast.error("Seçili işler arasında Setup başlatılabilecek (Beklemede) bir iş bulunamadı.");
+      toast.error(
+        "Seçili işler arasında Setup başlatılabilecek (Beklemede) bir iş bulunamadı.",
+      );
       return;
     }
     handleGuardedAction(async (opId) => {
-      await startSetupMutation.mutateAsync({ workIds: eligibleJobs, operator_id: opId });
+      await startSetupMutation.mutateAsync({
+        workIds: eligibleJobs,
+        operator_id: opId,
+      });
     });
   };
 
@@ -334,13 +368,20 @@ const TerminalRightSide = ({
       toast.error("Lütfen işlem yapmak için en az bir iş seçin!");
       return;
     }
-    const eligibleJobs = selectedJobs.filter((jobId) => jobs.find((j) => j.id === jobId)?.status === 5);
+    const eligibleJobs = selectedJobs.filter(
+      (jobId) => jobs.find((j) => j.id === jobId)?.status === 5,
+    );
     if (eligibleJobs.length === 0) {
-      toast.error("Seçili işler arasında Setup'ı bitirilecek bir iş bulunamadı.");
+      toast.error(
+        "Seçili işler arasında Setup'ı bitirilecek bir iş bulunamadı.",
+      );
       return;
     }
     handleGuardedAction(async (opId) => {
-      await finishSetupMutation.mutateAsync({ workIds: eligibleJobs, operator_id: opId });
+      await finishSetupMutation.mutateAsync({
+        workIds: eligibleJobs,
+        operator_id: opId,
+      });
     });
   };
 
@@ -349,13 +390,20 @@ const TerminalRightSide = ({
       toast.error("Lütfen işlem yapmak için en az bir iş seçin!");
       return;
     }
-    const eligibleJobs = selectedJobs.filter((jobId) => jobs.find((j) => j.id === jobId)?.status === 6);
+    const eligibleJobs = selectedJobs.filter(
+      (jobId) => jobs.find((j) => j.id === jobId)?.status === 6,
+    );
     if (eligibleJobs.length === 0) {
-      toast.error("Seçili işler arasında Proses başlatılabilecek bir iş bulunamadı.");
+      toast.error(
+        "Seçili işler arasında Proses başlatılabilecek bir iş bulunamadı.",
+      );
       return;
     }
     handleGuardedAction(async (opId) => {
-      await startProcessMutation.mutateAsync({ workIds: eligibleJobs, operator_id: opId });
+      await startProcessMutation.mutateAsync({
+        workIds: eligibleJobs,
+        operator_id: opId,
+      });
     });
   };
 
@@ -372,8 +420,15 @@ const TerminalRightSide = ({
             >
               <div className="absolute inset-0 bg-linear-to-br from-amber-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
               <div className="relative flex flex-col items-center gap-2">
-                <Play size={24} className="fill-current text-amber-500 group-hover:text-white" />
-                <span className="text-[10px] uppercase tracking-[0.2em] leading-tight">Setup<br/>Başla</span>
+                <Play
+                  size={24}
+                  className="fill-current text-amber-500 group-hover:text-white"
+                />
+                <span className="text-[10px] uppercase tracking-[0.2em] leading-tight">
+                  Setup
+                  <br />
+                  Başla
+                </span>
               </div>
             </button>
             <button
@@ -383,8 +438,15 @@ const TerminalRightSide = ({
             >
               <div className="absolute inset-0 bg-linear-to-br from-emerald-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
               <div className="relative flex flex-col items-center gap-2">
-                <CheckCircle2 size={24} className="text-emerald-500 group-hover:text-white" />
-                <span className="text-[10px] uppercase tracking-[0.2em] leading-tight">Setup<br/>Bitir</span>
+                <CheckCircle2
+                  size={24}
+                  className="text-emerald-500 group-hover:text-white"
+                />
+                <span className="text-[10px] uppercase tracking-[0.2em] leading-tight">
+                  Setup
+                  <br />
+                  Bitir
+                </span>
               </div>
             </button>
             <button
@@ -394,8 +456,13 @@ const TerminalRightSide = ({
             >
               <div className="absolute inset-0 bg-linear-to-br from-blue-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
               <div className="relative flex flex-col items-center gap-2">
-                <Play size={24} className="fill-current text-blue-500 group-hover:text-white" />
-                <span className="text-[10px] uppercase tracking-[0.2em]">Prosese Başla</span>
+                <Play
+                  size={24}
+                  className="fill-current text-blue-500 group-hover:text-white"
+                />
+                <span className="text-[10px] uppercase tracking-[0.2em]">
+                  Prosese Başla
+                </span>
               </div>
             </button>
           </>
@@ -404,12 +471,19 @@ const TerminalRightSide = ({
         <button
           onClick={handleRestartWork}
           disabled={isOnBreak}
-          className={`group relative w-full bg-secondary hover:bg-info text-foreground hover:text-info-foreground font-black py-6 rounded-xl transition-all duration-300 border border-border hover:border-info/50 active:scale-95 overflow-hidden text-center ${isOnBreak ? "opacity-50 cursor-not-allowed grayscale" : ""}`}
+          className={`group relative w-full bg-info text-white hover:text-info-foreground font-black py-6 rounded-xl transition-all duration-300 border border-border hover:border-info/50 active:scale-95 overflow-hidden text-center ${isOnBreak ? "opacity-50 cursor-not-allowed grayscale" : ""}`}
         >
           <div className="absolute inset-0 bg-linear-to-br from-info/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
           <div className="relative flex flex-col items-center gap-2">
-            <Play size={24} className="fill-current text-blue-400 group-hover:text-info-foreground" />
-            <span className="text-[10px] uppercase tracking-[0.2em] leading-tight">Yeniden<br/>Başlat</span>
+            <Play
+              size={24}
+              className="fill-current text-blue-400 group-hover:text-info-foreground"
+            />
+            <span className="text-[14px] uppercase tracking-[0.2em] leading-tight">
+              Yeniden
+              <br />
+              Başlat
+            </span>
           </div>
         </button>
 
@@ -420,48 +494,70 @@ const TerminalRightSide = ({
               return;
             }
             const eligibleJobs = selectedJobs.filter(
-              (jobId) => jobs.find((j) => j.id === jobId)?.status === 1
+              (jobId) => jobs.find((j) => j.id === jobId)?.status === 1,
             );
             if (eligibleJobs.length === 0) {
-              toast.error("Seçili işler arasında durdurulabilecek (aktif) bir iş bulunamadı.");
+              toast.error(
+                "Seçili işler arasında durdurulabilecek (aktif) bir iş bulunamadı.",
+              );
               return;
             }
             if (eligibleJobs.length < selectedJobs.length) {
-              toast.info(`Geçersiz olanlar atlandı. ${eligibleJobs.length} aktif iş durdurma işlemine alınacak.`);
+              toast.info(
+                `Geçersiz olanlar atlandı. ${eligibleJobs.length} aktif iş durdurma işlemine alınacak.`,
+              );
               updateSelectedJobs(eligibleJobs);
             }
             handleGuardedAction((opId) => onOpenStopModal(opId));
           }}
           disabled={isOnBreak}
-          className={`group relative w-full bg-secondary hover:bg-destructive text-foreground hover:text-destructive-foreground font-black py-6 rounded-xl transition-all duration-300 border border-border hover:border-destructive/50 active:scale-95 overflow-hidden text-center ${isOnBreak ? "opacity-50 cursor-not-allowed grayscale" : ""}`}
+          className={`group relative w-full bg-destructive text-white hover:text-destructive-foreground font-black py-6 rounded-xl transition-all duration-300 border border-border hover:border-destructive/50 active:scale-95 overflow-hidden text-center ${isOnBreak ? "opacity-50 cursor-not-allowed grayscale" : ""}`}
         >
           <div className="absolute inset-0 bg-linear-to-br from-destructive/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
           <div className="relative flex flex-col items-center gap-2">
-            <Square size={24} className="fill-current text-red-500 group-hover:text-destructive-foreground" />
-            <span className="text-[10px] uppercase tracking-[0.2em] leading-tight">Siparişi<br/>Durdur</span>
+            <Square size={24} className="fill-current text-foreground " />
+            <span className="text-[14spx] uppercase tracking-[0.2em] leading-tight">
+              Siparişi
+              <br />
+              Durdur
+            </span>
           </div>
         </button>
 
         <button
           onClick={handleFinishWork}
           disabled={isOnBreak}
-          className={`group relative w-full bg-secondary hover:bg-success text-foreground hover:text-success-foreground font-black py-6 rounded-xl transition-all duration-300 border border-border hover:border-success/50 active:scale-95 overflow-hidden text-center ${isOnBreak ? "opacity-50 cursor-not-allowed grayscale" : ""}`}
+          className={`group relative w-full bg-success text-white hover:text-success-foreground font-black py-6 rounded-xl transition-all duration-300 border border-border hover:border-success/50 active:scale-95 overflow-hidden text-center ${isOnBreak ? "opacity-50 cursor-not-allowed grayscale" : ""}`}
         >
           <div className="absolute inset-0 bg-linear-to-br from-success/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
           <div className="relative flex flex-col items-center gap-2">
-            <CheckCircle2 size={24} className="text-emerald-500 group-hover:text-success-foreground" />
-            <span className="text-[10px] uppercase tracking-[0.2em] leading-tight">Prosesi<br/>Bitir</span>
+            <CheckCircle2
+              size={24}
+              className="text-emerald-500 group-hover:text-success-foreground"
+            />
+            <span className="text-[14px] uppercase tracking-[0.2em] leading-tight">
+              Prosesi
+              <br />
+              Bitir
+            </span>
           </div>
         </button>
 
         <button
           onClick={handleCancelWork}
           disabled={isOnBreak}
-          className={`group relative w-full bg-secondary hover:bg-accent text-foreground hover:text-accent-foreground font-black py-6 rounded-xl shadow-lg transition-all duration-300 border border-border hover:border-accent active:scale-95 overflow-hidden text-center ${isOnBreak ? "opacity-50 cursor-not-allowed grayscale" : ""}`}
+          className={`group relative w-full bg-accent text-foreground hover:text-accent-foreground font-black py-6 rounded-xl shadow-lg transition-all duration-300 border border-border hover:border-accent active:scale-95 overflow-hidden text-center ${isOnBreak ? "opacity-50 cursor-not-allowed grayscale" : ""}`}
         >
           <div className="relative flex flex-col items-center gap-2">
-            <XCircle size={24} className="text-muted-foreground group-hover:text-accent-foreground" />
-            <span className="text-[10px] uppercase tracking-[0.2em] leading-tight">Sipariş<br/>İptal</span>
+            <XCircle
+              size={24}
+              className="text-muted-foreground group-hover:text-accent-foreground"
+            />
+            <span className="text-[14px] uppercase tracking-[0.2em] leading-tight">
+              Sipariş
+              <br />
+              İptal
+            </span>
           </div>
         </button>
 
@@ -473,8 +569,13 @@ const TerminalRightSide = ({
           >
             <div className="absolute inset-0 bg-linear-to-br from-amber-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
             <div className="relative flex flex-col items-center gap-2">
-              <ImageIcon size={24} className="group-hover:scale-110 transition-transform" />
-              <span className="text-[10px] uppercase tracking-[0.2em]">Ürün Görseli</span>
+              <ImageIcon
+                size={24}
+                className="group-hover:scale-110 transition-transform"
+              />
+              <span className="text-[10px] uppercase tracking-[0.2em]">
+                Ürün Görseli
+              </span>
             </div>
           </button>
         )}
@@ -487,24 +588,46 @@ const TerminalRightSide = ({
           >
             <div className="absolute inset-0 bg-linear-to-br from-amber-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
             <div className="relative flex flex-col items-center gap-2">
-              <Calculator size={24} className="group-hover:scale-110 transition-transform" />
-              <span className="text-[10px] uppercase tracking-[0.2em]">Fire Girişi</span>
+              <Calculator
+                size={24}
+                className="group-hover:scale-110 transition-transform"
+              />
+              <span className="text-[10px] uppercase tracking-[0.2em]">
+                Fire Girişi
+              </span>
             </div>
           </button>
         )}
 
         {areaName === "buzlama" && (
           <button
-            onClick={() => handleGuardedAction((opId) => onOpenMeasurementModal(opId))}
+            onClick={() =>
+              handleGuardedAction((opId) => onOpenMeasurementModal(opId))
+            }
             disabled={isOnBreak}
             className={`group relative w-full bg-orange-500/10 hover:bg-orange-500 text-orange-500 hover:text-foreground font-black py-6 rounded-xl transition-all duration-300 border border-orange-500/30 hover:border-orange-500 active:scale-95 overflow-hidden text-center shadow-[0_0_20px_rgba(249,115,22,0.1)] col-span-2 ${isOnBreak ? "opacity-50 cursor-not-allowed grayscale" : ""}`}
           >
             <div className="absolute inset-0 bg-linear-to-br from-orange-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
             <div className="relative flex flex-col items-center gap-2">
-              <Calculator size={24} className="group-hover:scale-110 transition-transform" />
-              <span className="text-[10px] uppercase tracking-[0.2em]">Ölçüm V. Girişi</span>
+              <Calculator
+                size={24}
+                className="group-hover:scale-110 transition-transform"
+              />
+              <span className="text-[10px] uppercase tracking-[0.2em]">
+                Ölçüm V. Girişi
+              </span>
             </div>
           </button>
+        )}
+        {areaName === "kalite" && (
+          <div className="flex items-center gap-3 shrink-0">
+            <div className="text-[110px] leading-none font-mono font-black tracking-tighter text-amber-500 tabular-nums drop-shadow-[0_0_15px_rgba(245,158,11,0.3)]">
+              {currentTime.toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </div>
+          </div>
         )}
       </div>
     </div>

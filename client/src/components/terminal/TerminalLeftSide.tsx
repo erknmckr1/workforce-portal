@@ -46,10 +46,10 @@ const TerminalLeftSide: React.FC<TerminalLeftSideProps> = ({
             )}
           </div>
         </div>
-        <div className="text-[10px] font-bold text-amber-500 tracking-[0.2em] uppercase mb-1">
+        <div className="text-[10px]  font-bold text-amber-500 tracking-[0.2em] uppercase mb-1">
           Operator ID: {operator?.id_dec || "---"}
         </div>
-        <div className="text-xl font-black uppercase tracking-tight text-foreground drop-shadow-md text-center leading-tight">
+        <div className="text-xl font-black text-name uppercase tracking-tight  drop-shadow-md text-center leading-tight">
           {operator
             ? `${operator.name} ${operator.surname}`
             : "GİRİŞ YAPILMADI"}
@@ -59,13 +59,13 @@ const TerminalLeftSide: React.FC<TerminalLeftSideProps> = ({
 
       <button
         onClick={onLogout}
-        className="w-full bg-destructive/10 hover:bg-destructive border border-destructive/30 text-destructive hover:text-destructive-foreground font-bold py-3 rounded-lg shadow-lg transition-all duration-300 flex items-center justify-center gap-2 group"
+        className="w-full bg-destructive hover:bg-destructive border border-destructive/30 text-white hover:text-destructive-foreground font-bold py-3 rounded-lg shadow-lg transition-all duration-300 flex items-center justify-center gap-2 group"
       >
         <LogOut
           size={18}
           className="group-hover:-translate-x-1 transition-transform"
         />
-        <span className="text-xs py-4 uppercase tracking-wider">Çıkış</span>
+        <span className="text-lg py-4 uppercase tracking-wider">Çıkış</span>
       </button>
 
       <div className="flex-1"></div>
@@ -85,10 +85,10 @@ const TerminalLeftSide: React.FC<TerminalLeftSideProps> = ({
               if (btn.label === "Araya Çık") onOpenBreak();
               if (btn.label === "Moladan Dön") onEndBreak();
             }}
-            className={`w-full font-bold py-6 rounded-lg shadow-md transition-all duration-300 text-[11px] uppercase tracking-widest border border-border active:scale-95
-              ${btn.variant === "info" ? "bg-secondary hover:bg-info hover:text-info-foreground" : ""}
-              ${btn.variant === "warning" ? "bg-secondary hover:bg-warning hover:text-warning-foreground" : ""}
-              ${btn.variant === "success" ? "bg-secondary hover:bg-success hover:text-success-foreground" : ""}
+            className={`w-full text-white font-bold py-6 rounded-lg shadow-md transition-all duration-300 text-[14px] uppercase tracking-widest border border-border active:scale-95
+              ${btn.variant === "info" ? "bg-blue-800 hover:bg-info hover:text-info-foreground" : ""}
+              ${btn.variant === "warning" ? "bg-blue-800 hover:bg-warning hover:text-warning-foreground" : ""}
+              ${btn.variant === "success" ? "bg-blue-800 hover:bg-success hover:text-success-foreground" : ""}
             `}
           >
             {btn.label}

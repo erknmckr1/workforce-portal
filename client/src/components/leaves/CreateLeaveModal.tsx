@@ -3,7 +3,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { CalendarDays, UserCircle } from "lucide-react";
 import { type ILeave } from "@/hooks/useLeaves";
@@ -13,7 +13,13 @@ import { SharedLeaveForm } from "./SharedLeaveForm";
 interface CreateLeaveModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  targetUser?: { id_dec: string; name: string; surname: string; phone?: string | null; address?: string | null }; // Optional pre-selected user
+  targetUser?: {
+    id_dec: string;
+    name: string;
+    surname: string;
+    phone?: string | null;
+    address?: string | null;
+  }; // Optional pre-selected user
   editingLeave?: ILeave | null;
 }
 
@@ -21,14 +27,22 @@ export function CreateLeaveModal({
   open,
   onOpenChange,
   targetUser,
-  editingLeave
+  editingLeave,
 }: CreateLeaveModalProps) {
   const { user } = useAuthStore();
 
-  const activeUserId = targetUser?.id_dec || user?.id_dec || "";
-  const activeUserPhone = targetUser?.phone || (user as any)?.phone || "";
-  const activeUserAddress = targetUser?.address || (user as any)?.address || "";
+  const activeUserId = editingLeave?.user_id || targetUser?.id_dec || user?.id_dec || "";
+  
+  // To display the correct name/surname:
+  const displayUser = editingLeave?.User 
+    ? { name: editingLeave.User.name, surname: editingLeave.User.surname, id_dec: editingLeave.user_id }
+    : targetUser 
+      ? { name: targetUser.name, surname: targetUser.surname, id_dec: targetUser.id_dec }
+      : { name: user?.name, surname: user?.surname, id_dec: user?.id_dec };
 
+  const activeUserPhone = editingLeave?.phone || targetUser?.phone || (user as any)?.phone || "";
+  const activeUserAddress = editingLeave?.address || targetUser?.address || (user as any)?.address || "";
+  console.log(editingLeave);
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[95vw] sm:max-w-5xl p-0 overflow-hidden border border-border/20 shadow-none bg-card">
@@ -43,7 +57,9 @@ export function CreateLeaveModal({
                   {editingLeave ? "İzin Talebi Düzenle" : "Yeni İzin Talebi"}
                 </DialogTitle>
                 <DialogDescription className="text-muted-foreground font-bold text-sm uppercase tracking-widest leading-none mt-1">
-                  {editingLeave ? `Talep No: #${editingLeave.id}` : "Kayıt Formu"}
+                  {editingLeave
+                    ? `Talep No: #${editingLeave.id}`
+                    : "Kayıt Formu"}
                 </DialogDescription>
               </div>
             </div>
@@ -54,9 +70,7 @@ export function CreateLeaveModal({
               <UserCircle size={14} /> Personel Bilgisi
             </label>
             <div className="h-16! px-6 rounded-2xl bg-muted/40 border border-border/50 flex items-center font-bold text-foreground">
-              {targetUser 
-                ? `${targetUser.name} ${targetUser.surname} (${targetUser.id_dec})` 
-                : `${user?.name} ${user?.surname} (${user?.id_dec})`}
+              {displayUser.name} {displayUser.surname} ({displayUser.id_dec})
             </div>
           </div>
 
@@ -74,4 +88,3 @@ export function CreateLeaveModal({
     </Dialog>
   );
 }
-

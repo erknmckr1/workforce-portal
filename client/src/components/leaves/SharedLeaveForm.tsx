@@ -79,6 +79,12 @@ export function SharedLeaveForm({
     isKioskMode ? { kioskMode: true } : undefined,
   );
 
+  const formatForInput = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const offset = date.getTimezoneOffset() * 60000;
+    return (new Date(date.getTime() - offset)).toISOString().slice(0, 16);
+  };
+
   const {
     register,
     handleSubmit,
@@ -91,14 +97,14 @@ export function SharedLeaveForm({
   } = useForm<LeaveFormValues>({
     resolver: zodResolver(leaveSchema),
     defaultValues: {
-      user_id: userId || "",
-      leave_reason_id: "",
-      leave_duration_type_id: "1",
-      start_date: `${new Date().toISOString().split('T')[0]}T07:30`,
-      end_date: `${new Date().toISOString().split('T')[0]}T17:00`,
-      description: "",
-      phone: defaultPhone || "",
-      address: defaultAddress || ""
+      user_id: editingLeave ? String(editingLeave.user_id) : (userId || ""),
+      leave_reason_id: editingLeave ? String(editingLeave.leave_reason_id) : "",
+      leave_duration_type_id: editingLeave ? String(editingLeave.leave_duration_type_id) : "1",
+      start_date: editingLeave ? formatForInput(editingLeave.start_date) : `${new Date().toISOString().split('T')[0]}T07:30`,
+      end_date: editingLeave ? formatForInput(editingLeave.end_date) : `${new Date().toISOString().split('T')[0]}T17:00`,
+      description: editingLeave?.description || "",
+      phone: editingLeave?.phone || defaultPhone || "",
+      address: editingLeave?.address || defaultAddress || ""
     }
   });
 
@@ -107,12 +113,6 @@ export function SharedLeaveForm({
 
   useEffect(() => {
     if (editingLeave) {
-      const formatForInput = (dateStr: string) => {
-        const date = new Date(dateStr);
-        const offset = date.getTimezoneOffset() * 60000;
-        return (new Date(date.getTime() - offset)).toISOString().slice(0, 16);
-      };
-
       reset({
         user_id: String(editingLeave.user_id),
         leave_reason_id: String(editingLeave.leave_reason_id),
@@ -124,13 +124,18 @@ export function SharedLeaveForm({
         address: editingLeave.address || ""
       });
     } else {
-      setValue("user_id", userId);
-      setValue("start_date", `${new Date().toISOString().split('T')[0]}T07:30`);
-      setValue("end_date", `${new Date().toISOString().split('T')[0]}T17:00`);
-      if (defaultPhone) setValue("phone", defaultPhone);
-      if (defaultAddress) setValue("address", defaultAddress);
+      reset({
+        user_id: userId,
+        leave_reason_id: "",
+        leave_duration_type_id: "1",
+        start_date: `${new Date().toISOString().split('T')[0]}T07:30`,
+        end_date: `${new Date().toISOString().split('T')[0]}T17:00`,
+        description: "",
+        phone: defaultPhone || "",
+        address: defaultAddress || ""
+      });
     }
-  }, [editingLeave, userId, defaultPhone, defaultAddress, setValue, reset]);
+  }, [editingLeave, userId, defaultPhone, defaultAddress, reset]);
 
   const updateDateTime = (field: "start_date" | "end_date", part: "date" | "year" | "month" | "day" | "hour" | "minute", val: string) => {
     const current = getValues(field) || `${new Date().toISOString().split('T')[0]}T09:00`;
@@ -163,7 +168,7 @@ export function SharedLeaveForm({
       };
 
       if (editingLeave?.id) {
-        await updateLeave({ id: editingLeave.id, data: { ...payload, user_id: values.user_id } });
+        await updateLeave({ id: editingLeave.id, data: { ...editingLeave, ...payload, user_id: values.user_id } as any });
       } else {
         await createLeave(payload);
       }

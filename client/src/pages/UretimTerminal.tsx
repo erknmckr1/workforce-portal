@@ -583,6 +583,7 @@ const UretimTerminal = () => {
               }}
               isOnBreak={isOnBreak}
               requireOperatorAuth={requireOperatorAuth}
+               currentTime={currentTime}
             />
           </div>
 

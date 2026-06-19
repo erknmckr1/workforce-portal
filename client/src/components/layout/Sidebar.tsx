@@ -192,6 +192,11 @@ path: "/leave-approvals",
         path: "/settings/phone-directory",
         roles: ["Admin", "İK"],
       },
+      {
+        title: "Döküman Yönetimi",
+        path: "/settings/documents",
+        roles: ["Admin", "İK"],
+      },
     ],
   },
 ];

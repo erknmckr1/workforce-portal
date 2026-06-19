@@ -2,6 +2,8 @@ import { useState } from "react";
 import { usePhoneDirectory } from "@/hooks/usePhoneDirectory";
 import { useDebounce } from "@/hooks/useDebounce";
 import { Input } from "@/components/ui/input";
+import * as XLSX from "xlsx";
+import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -10,13 +12,53 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Phone, Search, Loader2, Building2, User } from "lucide-react";
+import {
+  Phone,
+  Search,
+  Loader2,
+  Building2,
+  User,
+  DownloadIcon,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 export default function PhoneDirectoryPage() {
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search, 500);
   const { directoryQuery } = usePhoneDirectory(debouncedSearch);
+
+  // export excell function
+  const handleExportExcel = () => {
+    if (!directoryQuery.data || directoryQuery.data.length === 0) return;
+
+    // 1. Verileri Excel formatına uyarlama
+    const exportData = directoryQuery.data.map((entry) => ({
+      Numara: entry.number,
+      "İsim / Yer": entry.name,
+      Bölüm: entry.department,
+      Tür: "Dahili",
+    }));
+
+    // 2. Worksheet ve Workbook oluşturma
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Telefon Rehberi");
+
+    // 3. Sütun genişliklerini ayarlama
+    const colWidths = [
+      { wch: 15 }, // Numara
+      { wch: 40 }, // İsim / Yer
+      { wch: 30 }, // Bölüm
+      { wch: 10 }, // Tür
+    ];
+    worksheet["!cols"] = colWidths;
+
+    // 4. Dosyayı kaydetme
+    XLSX.writeFile(
+      workbook,
+      `Telefon_Rehberi_${new Date().toISOString().split("T")[0]}.xlsx`,
+    );
+  };
 
   return (
     <div className="p-4 space-y-6 w-full  mx-auto animate-in fade-in duration-500">
@@ -34,17 +76,28 @@ export default function PhoneDirectoryPage() {
           </p>
         </div>
 
-        <div className="relative w-full md:w-80 group">
-          <Search
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors"
-            size={18}
-          />
-          <Input
-            placeholder="İsim, numara veya bölüm ara..."
-            className="pl-10 h-11 rounded-xl bg-card border-border shadow-sm focus:ring-2 focus:ring-primary/20 transition-all"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+        <div className="flex items-center gap-x-6">
+          <Button
+            variant="outline"
+            onClick={handleExportExcel}
+            disabled={directoryQuery.isLoading || !directoryQuery.data?.length}
+            className="h-11"
+          >
+            <DownloadIcon />
+            Excel'e Aktar
+          </Button>
+          <div className="relative w-full md:w-80 group">
+            <Search
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors"
+              size={18}
+            />
+            <Input
+              placeholder="İsim, numara veya bölüm ara..."
+              className="pl-10 h-11 rounded-xl bg-card border-border shadow-sm focus:ring-2 focus:ring-primary/20 transition-all"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
         </div>
       </div>
 

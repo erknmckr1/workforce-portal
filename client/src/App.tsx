@@ -26,6 +26,7 @@ import Reports from "./pages/Reports";
 import PersonnelMovementReport from "./pages/PersonnelMovementReport";
 import PhoneDirectoryPage from "./pages/PhoneDirectoryPage";
 import PhoneDirectoryManager from "./pages/settings/PhoneDirectoryManager";
+import DocumentManager from "./pages/settings/DocumentManager";
 import { ThemeProvider } from "./components/theme-provider";
 import { ConfirmProvider } from "@/providers/ConfirmProvider";
 import "./App.css";
@@ -160,6 +161,7 @@ function App() {
               <Route element={<ProtectedRoute allowedRoles={["Admin", "İK"]} />}>
                 <Route path="settings/food-menu" element={<FoodMenuManager />} />
                 <Route path="settings/phone-directory" element={<PhoneDirectoryManager />} />
+                <Route path="settings/documents" element={<DocumentManager />} />
               </Route>
               {/* Takvim Yönetimi - Sadece Admin & İK */}
               <Route element={<ProtectedRoute allowedRoles={["Admin", "İK"]} />}>
