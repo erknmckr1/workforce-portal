@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Settings,
@@ -10,7 +10,9 @@ import {
   ShieldCheck,
   ChevronRight,
   Monitor,
+  Scale,
 } from "lucide-react";
+import MeasurementHistoryModal from "../components/terminal/MeasurementHistoryModal";
 
 interface ScreenCard {
   id: string;
@@ -30,7 +32,7 @@ const screens: ScreenCard[] = [
     section: "atolye",
     icon: <Settings size={32} />,
     color: "from-amber-500 to-orange-600",
-    description: "",
+    description: "Taslama istasyonundaki işlerinizi ve ayarlarınızı yönetin.",
   },
   {
     id: "tezgah",
@@ -39,7 +41,7 @@ const screens: ScreenCard[] = [
     section: "atolye",
     icon: <Monitor size={32} />,
     color: "from-blue-500 to-indigo-600",
-    description: "",
+    description: "Tezgah ekranında üretim ve parça durumlarını takip edin.",
   },
   {
     id: "cila",
@@ -48,7 +50,7 @@ const screens: ScreenCard[] = [
     section: "atolye",
     icon: <Zap size={32} />,
     color: "from-purple-500 to-pink-600",
-    description: "",
+    description: "Cila istasyonu aktif operasyonları ve durum izleme.",
   },
   {
     id: "kalite",
@@ -57,7 +59,7 @@ const screens: ScreenCard[] = [
     section: "atolye",
     icon: <ShieldCheck size={32} />,
     color: "from-emerald-500 to-teal-600",
-    description: "",
+    description: "Kalite kontrol süreçlerini ve standartları doğrulayın.",
   },
   {
     id: "buzlama",
@@ -66,7 +68,7 @@ const screens: ScreenCard[] = [
     section: "atolye",
     icon: <Droplets size={32} />,
     color: "from-cyan-500 to-blue-600",
-    description: "",
+    description: "Buzlama ünitesi parça ölçüm ve süreç takibi.",
   },
   {
     id: "cekic",
@@ -75,7 +77,7 @@ const screens: ScreenCard[] = [
     section: "atolye",
     icon: <Hammer size={32} />,
     color: "from-red-500 to-rose-600",
-    description: "",
+    description: "Çekiç istasyonu operatör ve makine yönetim paneli.",
   },
   {
     id: "kurutiras",
@@ -84,7 +86,7 @@ const screens: ScreenCard[] = [
     section: "atolye",
     icon: <Scissors size={32} />,
     color: "from-lime-500 to-green-600",
-    description: "",
+    description: "Kuru tıraş istasyonu iş emirleri ve mola durumları.",
   },
   {
     id: "telcekme",
@@ -93,12 +95,22 @@ const screens: ScreenCard[] = [
     section: "atolye",
     icon: <Activity size={32} />,
     color: "from-orange-500 to-amber-600",
-    description: "",
+    description: "Tel çekme hattı süreç izleme ve makine performansları.",
+  },
+  {
+    id: "olcum-takip",
+    title: "Ölçüm Takip",
+    area: "olcum-takip",
+    section: "atolye",
+    icon: <Scale size={32} />,
+    color: "from-orange-500 to-yellow-600",
+    description: "Malzeme kodu ile istasyonların ölçüm geçmişini inceleyin.",
   },
 ];
 
 const MesScreensNavigator = () => {
   const navigate = useNavigate();
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
   return (
     <div className="flex flex-col space-y-8">
@@ -126,8 +138,14 @@ const MesScreensNavigator = () => {
         {screens.map((screen) => (
           <button
             key={screen.id}
-            onClick={() => navigate(`/uretim/${screen.section}/${screen.area}`)}
-            className="group relative flex flex-col items-start p-6 bg-card border border-border rounded-[2.5rem] text-left transition-all  hover:shadow-2xl hover:shadow-primary/5 hover:border-primary/50 overflow-hidden"
+            onClick={() => {
+              if (screen.id === "olcum-takip") {
+                setIsHistoryOpen(true);
+              } else {
+                navigate(`/uretim/${screen.section}/${screen.area}`);
+              }
+            }}
+            className="group relative flex flex-col items-start p-6 bg-card border border-border rounded-[2.5rem] text-left transition-all hover:shadow-2xl hover:shadow-primary/5 hover:border-primary/50 overflow-hidden"
           >
             <div
               className={`p-4 bg-linear-to-br ${screen.color} text-card rounded-2xl mb-6 shadow-lg shadow-black/5 group-hover:scale-110 transition-transform duration-500`}
@@ -144,17 +162,27 @@ const MesScreensNavigator = () => {
               </p>
             </div>
 
-            <div className="mt-6 flex items-center gap-2 text-xs font-black uppercase tracking-widest text-primary opacity-0 group-hover:opacity-100 transition-all transform translate-x-[-10px] group-hover:translate-x-0 duration-500">
-              Giriş Yap <ChevronRight size={14} />
+            <div className="mt-6 flex items-center gap-2 text-xs font-black uppercase tracking-widest text-primary opacity-0 group-hover:opacity-100 transition-all transform -translate-x-2.5 group-hover:translate-x-0 duration-500">
+              {screen.id === "olcum-takip" ? "Sorgula" : "Giriş Yap"} <ChevronRight size={14} />
             </div>
 
             {/* Decorative corner element */}
             <div className="absolute bottom-0 right-0 p-1 opacity-10">
-              <Monitor size={48} className="text-muted-foreground" />
+              {screen.id === "olcum-takip" ? (
+                <Scale size={48} className="text-muted-foreground" />
+              ) : (
+                <Monitor size={48} className="text-muted-foreground" />
+              )}
             </div>
           </button>
         ))}
       </div>
+
+      {/* MEASUREMENT HISTORY MODAL */}
+      <MeasurementHistoryModal
+        isOpen={isHistoryOpen}
+        onClose={() => setIsHistoryOpen(false)}
+      />
     </div>
   );
 };

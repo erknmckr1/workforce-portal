@@ -1207,12 +1207,63 @@ export const getMeasurements = async (req: Request, res: Response) => {
 
     const measurements = await Measurement.findAll({
       where: { area_name, material_no },
+      include: [
+        {
+          model: Operator,
+          as: "OperatorDetail",
+          attributes: ["name", "surname"],
+          required: false,
+        },
+      ],
       order: [["createdAt", "DESC"]],
     });
 
     res.json(measurements);
   } catch (error) {
     console.error("Ölçüm verileri getirilirken hata:", error);
+    res.status(500).json({ message: "Sunucu hatası." });
+  }
+};
+
+export const getMeasurementsByMaterial = async (req: Request, res: Response) => {
+  try {
+    const { material_no, page = 1, limit = 50 } = req.query;
+
+    if (!material_no) {
+      return res.status(400).json({ message: "Eksik parametre: material_no zorunludur." });
+    }
+
+    const pageNum = parseInt(page as string) || 1;
+    const limitNum = parseInt(limit as string) || 50;
+    const offset = (pageNum - 1) * limitNum;
+
+    const { count, rows } = await Measurement.findAndCountAll({
+      where: {
+        material_no: {
+          [Op.like]: `%${material_no}%`
+        }
+      },
+      include: [
+        {
+          model: Operator,
+          as: "OperatorDetail",
+          attributes: ["name", "surname"],
+          required: false,
+        },
+      ],
+      order: [["createdAt", "DESC"]],
+      limit: limitNum,
+      offset: offset,
+    });
+
+    res.json({
+      totalItems: count,
+      totalPages: Math.ceil(count / limitNum),
+      currentPage: pageNum,
+      items: rows,
+    });
+  } catch (error) {
+    console.error("Malzemeye göre ölçüm verileri getirilirken hata:", error);
     res.status(500).json({ message: "Sunucu hatası." });
   }
 };

@@ -485,7 +485,9 @@ const MeasurementPopup: React.FC<MeasurementPopupProps> = ({
                       }`}
                     >
                       <div className="col-span-1 flex items-center truncate opacity-80">
-                        {row.operator}
+                        {row.OperatorDetail 
+                          ? `${row.OperatorDetail.name} ${row.OperatorDetail.surname}`
+                          : row.operator}
                       </div>
                       <div className="col-span-1 flex items-center">
                         {row.entry_measurement || "-"}

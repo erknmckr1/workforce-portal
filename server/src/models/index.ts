@@ -110,6 +110,10 @@ PasswordResetRequest.belongsTo(Operator, { as: "Handler", foreignKey: "handled_b
 OperatorBreak.belongsTo(Operator, { as: "Operator", foreignKey: "operator_id", targetKey: "id_dec" });
 Operator.hasMany(OperatorBreak, { foreignKey: "operator_id", sourceKey: "id_dec" });
 
+// --- Measurement Associations ---
+Measurement.belongsTo(Operator, { as: "OperatorDetail", foreignKey: "operator", targetKey: "id_dec" });
+Operator.hasMany(Measurement, { foreignKey: "operator", sourceKey: "id_dec" });
+
 // --- SectionParticipationLog Associations ---
 SectionParticipationLog.belongsTo(Operator, { as: "Operator", foreignKey: "operator_id", targetKey: "id_dec" });
 Operator.hasMany(SectionParticipationLog, { foreignKey: "operator_id", sourceKey: "id_dec" });

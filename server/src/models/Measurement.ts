@@ -14,6 +14,10 @@ export class Measurement extends Model {
   public description!: string | null;
   public measurement_package!: number | null;
   public data_entry_date!: Date;
+  public group_no!: string | null;
+  public measure_status!: string | null;
+  public who_deleted_measure!: string | null;
+  public delete_date!: Date | null;
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
 }
@@ -68,6 +72,22 @@ Measurement.init(
     data_entry_date: {
       type: DataTypes.DATE,
       defaultValue: DataTypes.NOW,
+    },
+    group_no: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    measure_status: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    who_deleted_measure: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    delete_date: {
+      type: DataTypes.DATE,
+      allowNull: true,
     },
   },
   {

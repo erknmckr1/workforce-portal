@@ -51,6 +51,7 @@ router.get("/machines", MesController.getMachines);
 
 // Ölçüm (Measurement) Rotaları
 router.get("/measure-limits/:materialNo", MesController.getMeasureLimits);
+router.get("/measurements/by-material", MesController.getMeasurementsByMaterial);
 router.get("/measurements", MesController.getMeasurements);
 router.post("/measurements", MesController.saveMeasurement);
 router.put("/measurements/:id", MesController.updateMeasurement);

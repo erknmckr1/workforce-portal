@@ -11,6 +11,10 @@ export interface MeasurementRecord {
   order_no: string;
   material_no: string;
   operator: string;
+  OperatorDetail?: {
+    name: string;
+    surname: string;
+  };
   area_name: string;
   entry_measurement: string;
   exit_measurement: string;

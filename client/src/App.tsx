@@ -179,7 +179,7 @@ function App() {
               </Route>
 
               {/* Üretim Ekranları Gezgini */}
-              <Route element={<ProtectedRoute allowedRoles={["Admin"]} />}>
+              <Route element={<ProtectedRoute allowedRoles={["Admin", "Yönetici"]} />}>
                 <Route path="mes-screens" element={<MesScreensNavigator />} />
               </Route>
 

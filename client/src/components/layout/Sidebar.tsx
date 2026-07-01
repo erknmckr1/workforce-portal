@@ -95,7 +95,7 @@ path: "/leave-approvals",
     title: "Üretim Ekranları",
     icon: MonitorSmartphone,
     path: "/mes-screens",
-    roles: ["Admin"],
+    roles: ["Admin", "Yönetici"],
   },
   {
     title: "Araçlar",
