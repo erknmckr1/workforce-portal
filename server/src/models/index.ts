@@ -27,6 +27,8 @@ import { GameProfile } from "./GameProfile";
 import { GameSession } from "./GameSession";
 import { SectionParticipationLog } from "./SectionParticipationLog";
 import { IntranetDocument } from "./IntranetDocument";
+import { ITRequest } from "./ITRequest";
+import { ITRequestMessage } from "./ITRequestMessage";
 
 // --- Lookups & Operator Associations ---
 Section.hasMany(Department, { foreignKey: "section_id" });
@@ -122,6 +124,17 @@ Operator.hasMany(SectionParticipationLog, { foreignKey: "operator_id", sourceKey
 IntranetDocument.belongsTo(Operator, { as: "Creator", foreignKey: "created_by" });
 Operator.hasMany(IntranetDocument, { foreignKey: "created_by" });
 
+// --- ITRequest & ITRequestMessage Associations ---
+ITRequest.hasMany(ITRequestMessage, { as: "Messages", foreignKey: "request_id" });
+ITRequestMessage.belongsTo(ITRequest, { foreignKey: "request_id" });
+ITRequest.belongsTo(Operator, { as: "Creator", foreignKey: "operator_id", targetKey: "id_dec" });
+Operator.hasMany(ITRequest, { as: "ITRequests", foreignKey: "operator_id", sourceKey: "id_dec" });
+ITRequestMessage.belongsTo(Operator, { as: "Sender", foreignKey: "sender_id", targetKey: "id_dec" });
+Operator.hasMany(ITRequestMessage, { foreignKey: "sender_id", sourceKey: "id_dec" });
+
+ITRequest.belongsTo(Operator, { as: "Assignee", foreignKey: "assigned_to", targetKey: "id_dec" });
+Operator.hasMany(ITRequest, { as: "AssignedRequests", foreignKey: "assigned_to", sourceKey: "id_dec" });
+
 export {
     sequelize,
     Section,
@@ -158,5 +171,7 @@ export {
     GameProfile,
     GameSession,
     SectionParticipationLog,
-    IntranetDocument
+    IntranetDocument,
+    ITRequest,
+    ITRequestMessage
 };

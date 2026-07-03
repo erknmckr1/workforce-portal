@@ -3,6 +3,7 @@ import { Outlet } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import Header from "./Header";
 import { ModuleWrapperPopup } from "@/components/kiosk/ModuleWrapperPopup";
+import ITChatboxWidget from "@/components/it/ITChatboxWidget";
 
 export default function MainLayout() {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -25,7 +26,7 @@ export default function MainLayout() {
 
         {/* Dinamik Sayfa İçeriği */}
         <main className="flex-1 overflow-y-auto bg-muted/20 custom-scrollbar">
-          <div className="p-4 md:p-8  w-full mx-auto ">
+          <div className="p-2   w-full mx-auto ">
             <Outlet />
           </div>
         </main>
@@ -33,6 +34,9 @@ export default function MainLayout() {
 
       {/* Kiosk Modülü (Tüm ekranın üstüne binen global Modal) */}
       <ModuleWrapperPopup />
+
+      {/* Yüzen Bilgi İşlem Destek Chatbox Widget'ı */}
+      <ITChatboxWidget />
     </div>
   );
 }

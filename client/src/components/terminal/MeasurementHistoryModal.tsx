@@ -199,7 +199,7 @@ const MeasurementHistoryModal: React.FC<MeasurementHistoryModalProps> = ({
 
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 sm:relative sm:top-0 sm:right-0 p-3 text-muted-foreground hover:bg-destructive/10 hover:text-destructive rounded-xl transition-colors relative z-10"
+            className="absolute top-4 right-4 sm:relative sm:top-0 sm:right-0 p-3 text-muted-foreground hover:bg-destructive/10 hover:text-destructive rounded-xl transition-colors  z-10"
           >
             <X size={22} />
           </button>

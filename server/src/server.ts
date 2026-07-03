@@ -15,6 +15,7 @@ import phoneDirectoryRoutes from "./routes/phoneDirectoryRoutes";
 import gameRoutes from "./routes/gameRoutes";
 import documentRoutes from "./routes/documentRoutes";
 import { startLeaveBalanceSyncScheduler } from "./services/leaveBalanceSyncScheduler";
+import itRequestRoutes from "./routes/itRequestRoutes";
 import { ensureApplicationSchema } from "./services/schemaMigrationService";
 import path from "path";
 import fs from "fs";
@@ -61,6 +62,7 @@ app.use("/api/mes", mesRoutes);
 app.use("/api/phone-directory", phoneDirectoryRoutes);
 app.use("/api/game", gameRoutes);
 app.use("/api/documents", documentRoutes);
+app.use("/api/it-requests", itRequestRoutes);
 
 // Fotoğrafları frontend için /photos adresi ile dışarı aç
 const photoPath =
@@ -70,6 +72,15 @@ if (!fs.existsSync(photoPath)) {
   fs.mkdirSync(photoPath, { recursive: true });
 }
 app.use("/photos", express.static(photoPath));
+
+// IT destek sohbeti ekran görüntülerini frontend için /it-attachments adresi ile dışarı aç
+const itAttachmentPath =
+  process.env.IT_ATTACHMENT_STORAGE_PATH ||
+  path.join(process.env.USERPROFILE || "C:", "Desktop", "ITDestekFotograflari");
+if (!fs.existsSync(itAttachmentPath)) {
+  fs.mkdirSync(itAttachmentPath, { recursive: true });
+}
+app.use("/it-attachments", express.static(itAttachmentPath));
 
 // Dökümanları tarayıcıdan doğrudan önizlemek için dışarı aç
 const documentPath =

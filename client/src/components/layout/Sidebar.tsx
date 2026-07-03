@@ -18,6 +18,7 @@ import {
   Wrench,
   CalendarRange,
   Phone,
+  LifeBuoy,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/authStore";
@@ -96,6 +97,43 @@ path: "/leave-approvals",
     icon: MonitorSmartphone,
     path: "/mes-screens",
     roles: ["Admin", "Yönetici"],
+  },
+  {
+    title: "IT Desteği",
+    icon: LifeBuoy,
+    roles: [
+      "Admin",
+      "Müdür",
+      "Yönetici",
+      "Personel",
+      "İK",
+      "Revir",
+      "Güvenlik",
+      "Ustabasi",
+      "Bilgi İşlem",
+    ],
+    children: [
+      {
+        title: "Destek Taleplerim",
+        path: "/it-requests",
+        roles: [
+          "Admin",
+          "Müdür",
+          "Yönetici",
+          "Personel",
+          "İK",
+          "Revir",
+          "Güvenlik",
+          "Ustabasi",
+          "Bilgi İşlem",
+        ],
+      },
+      {
+        title: "Talep Yönetimi",
+        path: "/settings/it-support",
+        roles: ["Admin", "Bilgi İşlem"],
+      },
+    ],
   },
   {
     title: "Araçlar",
@@ -217,12 +255,15 @@ export default function Sidebar({
   const location = useLocation();
   const { user, logout } = useAuthStore();
   const [expandedMenu, setExpandedMenu] = useState<string | null>(
-    location.pathname.startsWith("/settings") ||
-      location.pathname.startsWith("/calendar-manager")
-      ? "Ayarlar"
-      : location.pathname.startsWith("/yearly-plan")
-        ? "Araçlar"
-        : null,
+    location.pathname.startsWith("/it-requests") ||
+      location.pathname.startsWith("/settings/it-support")
+      ? "IT Desteği"
+      : location.pathname.startsWith("/settings") ||
+        location.pathname.startsWith("/calendar-manager")
+        ? "Ayarlar"
+        : location.pathname.startsWith("/yearly-plan")
+          ? "Araçlar"
+          : null,
   );
 
   const handleLogout = async () => {
@@ -250,7 +291,7 @@ export default function Sidebar({
       <aside
         className={cn(
           "fixed inset-y-0 left-0 z-50 flex flex-col h-screen bg-card border-r border-border transition-all duration-300 ease-in-out lg:relative",
-          collapsed ? "w-[80px]" : "w-[280px]",
+          collapsed ? "w-20" : "w-70",
           isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
         )}
       >
@@ -283,17 +324,27 @@ export default function Sidebar({
 
         {/* Menü Öğeleri */}
         <nav className="flex-1 overflow-y-auto py-6 px-4 space-y-2 custom-scrollbar">
-          {menuItems
-            .filter((item) => item.roles.includes(user?.role || ""))
-            .map((item) => {
-              const hasChildren = !!item.children;
-              const isActive = hasChildren
-                ? item.children!.some(
-                    (child) => location.pathname === child.path,
-                  )
-                : location.pathname === item.path;
-              const isExpanded = expandedMenu === item.title;
-              const Icon = item.icon;
+          {(() => {
+            const isITDept = user?.department && (
+              user.department.toLowerCase().replace(/ı/g, 'i').replace(/ş/g, 's').replace(/\s+/g, '').includes("bilgiislem") ||
+              user.department.toLowerCase().replace(/ı/g, 'i').replace(/ş/g, 's').replace(/\s+/g, '').includes("bilgislem")
+            );
+            const isUserAllowed = (itemRoles: string[]) => {
+              if (itemRoles.includes(user?.role || "")) return true;
+              if (itemRoles.includes("Bilgi İşlem") && isITDept) return true;
+              return false;
+            };
+            return menuItems
+              .filter((item) => isUserAllowed(item.roles))
+              .map((item) => {
+                const hasChildren = !!item.children;
+                const isActive = hasChildren
+                  ? item.children!.some(
+                      (child) => location.pathname === child.path,
+                    )
+                  : location.pathname === item.path;
+                const isExpanded = expandedMenu === item.title;
+                const Icon = item.icon;
 
               return (
                 <div key={item.title} className="flex flex-col space-y-1">
@@ -382,7 +433,7 @@ export default function Sidebar({
                         .children!.filter(
                           (child) =>
                             !("roles" in child) ||
-                            (child as any).roles.includes(user?.role || ""),
+                            isUserAllowed((child as any).roles),
                         )
                         .map((child) => {
                           const isChildActive =
@@ -412,7 +463,8 @@ export default function Sidebar({
                   )}
                 </div>
               );
-            })}
+            });
+          })()}
         </nav>
 
         {/* Alt Kısım: İşlemler & Çıkış */}

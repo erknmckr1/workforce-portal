@@ -200,7 +200,7 @@ export const createPersonnel = async (req: Request, res: Response): Promise<Resp
             id_dec, id_hex, name, surname, nick_name, short_name, 
             password, email, gender, address, role_id, 
             section, department, title, leave_balance, route, stop_name,
-            auth1, auth2, photo_data
+            auth1, auth2, photo_data, tc_no, external_id
         } = req.body;
 
         // Gerekli alan kontrolü
@@ -244,7 +244,9 @@ export const createPersonnel = async (req: Request, res: Response): Promise<Resp
             route: route || null,
             stop_name: stop_name || null,
             photo_url: finalPhotoName,
-            is_active: 1
+            is_active: 1,
+            tc_no: tc_no || null,
+            external_id: external_id || null
         });
 
         return res.status(201).json({ message: "Personel başarıyla oluşturuldu.", id: newOperator.id_dec });
@@ -325,9 +327,9 @@ export const deletePersonnel = async (req: Request, res: Response): Promise<Resp
 export const getPersonnelLookups = async (req: Request, res: Response): Promise<Response> => {
     try {
         const roles = await Role.findAll();
-        const sections = await Section.findAll({ where: { is_active: true } });
-        const departments = await Department.findAll({ where: { is_active: true } });
-        const titles = await JobTitle.findAll({ where: { is_active: true } });
+        const sections = await Section.findAll();
+        const departments = await Department.findAll();
+        const titles = await JobTitle.findAll();
 
         return res.status(200).json({
             roles,
@@ -527,5 +529,115 @@ export const syncLeaveBalancesLocal = async (req: Request, res: Response): Promi
     } catch (error) {
         console.error("SyncLeaveBalancesLocal Hatası:", error);
         return res.status(500).json({ message: "Dosya okunurken bir hata oluştu." });
+    }
+};
+
+// --- BÖLÜM (SECTION) YÖNETİMİ ---
+
+// Yeni Bölüm Ekle
+export const createSection = async (req: Request, res: Response): Promise<Response> => {
+    try {
+        const { name, manager_id } = req.body;
+        if (!name) {
+            return res.status(400).json({ message: "Bölüm adı zorunludur." });
+        }
+
+        const section = await Section.create({
+            name,
+            manager_id: manager_id || null,
+            is_active: true
+        });
+
+        return res.status(201).json({ message: "Bölüm başarıyla oluşturuldu.", data: section });
+    } catch (error) {
+        console.error("CreateSection Hatası:", error);
+        return res.status(500).json({ message: "Bölüm oluşturulurken hata oluştu." });
+    }
+};
+
+// Bölüm Güncelle
+export const updateSection = async (req: Request, res: Response): Promise<Response> => {
+    try {
+        const { id } = req.params;
+        const { name, manager_id, is_active } = req.body;
+
+        const sectionId = parseInt(id as string, 10);
+        const section = await Section.findByPk(sectionId);
+        if (!section) {
+            return res.status(404).json({ message: "Bölüm bulunamadı." });
+        }
+
+        await section.update({
+            name: name !== undefined ? name : section.name,
+            manager_id: manager_id !== undefined ? (manager_id || null) : section.manager_id,
+            is_active: is_active !== undefined ? is_active : section.is_active
+        });
+
+        // Eğer onaycı değiştiyse ilgili kişilerin onay zincirlerini tetikle
+        if (manager_id !== undefined) {
+            await syncSectionApprovalChains(sectionId);
+        }
+
+        return res.status(200).json({ message: "Bölüm başarıyla güncellendi.", data: section });
+    } catch (error) {
+        console.error("UpdateSection Hatası:", error);
+        return res.status(500).json({ message: "Bölüm güncellenirken hata oluştu." });
+    }
+};
+
+// --- BİRİM (DEPARTMENT) YÖNETİMİ ---
+
+// Yeni Birim Ekle
+export const createDepartment = async (req: Request, res: Response): Promise<Response> => {
+    try {
+        const { name, section_id, supervisor_id, ustabasi_id } = req.body;
+        if (!name || !section_id) {
+            return res.status(400).json({ message: "Birim adı ve Bölüm seçimi zorunludur." });
+        }
+
+        const department = await Department.create({
+            name,
+            section_id: Number(section_id),
+            supervisor_id: supervisor_id || null,
+            ustabasi_id: ustabasi_id || null,
+            is_active: true
+        });
+
+        return res.status(201).json({ message: "Birim başarıyla oluşturuldu.", data: department });
+    } catch (error) {
+        console.error("CreateDepartment Hatası:", error);
+        return res.status(500).json({ message: "Birim oluşturulurken hata oluştu." });
+    }
+};
+
+// Birim Güncelle
+export const updateDepartment = async (req: Request, res: Response): Promise<Response> => {
+    try {
+        const { id } = req.params;
+        const { name, section_id, supervisor_id, ustabasi_id, is_active } = req.body;
+
+        const departmentId = parseInt(id as string, 10);
+        const department = await Department.findByPk(departmentId);
+        if (!department) {
+            return res.status(404).json({ message: "Birim bulunamadı." });
+        }
+
+        await department.update({
+            name: name !== undefined ? name : department.name,
+            section_id: section_id !== undefined ? Number(section_id) : department.section_id,
+            supervisor_id: supervisor_id !== undefined ? (supervisor_id || null) : department.supervisor_id,
+            ustabasi_id: ustabasi_id !== undefined ? (ustabasi_id || null) : department.ustabasi_id,
+            is_active: is_active !== undefined ? is_active : department.is_active
+        });
+
+        // Onay zincirini senkronize et
+        if (supervisor_id !== undefined || ustabasi_id !== undefined) {
+            await syncDepartmentApprovalChains(departmentId);
+        }
+
+        return res.status(200).json({ message: "Birim başarıyla güncellendi.", data: department });
+    } catch (error) {
+        console.error("UpdateDepartment Hatası:", error);
+        return res.status(500).json({ message: "Birim güncellenirken hata oluştu." });
     }
 };

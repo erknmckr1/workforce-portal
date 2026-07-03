@@ -9,6 +9,7 @@ interface User {
   leave_balance: number;
   photo_url?: string;
   external_id?: number;
+  department?: string;
 }
 
 interface AuthState {

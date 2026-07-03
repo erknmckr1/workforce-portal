@@ -20,4 +20,14 @@ export const ensureApplicationSchema = async () => {
       console.log(`Schema updated: leave_activity_logs.${columnName}`);
     }
   }
+
+  // Migration for it_requests table: add resolved_at
+  const itRequestColumns = await queryInterface.describeTable("it_requests");
+  if (!itRequestColumns["resolved_at"]) {
+    await queryInterface.addColumn("it_requests", "resolved_at", {
+      type: DataTypes.DATE,
+      allowNull: true
+    });
+    console.log("Schema updated: it_requests.resolved_at");
+  }
 };

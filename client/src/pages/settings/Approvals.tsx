@@ -1,4 +1,4 @@
-import { ShieldCheck, Building2, GitMerge, Loader2, Search, UserRoundX } from "lucide-react";
+import { ShieldCheck, Building2, GitMerge, Loader2, Search, UserRoundX, Plus, Edit2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useState, useMemo, useEffect, memo, useCallback } from "react";
@@ -10,6 +10,9 @@ import type { Personnel } from "@/hooks/usePersonnel";
 import { useLookups } from "@/hooks/useLookups";
 import type { LookupSection, LookupDepartment } from "@/hooks/useLookups";
 import { toast } from "sonner";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import apiClient from "@/lib/api";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 
 const CLEAR_APPROVER_VALUE = "__clear_approver__";
 
@@ -64,14 +67,14 @@ const ApproverSelect = memo(function ApproverSelect({ value, onChange, disabled,
       }}
     >
       <SelectTrigger className={cn(
-        "h-10 w-64 rounded-lg font-bold border-border/40 bg-muted/10 transition-all gap-3 shrink-0",
+        "h-9 w-52 rounded-lg font-bold border-border/40 bg-muted/10 transition-all gap-2 shrink-0 text-xs",
         !localValue && "border-destructive/20 bg-destructive/5 text-destructive",
         localValue && "border-primary/10 bg-primary/5",
         disabled && "opacity-80"
       )}>
         <div className="flex-1 flex items-center gap-2 overflow-hidden text-left">
           {disabled && <Loader2 className="h-3 w-3 animate-spin text-primary shrink-0" />}
-          <div className="truncate text-sm">
+          <div className="truncate text-[13px]">
             {selectedName ? (
               <span className="text-foreground">{selectedName}</span>
             ) : (
@@ -84,7 +87,7 @@ const ApproverSelect = memo(function ApproverSelect({ value, onChange, disabled,
           </div>
         </div>
       </SelectTrigger>
-      <SelectContent className="rounded-2xl shadow-xl max-h-100 w-64 min-w-62.5">
+      <SelectContent className="rounded-2xl shadow-xl max-h-100 w-52 min-w-50">
         {/* Sabit Arama Kutusu */}
         <div className="sticky top-0 z-10 bg-popover p-2 border-b border-border/50 shadow-sm">
           <div className="relative">
@@ -132,30 +135,44 @@ const ApproverSelect = memo(function ApproverSelect({ value, onChange, disabled,
   );
 });
 
-const SectionRow = memo(({ section, personnel, onAssign, onSelect, isSelected, isPending }: {
+const SectionRow = memo(({ section, personnel, onAssign, onSelect, isSelected, isPending, onEdit }: {
   section: LookupSection,
   count?: number,
   personnel: Personnel[],
   onAssign: (id: number, val: string) => void,
   onSelect: (id: number) => void,
   isSelected: boolean,
-  isPending: boolean
+  isPending: boolean,
+  onEdit: (sec: LookupSection) => void
 }) => {
   return (
     <div
       onClick={() => onSelect(Number(section.id))}
       className={cn(
-        "group relative flex items-center justify-between gap-4 px-5 py-3 h-16 rounded-xl border border-border/40 bg-card/60 hover:bg-card hover:border-primary/20 transition-all cursor-pointer",
-        isSelected && "bg-blue-500/10 border-blue-500/30 shadow-sm"
+        "group relative flex items-center justify-between gap-3 px-4 py-2 h-13 rounded-xl border border-border/30 bg-card/50 hover:bg-card hover:border-primary/20 transition-all cursor-pointer",
+        isSelected && "bg-blue-500/5 border-blue-500/20 shadow-sm"
       )}
     >
-      <div className="flex-1 flex items-center gap-3">
-        <span className="text-sm font-extrabold text-foreground flex items-center gap-2">
+      <div className="flex-1 flex items-center gap-2.5">
+        <span className="text-sm font-extrabold text-foreground flex items-center gap-1.5 leading-none">
           {section.name}
           {!section.manager_id && (
             <span className="flex h-1.5 w-1.5 rounded-full bg-destructive animate-pulse" title="Atama Bekliyor"></span>
           )}
+          {section.is_active === false && (
+            <span className="text-[9px] font-bold text-muted-foreground uppercase bg-muted/60 px-1 py-0.5 rounded leading-none">Pasif</span>
+          )}
         </span>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onEdit(section);
+          }}
+          className="opacity-0 group-hover:opacity-100 p-1 hover:bg-muted rounded-md text-muted-foreground hover:text-foreground transition-all shrink-0"
+          title="Bölümü Düzenle"
+        >
+          <Edit2 size={13} />
+        </button>
       </div>
       <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
         <ApproverSelect
@@ -170,7 +187,7 @@ const SectionRow = memo(({ section, personnel, onAssign, onSelect, isSelected, i
   );
 });
 
-const DepartmentRow = memo(({ dept, sectionName, personnel, ustabasiPersonnel, onSupervisorAssign, onUstabasiAssign, isPending }: {
+const DepartmentRow = memo(({ dept, sectionName, personnel, ustabasiPersonnel, onSupervisorAssign, onUstabasiAssign, isPending, onEdit }: {
   dept: LookupDepartment,
   count?: number,
   sectionName: string,
@@ -178,46 +195,345 @@ const DepartmentRow = memo(({ dept, sectionName, personnel, ustabasiPersonnel, o
   ustabasiPersonnel: Personnel[],
   onSupervisorAssign: (id: number, val: string) => void,
   onUstabasiAssign: (id: number, val: string) => void,
-  isPending: boolean
+  isPending: boolean,
+  onEdit: (d: LookupDepartment) => void
 }) => {
   return (
-    <div className="group relative flex flex-col 2xl:flex-row 2xl:items-center justify-between gap-4 px-5 py-3 min-h-16 ml-6 rounded-xl border border-border/40 bg-card/40 hover:bg-card hover:border-primary/20 transition-all ">
-      <div className="flex-1 flex items-center gap-3 flex-wrap">
-        <span className="text-sm font-extrabold text-foreground flex items-center gap-2 leading-none">
+    <div className="group relative flex flex-col xl:flex-row xl:items-center justify-between gap-3 px-4 py-2 min-h-13 ml-4 rounded-xl border border-border/30 bg-card/30 hover:bg-card hover:border-primary/20 transition-all ">
+      <div className="flex-1 flex items-center gap-2.5 flex-wrap">
+        <span className="text-sm font-extrabold text-foreground flex items-center gap-1.5 leading-none">
           {dept.name}
           {(!dept.supervisor_id || !dept.ustabasi_id) && (
             <span className="flex h-1.5 w-1.5 rounded-full bg-destructive animate-pulse" title="Atama Bekliyor"></span>
           )}
+          {dept.is_active === false && (
+            <span className="text-[9px] font-bold text-muted-foreground uppercase bg-muted/60 px-1 py-0.5 rounded leading-none">Pasif</span>
+          )}
         </span>
-        <span className="text-[11px] font-bold text-blue-500 bg-blue-500/10 px-2 py-0.5 rounded-md flex items-center gap-1 shrink-0">
-          <Building2 size={12} /> {sectionName}
+        <span className="text-[10px] font-bold text-blue-500 bg-blue-500/10 px-1.5 py-0.5 rounded flex items-center gap-1 shrink-0 leading-none">
+          <Building2 size={11} /> {sectionName}
         </span>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onEdit(dept);
+          }}
+          className="opacity-0 group-hover:opacity-100 p-1 hover:bg-muted rounded-md text-muted-foreground hover:text-foreground transition-all shrink-0"
+          title="Birimi Düzenle"
+        >
+          <Edit2 size={13} />
+        </button>
       </div>
-      <div className="flex flex-col sm:flex-row gap-3 shrink-0">
+      <div className="flex items-center gap-2 shrink-0">
         <ApproverSelect
           value={dept.ustabasi_id || undefined}
           onChange={(val: string) => onUstabasiAssign(Number(dept.id), val)}
           disabled={isPending}
           personnel={ustabasiPersonnel}
-          placeholder="Ustabaşı Ata..."
+          placeholder="Ustabaşı..."
         />
         <ApproverSelect
           value={dept.supervisor_id || undefined}
           onChange={(val: string) => onSupervisorAssign(Number(dept.id), val)}
           disabled={isPending}
           personnel={personnel}
-          placeholder="Yönetici Ata..."
+          placeholder="Yönetici..."
         />
       </div>
     </div>
   );
 });
 
+// --- SUB-COMPONENTS FOR HIGH-PERFORMANCE MODALS ---
+
+interface AddSectionModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSubmit: (name: string) => void;
+  isPending: boolean;
+}
+
+const AddSectionModal = memo(function AddSectionModal({ open, onOpenChange, onSubmit, isPending }: AddSectionModalProps) {
+  const [name, setName] = useState("");
+
+  useEffect(() => {
+    if (open) setName("");
+  }, [open]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) return;
+    onSubmit(name.trim());
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md rounded-[2.5rem] p-8 border border-border/20 bg-card">
+        <DialogHeader>
+          <DialogTitle className="text-2xl font-black">Yeni Bölüm Ekle</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-6 pt-4">
+          <div className="space-y-2">
+            <label className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Bölüm Adı</label>
+            <Input
+              placeholder="Örn: Buzlama"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="rounded-2xl h-14 bg-muted/40 border-none font-bold text-foreground focus-visible:ring-primary/30"
+              required
+            />
+          </div>
+          <DialogFooter className="flex justify-end gap-2 pt-4">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="rounded-xl h-11">Vazgeç</Button>
+            <Button type="submit" disabled={isPending} className="rounded-xl h-11 font-bold">
+              {isPending ? "Kaydediliyor..." : "Kaydet"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+});
+
+interface EditSectionModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSubmit: (id: number, name: string, is_active: boolean) => void;
+  isPending: boolean;
+  section: LookupSection | null;
+}
+
+const EditSectionModal = memo(function EditSectionModal({ open, onOpenChange, onSubmit, isPending, section }: EditSectionModalProps) {
+  const [name, setName] = useState("");
+  const [isActive, setIsActive] = useState(true);
+
+  useEffect(() => {
+    if (open && section) {
+      setName(section.name);
+      setIsActive(section.is_active !== false);
+    }
+  }, [open, section]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!section || !name.trim()) return;
+    onSubmit(Number(section.id), name.trim(), isActive);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md rounded-[2.5rem] p-8 border border-border/20 bg-card">
+        <DialogHeader>
+          <DialogTitle className="text-2xl font-black">Bölümü Düzenle</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-6 pt-4">
+          <div className="space-y-2">
+            <label className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Bölüm Adı</label>
+            <Input
+              placeholder="Bölüm Adı"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="rounded-2xl h-14 bg-muted/40 border-none font-bold text-foreground focus-visible:ring-primary/30"
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Durum</label>
+            <Select
+              value={isActive ? "true" : "false"}
+              onValueChange={(val) => setIsActive(val === "true")}
+            >
+              <SelectTrigger className="w-full h-14 px-6 rounded-2xl bg-muted/40 border-none text-sm font-bold shadow-none p-0 flex items-center [&>span]:w-full [&>span]:text-left pl-6 focus:ring-0 text-foreground">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="rounded-2xl border-none shadow-xl">
+                <SelectItem value="true" className="font-bold py-3 cursor-pointer">Aktif</SelectItem>
+                <SelectItem value="false" className="font-bold py-3 cursor-pointer">Pasif</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter className="flex justify-end gap-2 pt-4">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="rounded-xl h-11">Vazgeç</Button>
+            <Button type="submit" disabled={isPending} className="rounded-xl h-11 font-bold">
+              {isPending ? "Kaydediliyor..." : "Kaydet"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+});
+
+interface AddDeptModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSubmit: (name: string, sectionId: number) => void;
+  isPending: boolean;
+  sections: LookupSection[];
+  defaultSectionId?: number | null;
+}
+
+const AddDeptModal = memo(function AddDeptModal({ open, onOpenChange, onSubmit, isPending, sections, defaultSectionId }: AddDeptModalProps) {
+  const [name, setName] = useState("");
+  const [sectionId, setSectionId] = useState("");
+
+  useEffect(() => {
+    if (open) {
+      setName("");
+      setSectionId(defaultSectionId ? String(defaultSectionId) : "");
+    }
+  }, [open, defaultSectionId]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim() || !sectionId) return;
+    onSubmit(name.trim(), Number(sectionId));
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md rounded-[2.5rem] p-8 border border-border/20 bg-card">
+        <DialogHeader>
+          <DialogTitle className="text-2xl font-black">Yeni Birim Ekle</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-6 pt-4">
+          <div className="space-y-2">
+            <label className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Birim Adı</label>
+            <Input
+              placeholder="Örn: CNC 1"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="rounded-2xl h-14 bg-muted/40 border-none font-bold text-foreground focus-visible:ring-primary/30"
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Bağlı Olduğu Bölüm</label>
+            <Select
+              value={sectionId}
+              onValueChange={setSectionId}
+            >
+              <SelectTrigger className="w-full h-14 px-6 rounded-2xl bg-muted/40 border-none text-sm font-bold shadow-none p-0 flex items-center [&>span]:w-full [&>span]:text-left pl-6 focus:ring-0 text-foreground">
+                <SelectValue placeholder="Bölüm Seçin..." />
+              </SelectTrigger>
+              <SelectContent className="rounded-2xl border-none shadow-xl">
+                {sections.filter(s => s.is_active !== false).map((sec) => (
+                  <SelectItem key={sec.id} value={String(sec.id)} className="font-bold py-3 cursor-pointer">
+                    {sec.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter className="flex justify-end gap-2 pt-4">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="rounded-xl h-11">Vazgeç</Button>
+            <Button type="submit" disabled={isPending} className="rounded-xl h-11 font-bold">
+              {isPending ? "Kaydediliyor..." : "Kaydet"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+});
+
+interface EditDeptModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSubmit: (id: number, name: string, sectionId: number, is_active: boolean) => void;
+  isPending: boolean;
+  dept: LookupDepartment | null;
+  sections: LookupSection[];
+}
+
+const EditDeptModal = memo(function EditDeptModal({ open, onOpenChange, onSubmit, isPending, dept, sections }: EditDeptModalProps) {
+  const [name, setName] = useState("");
+  const [sectionId, setSectionId] = useState("");
+  const [isActive, setIsActive] = useState(true);
+
+  useEffect(() => {
+    if (open && dept) {
+      setName(dept.name);
+      setSectionId(dept.section_id ? String(dept.section_id) : "");
+      setIsActive(dept.is_active !== false);
+    }
+  }, [open, dept]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!dept || !name.trim() || !sectionId) return;
+    onSubmit(Number(dept.id), name.trim(), Number(sectionId), isActive);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md rounded-[2.5rem] p-8 border border-border/20 bg-card">
+        <DialogHeader>
+          <DialogTitle className="text-2xl font-black">Birimi Düzenle</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-6 pt-4">
+          <div className="space-y-2">
+            <label className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Birim Adı</label>
+            <Input
+              placeholder="Birim Adı"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="rounded-2xl h-14 bg-muted/40 border-none font-bold text-foreground focus-visible:ring-primary/30"
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Bağlı Olduğu Bölüm</label>
+            <Select
+              value={sectionId}
+              onValueChange={setSectionId}
+            >
+              <SelectTrigger className="w-full h-14 px-6 rounded-2xl bg-muted/40 border-none text-sm font-bold shadow-none p-0 flex items-center [&>span]:w-full [&>span]:text-left pl-6 focus:ring-0 text-foreground">
+                <SelectValue placeholder="Bölüm Seçin..." />
+              </SelectTrigger>
+              <SelectContent className="rounded-2xl border-none shadow-xl">
+                {sections.filter(s => s.is_active !== false || Number(s.id) === Number(dept?.section_id)).map((sec) => (
+                  <SelectItem key={sec.id} value={String(sec.id)} className="font-bold py-3 cursor-pointer">
+                    {sec.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <label className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Durum</label>
+            <Select
+              value={isActive ? "true" : "false"}
+              onValueChange={(val) => setIsActive(val === "true")}
+            >
+              <SelectTrigger className="w-full h-14 px-6 rounded-2xl bg-muted/40 border-none text-sm font-bold shadow-none p-0 flex items-center [&>span]:w-full [&>span]:text-left pl-6 focus:ring-0 text-foreground">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="rounded-2xl border-none shadow-xl">
+                <SelectItem value="true" className="font-bold py-3 cursor-pointer">Aktif</SelectItem>
+                <SelectItem value="false" className="font-bold py-3 cursor-pointer">Pasif</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter className="flex justify-end gap-2 pt-4">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="rounded-xl h-11">Vazgeç</Button>
+            <Button type="submit" disabled={isPending} className="rounded-xl h-11 font-bold">
+              {isPending ? "Kaydediliyor..." : "Kaydet"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+});
+
+
 export default function Approvals() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedSectionId, setSelectedSectionId] = useState<number | null>(null);
   const debouncedSearchTerm = useDebounce(searchTerm, 500);
 
+  const queryClient = useQueryClient();
   const { data: lookups, isLoading: lookupsLoading, refetch: refetchLookups } = useLookups();
   const {
     data: personnelResponse,
@@ -227,6 +543,15 @@ export default function Approvals() {
     updateDepartmentUstabasiMutation,
     syncApprovalsMutation
   } = usePersonnel(1, 200, "", true);
+
+  // Modals state
+  const [isAddSectionOpen, setIsAddSectionOpen] = useState(false);
+  const [isEditSectionOpen, setIsEditSectionOpen] = useState(false);
+  const [editingSection, setEditingSection] = useState<LookupSection | null>(null);
+
+  const [isAddDeptOpen, setIsAddDeptOpen] = useState(false);
+  const [isEditDeptOpen, setIsEditDeptOpen] = useState(false);
+  const [editingDept, setEditingDept] = useState<LookupDepartment | null>(null);
 
   const personnel = useMemo(() => personnelResponse?.data || [], [personnelResponse]);
 
@@ -281,6 +606,70 @@ export default function Approvals() {
     setSelectedSectionId((current) => current === sectionId ? null : sectionId);
   }, []);
 
+  // --- MUTATIONS ---
+  const createSectionMutation = useMutation({
+    mutationFn: async (name: string) => {
+      return apiClient.post("/personnel/sections", { name });
+    },
+    onSuccess: async () => {
+      await refetchLookups();
+      queryClient.invalidateQueries({ queryKey: ["lookups"] });
+      toast.success("Bölüm başarıyla eklendi.");
+      setIsAddSectionOpen(false);
+    },
+    onError: () => {
+      toast.error("Bölüm eklenirken bir hata oluştu.");
+    }
+  });
+
+  const updateSectionMutation = useMutation({
+    mutationFn: async ({ id, name, is_active }: { id: number; name: string; is_active: boolean }) => {
+      return apiClient.put(`/personnel/sections/${id}`, { name, is_active });
+    },
+    onSuccess: async () => {
+      await refetchLookups();
+      queryClient.invalidateQueries({ queryKey: ["lookups"] });
+      toast.success("Bölüm güncellendi.");
+      setIsEditSectionOpen(false);
+      setEditingSection(null);
+    },
+    onError: () => {
+      toast.error("Bölüm güncellenirken bir hata oluştu.");
+    }
+  });
+
+  const createDepartmentMutation = useMutation({
+    mutationFn: async ({ name, section_id }: { name: string; section_id: number }) => {
+      return apiClient.post("/personnel/departments", { name, section_id });
+    },
+    onSuccess: async () => {
+      await refetchLookups();
+      queryClient.invalidateQueries({ queryKey: ["lookups"] });
+      toast.success("Birim başarıyla eklendi.");
+      setIsAddDeptOpen(false);
+    },
+    onError: () => {
+      toast.error("Birim eklenirken bir hata oluştu.");
+    }
+  });
+
+  const updateDepartmentMutation = useMutation({
+    mutationFn: async ({ id, name, section_id, is_active }: { id: number; name: string; section_id: number; is_active: boolean }) => {
+      return apiClient.put(`/personnel/departments/${id}`, { name, section_id, is_active });
+    },
+    onSuccess: async () => {
+      await refetchLookups();
+      queryClient.invalidateQueries({ queryKey: ["lookups"] });
+      toast.success("Birim güncellendi.");
+      setIsEditDeptOpen(false);
+      setEditingDept(null);
+    },
+    onError: () => {
+      toast.error("Birim güncellenirken bir hata oluştu.");
+    }
+  });
+
+  // --- ACTIONS ---
   const handleSectionAssign = useCallback((id: number, manager_id: string) => {
     updateSectionManagerMutation.mutate({ id, manager_id }, {
       onSuccess: async () => {
@@ -314,6 +703,36 @@ export default function Approvals() {
     });
   }, [updateDepartmentUstabasiMutation, refetchLookups]);
 
+  // Section Edit modal trigger
+  const handleOpenEditSection = useCallback((sec: LookupSection) => {
+    setEditingSection(sec);
+    setIsEditSectionOpen(true);
+  }, []);
+
+  // Department Edit modal trigger
+  const handleOpenEditDept = useCallback((d: LookupDepartment) => {
+    setEditingDept(d);
+    setIsEditDeptOpen(true);
+  }, []);
+
+  // Submit wrappers
+  const handleAddSectionSubmit = useCallback((name: string) => {
+    createSectionMutation.mutate(name);
+  }, [createSectionMutation]);
+
+  const handleEditSectionSubmit = useCallback((id: number, name: string, is_active: boolean) => {
+    updateSectionMutation.mutate({ id, name, is_active });
+  }, [updateSectionMutation]);
+
+  const handleAddDeptSubmit = useCallback((name: string, section_id: number) => {
+    createDepartmentMutation.mutate({ name, section_id });
+  }, [createDepartmentMutation]);
+
+  const handleEditDeptSubmit = useCallback((id: number, name: string, section_id: number, is_active: boolean) => {
+    updateDepartmentMutation.mutate({ id, name, section_id, is_active });
+  }, [updateDepartmentMutation]);
+
+
   if ((lookupsLoading || personnelLoading) && (!lookups || !personnel.length)) {
     return (
       <div className="flex flex-col items-center justify-center py-10 opacity-60">
@@ -329,10 +748,10 @@ export default function Approvals() {
         <div>
           <h3 className="text-3xl font-black text-foreground flex items-center gap-3">
             <ShieldCheck className="text-primary" size={32} />
-            Onay Hiyerarşisi
+            Onay Hiyerarşisi & Organizasyon Yapısı
           </h3>
           <p className="text-muted-foreground font-medium mt-2 text-sm max-w-xl">
-            Sistem genelinde izin işleyişinin sorunsuz devam etmesi için Bölüm (Section) ve Birim (Part) sorumlularını atayın. Değişiklikler anında kaydedilir.
+            Sistem genelinde Bölüm (Section) ve Birim (Part) tanımlarını oluşturun, düzenleyin ve bunların yetkili sorumlularını atayın.
           </p>
         </div>
         <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto mt-4 sm:mt-0">
@@ -360,18 +779,28 @@ export default function Approvals() {
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 lg:gap-12">
+        {/* BÖLÜM PANELİ */}
         <div className="flex flex-col gap-5">
-          <h4 className="font-black text-xl flex items-center gap-3 text-foreground bg-muted/30 p-4 rounded-3xl border border-border/50">
-            <div className="w-10 h-10 rounded-[1rem] bg-blue-500/10 text-blue-500 flex items-center justify-center">
-              <Building2 size={20} />
-            </div>
-            <div>
-              Bölüm Yöneticileri {filteredSections.length !== sections.length && <span className="ml-2 text-sm text-primary">({filteredSections.length} sonuç)</span>}
-              <span className="block text-[11px] text-muted-foreground font-bold tracking-widest uppercase mt-0.5">2. Aşama Onaycılar (Manager)</span>
-            </div>
-          </h4>
+          <div className="flex items-center justify-between bg-muted/30 p-4 rounded-3xl border border-border/50 flex-none">
+            <h4 className="font-black text-xl flex items-center gap-3 text-foreground">
+              <div className="w-10 h-10 rounded-[1rem] bg-blue-500/10 text-blue-500 flex items-center justify-center shrink-0">
+                <Building2 size={20} />
+              </div>
+              <div>
+                Bölüm Yöneticileri {filteredSections.length !== sections.length && <span className="ml-2 text-sm text-primary">({filteredSections.length} sonuç)</span>}
+                <span className="block text-[11px] text-muted-foreground font-bold tracking-widest uppercase mt-0.5">2. Aşama Onaycılar (Manager)</span>
+              </div>
+            </h4>
+            <Button
+              onClick={() => setIsAddSectionOpen(true)}
+              size="sm"
+              className="h-10 px-4 rounded-xl font-bold flex items-center gap-1.5 shrink-0"
+            >
+              <Plus size={16} /> Bölüm Ekle
+            </Button>
+          </div>
 
-          <div className="space-y-4">
+          <div className="space-y-2 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
             {filteredSections.map((section) => (
               <SectionRow
                 key={section.id}
@@ -381,35 +810,48 @@ export default function Approvals() {
                 onSelect={handleSectionFilter}
                 isSelected={selectedSectionId === Number(section.id)}
                 isPending={updateSectionManagerMutation.isPending}
+                onEdit={handleOpenEditSection}
               />
             ))}
           </div>
         </div>
 
+        {/* BİRİM PANELİ */}
         <div className="flex flex-col gap-5">
-          <h4 className="font-black text-xl flex items-center gap-3 text-foreground bg-muted/30 p-4 rounded-3xl border border-border/50">
-            <div className="w-10 h-10 rounded-[1rem] bg-orange-500/10 text-orange-500 flex items-center justify-center">
-              <GitMerge size={20} />
-            </div>
-            <div className="flex-1">
-              Birim Sorumluları {filteredDepartments.length !== departments.length && <span className="ml-2 text-sm text-primary">({filteredDepartments.length} sonuç)</span>}
-              {selectedSectionName && <span className="ml-2 text-sm text-blue-500">({selectedSectionName})</span>}
-              <span className="block text-[11px] text-muted-foreground font-bold tracking-widest uppercase mt-0.5">1. Aşama Onaycılar (Yönetici)</span>
-            </div>
-            {selectedSectionName && (
+          <div className="flex items-center justify-between bg-muted/30 p-4 rounded-3xl border border-border/50 flex-none">
+            <h4 className="font-black text-xl flex items-center gap-3 text-foreground">
+              <div className="w-10 h-10 rounded-[1rem] bg-orange-500/10 text-orange-500 flex items-center justify-center shrink-0">
+                <GitMerge size={20} />
+              </div>
+              <div className="flex-1">
+                Birim Sorumluları {filteredDepartments.length !== departments.length && <span className="ml-2 text-sm text-primary">({filteredDepartments.length} sonuç)</span>}
+                {selectedSectionName && <span className="ml-2 text-sm text-blue-500">({selectedSectionName})</span>}
+                <span className="block text-[11px] text-muted-foreground font-bold tracking-widest uppercase mt-0.5">1. Aşama Onaycılar (Yönetici)</span>
+              </div>
+            </h4>
+            <div className="flex items-center gap-2 shrink-0">
+              {selectedSectionName && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSelectedSectionId(null)}
+                  className="h-9 rounded-lg px-3 text-xs font-bold text-muted-foreground hover:text-foreground shrink-0"
+                >
+                  Tümü
+                </Button>
+              )}
               <Button
-                type="button"
-                variant="ghost"
+                onClick={() => setIsAddDeptOpen(true)}
                 size="sm"
-                onClick={() => setSelectedSectionId(null)}
-                className="h-9 rounded-lg px-3 text-xs font-bold text-muted-foreground hover:text-foreground shrink-0"
+                className="h-10 px-4 rounded-xl font-bold flex items-center gap-1.5 bg-orange-500 hover:bg-orange-600 text-card shrink-0"
               >
-                Tümü
+                <Plus size={16} /> Birim Ekle
               </Button>
-            )}
-          </h4>
+            </div>
+          </div>
 
-          <div className="space-y-4">
+          <div className="space-y-2 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
             {filteredDepartments.map((dept) => (
               <DepartmentRow
                 key={dept.id}
@@ -420,11 +862,46 @@ export default function Approvals() {
                 onSupervisorAssign={handleDepartmentAssign}
                 onUstabasiAssign={handleDepartmentUstabasiAssign}
                 isPending={updateDepartmentSupervisorMutation.isPending || updateDepartmentUstabasiMutation.isPending}
+                onEdit={handleOpenEditDept}
               />
             ))}
           </div>
         </div>
       </div>
+
+      {/* --- MODALS --- */}
+      <AddSectionModal
+        open={isAddSectionOpen}
+        onOpenChange={setIsAddSectionOpen}
+        onSubmit={handleAddSectionSubmit}
+        isPending={createSectionMutation.isPending}
+      />
+
+      <EditSectionModal
+        open={isEditSectionOpen}
+        onOpenChange={setIsEditSectionOpen}
+        onSubmit={handleEditSectionSubmit}
+        isPending={updateSectionMutation.isPending}
+        section={editingSection}
+      />
+
+      <AddDeptModal
+        open={isAddDeptOpen}
+        onOpenChange={setIsAddDeptOpen}
+        onSubmit={handleAddDeptSubmit}
+        isPending={createDepartmentMutation.isPending}
+        sections={sections}
+        defaultSectionId={selectedSectionId}
+      />
+
+      <EditDeptModal
+        open={isEditDeptOpen}
+        onOpenChange={setIsEditDeptOpen}
+        onSubmit={handleEditDeptSubmit}
+        isPending={updateDepartmentMutation.isPending}
+        dept={editingDept}
+        sections={sections}
+      />
     </div>
   );
 }
@@ -435,3 +912,4 @@ function DebouncedSearchInput({ value: initialValue, onChange, placeholder, clas
   useEffect(() => { onChange(debouncedValue); }, [debouncedValue, onChange]);
   return <Input value={localValue} onChange={(e) => setLocalValue(e.target.value)} placeholder={placeholder} className={className} />;
 }
+

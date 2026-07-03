@@ -11,7 +11,11 @@ import {
     updateDepartmentUstabasi,
     syncAllApprovals,
     syncLeaveBalances,
-    syncLeaveBalancesLocal
+    syncLeaveBalancesLocal,
+    createSection,
+    updateSection,
+    createDepartment,
+    updateDepartment
 } from "../controllers/personnelController";
 
 const router = Router();
@@ -35,6 +39,12 @@ router.post("/sync-approvals", syncAllApprovals);
 router.put("/section-manager/:id", updateSectionManager);
 router.put("/department-supervisor/:id", updateDepartmentSupervisor);
 router.put("/department-ustabasi/:id", updateDepartmentUstabasi);
+
+// Bölüm & Birim Ekleme / Güncelleme
+router.post("/sections", createSection);
+router.put("/sections/:id", updateSection);
+router.post("/departments", createDepartment);
+router.put("/departments/:id", updateDepartment);
 
 // Personel bilgilerini güncelle
 router.put("/:id_dec", updatePersonnel);

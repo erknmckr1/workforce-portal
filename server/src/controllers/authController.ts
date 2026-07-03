@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { Operator, Role, Permission } from "../models";
+import { Operator, Role, Permission, Department } from "../models";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
@@ -23,6 +23,9 @@ export const standardLogin = async (req: Request, res: Response): Promise<any> =
                 {
                     model: Role,
                     include: [Permission]
+                },
+                {
+                    model: Department
                 }
             ]
         });
@@ -68,7 +71,8 @@ export const standardLogin = async (req: Request, res: Response): Promise<any> =
                 permissions: permissionsList,
                 leave_balance: user.leave_balance,
                 photo_url: user.photo_url,
-                external_id: user.external_id
+                external_id: user.external_id,
+                department: user.Department?.name
             }
         });
     } catch (error) {
@@ -96,6 +100,9 @@ export const checkAuth = async (req: Request, res: Response): Promise<any> => {
                 {
                     model: Role,
                     include: [Permission]
+                },
+                {
+                    model: Department
                 }
             ]
         });
@@ -116,7 +123,8 @@ export const checkAuth = async (req: Request, res: Response): Promise<any> => {
                 permissions: permissionsList,
                 leave_balance: user.leave_balance,
                 photo_url: user.photo_url,
-                external_id: user.external_id
+                external_id: user.external_id,
+                department: user.Department?.name
             }
         });
     } catch (error) {

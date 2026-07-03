@@ -4,6 +4,7 @@ import apiClient from "@/lib/api";
 export interface LookupItem {
   id: number | string;
   name: string;
+  is_active?: boolean;
 }
 
 export interface LookupSection extends LookupItem {

@@ -12,7 +12,14 @@ export default function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
     return <Navigate to="/login" replace />;
   }
 
-  if (!allowedRoles.includes(user.role)) {
+  const isITDept = user.department && (
+    user.department.toLowerCase().replace(/ı/g, 'i').replace(/ş/g, 's').replace(/\s+/g, '').includes("bilgiislem") ||
+    user.department.toLowerCase().replace(/ı/g, 'i').replace(/ş/g, 's').replace(/\s+/g, '').includes("bilgislem")
+  );
+
+  const isAllowed = allowedRoles.includes(user.role) || (allowedRoles.includes("Bilgi İşlem") && isITDept);
+
+  if (!isAllowed) {
     return (
       <div className="flex flex-col items-center justify-center h-[calc(100vh-140px)] animate-in fade-in zoom-in duration-300">
         <div className="text-destructive w-20 h-20 mb-6 bg-destructive/10 rounded-full flex items-center justify-center border-4 border-destructive/20 shadow-[0_0_30px_rgba(239,68,68,0.2)]">

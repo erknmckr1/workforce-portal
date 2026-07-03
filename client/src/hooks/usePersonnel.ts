@@ -29,6 +29,8 @@ export interface Personnel {
   photo_url?: string | null;
   photo_data?: string | null;
   is_active: number;
+  tc_no?: string;
+  external_id?: number | string;
   Role?: LookupItem;
   Section?: LookupItem;
   Department?: LookupItem;

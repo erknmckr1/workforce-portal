@@ -27,6 +27,8 @@ import PersonnelMovementReport from "./pages/PersonnelMovementReport";
 import PhoneDirectoryPage from "./pages/PhoneDirectoryPage";
 import PhoneDirectoryManager from "./pages/settings/PhoneDirectoryManager";
 import DocumentManager from "./pages/settings/DocumentManager";
+import ITRequests from "./pages/ITRequests";
+import ITSupportDashboard from "./pages/settings/ITSupportDashboard";
 import { ThemeProvider } from "./components/theme-provider";
 import { ConfirmProvider } from "@/providers/ConfirmProvider";
 import "./App.css";
@@ -173,14 +175,20 @@ function App() {
                 <Route path="yearly-plan" element={<YearlyCalendarPage />} />
               </Route>
               
-              <Route element={<ProtectedRoute allowedRoles={["Admin", "İK", "Müdür", "Yönetici", "Personel", "Revir", "Güvenlik", "Ustabasi"]} />}>
+              <Route element={<ProtectedRoute allowedRoles={["Admin", "İK", "Müdür", "Yönetici", "Personel", "Revir", "Güvenlik", "Ustabasi", "Bilgi İşlem"]} />}>
                 <Route path="food-menu" element={<FoodMenuPage />} />
                 <Route path="phone-directory" element={<PhoneDirectoryPage />} />
+                <Route path="it-requests" element={<ITRequests />} />
               </Route>
 
               {/* Üretim Ekranları Gezgini */}
               <Route element={<ProtectedRoute allowedRoles={["Admin", "Yönetici"]} />}>
                 <Route path="mes-screens" element={<MesScreensNavigator />} />
+              </Route>
+
+              {/* IT Destek Yönetim Paneli */}
+              <Route element={<ProtectedRoute allowedRoles={["Admin", "Bilgi İşlem"]} />}>
+                <Route path="settings/it-support" element={<ITSupportDashboard />} />
               </Route>
 
               {/* 404 Yönlendirme */}

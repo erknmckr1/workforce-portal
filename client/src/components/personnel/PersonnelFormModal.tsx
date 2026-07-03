@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, memo, useRef } from "react";
+import { useState, useEffect, useCallback, memo, useRef, useMemo } from "react";
 import { useForm, type SubmitHandler, Controller } from "react-hook-form";
 import Webcam from "react-webcam";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -62,6 +62,12 @@ const personnelSchema = z.object({
   auth2: z.string().optional(),
   route: z.string().optional(),
   stop_name: z.string().optional(),
+  tc_no: z
+    .string()
+    .regex(/^\d{11}$/, "TC Kimlik No 11 haneli rakam olmalıdır.")
+    .or(z.literal(""))
+    .optional(),
+  external_id: z.string().or(z.number()).optional(),
 });
 
 type PersonnelFormValues = z.infer<typeof personnelSchema>;
@@ -84,31 +90,34 @@ const LazyLookupSelect = memo(
     items,
     placeholder,
     hasError,
+    disabled,
   }: {
     value: string | undefined;
     onChange: (val: string) => void;
     items: { id: number | string; name: string }[];
     placeholder: string;
     hasError?: boolean;
+    disabled?: boolean;
   }) => {
     const [open, setOpen] = useState(false);
     const selectedItem = value
-      ? items.find((i) => String(i.id) === value)
+      ? items?.find((i) => String(i.id) === value)
       : null;
 
     return (
-      <Select value={value} onValueChange={onChange} onOpenChange={setOpen}>
+      <Select value={value} onValueChange={onChange} onOpenChange={setOpen} disabled={disabled}>
         <SelectTrigger
           className={cn(
             "w-full h-14 px-6 rounded-2xl bg-muted/40 border-none text-sm font-bold shadow-none p-0 flex items-center [&>span]:w-full [&>span]:text-left pl-6 focus:ring-0",
             hasError && "ring-2 ring-destructive",
+            disabled && "opacity-50 cursor-not-allowed",
           )}
         >
           <SelectValue placeholder={placeholder}>
             {selectedItem ? selectedItem.name : null}
           </SelectValue>
         </SelectTrigger>
-        <SelectContent className="rounded-2xl border-none shadow-xl max-h-[300px]">
+        <SelectContent className="rounded-2xl border-none shadow-xl max-h-75">
           {open &&
             items.map((item) => (
               <SelectItem
@@ -181,6 +190,7 @@ export function PersonnelFormModal({
     reset,
     getValues,
     control,
+    watch,
   } = useForm<PersonnelFormValues>({
     resolver: zodResolver(personnelSchema),
     mode: "onBlur",
@@ -204,13 +214,24 @@ export function PersonnelFormModal({
       auth2: "",
       route: "",
       stop_name: "",
+      tc_no: "",
+      external_id: "",
     },
   });
+
+  // Form değerlerinin izlenmesi ve Birim (Part) filtrelemesi
+  const selectedSection = watch("section");
+  const filteredDepartments = useMemo(() => {
+    if (!selectedSection || !lookups?.departments) return [];
+    return lookups.departments.filter(
+      (dept) => String(dept.section_id) === String(selectedSection) &&
+                (dept.is_active !== false || Number(dept.id) === Number(editingPersonnel?.department))
+    );
+  }, [selectedSection, lookups?.departments, editingPersonnel]);
 
   // Handle data reset/init
   useEffect(() => {
     if (!open) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setStep(1);
     setIsCameraOpen(false);
 
@@ -241,6 +262,8 @@ export function PersonnelFormModal({
         auth2: editingPersonnel.auth2 || "",
         route: editingPersonnel.route || "",
         stop_name: editingPersonnel.stop_name || "",
+        tc_no: editingPersonnel.tc_no || "",
+        external_id: editingPersonnel.external_id ? String(editingPersonnel.external_id) : "",
         password: "",
       });
     } else {
@@ -265,6 +288,8 @@ export function PersonnelFormModal({
         auth2: "",
         route: "",
         stop_name: "",
+        tc_no: "",
+        external_id: "",
       });
     }
   }, [open, editingPersonnel, reset]);
@@ -347,6 +372,8 @@ export function PersonnelFormModal({
       section: values.section ? Number(values.section) : undefined,
       department: values.department ? Number(values.department) : undefined,
       title: values.title ? Number(values.title) : undefined,
+      tc_no: values.tc_no || null,
+      external_id: values.external_id ? Number(values.external_id) : null,
       photo_data: photo,
     } as Partial<Personnel> & { password?: string; photo_data?: string | null };
 
@@ -654,6 +681,21 @@ export function PersonnelFormModal({
                 </div>
                 <div className="space-y-3">
                   <label className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground ml-1 text-left">
+                    TC Kimlik No
+                  </label>
+                  <Input
+                    placeholder="11111111111"
+                    maxLength={11}
+                    className={cn(
+                      "rounded-2xl h-14 bg-muted/40 border-none font-bold",
+                      errors.tc_no && "ring-2 ring-destructive",
+                    )}
+                    {...register("tc_no")}
+                  />
+                  <ErrorDisplay message={errors.tc_no?.message} />
+                </div>
+                <div className="space-y-3">
+                  <label className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground ml-1 text-left">
                     Kullanıcı Adı
                   </label>
                   <Input
@@ -662,6 +704,20 @@ export function PersonnelFormModal({
                     className="rounded-2xl h-14 bg-muted/40 border-none font-bold"
                     {...register("nick_name")}
                   />
+                </div>
+                <div className="space-y-3">
+                  <label className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground ml-1 text-left">
+                    Dış Sistem ID (External ID)
+                  </label>
+                  <Input
+                    placeholder="Örn: 1045"
+                    className={cn(
+                      "rounded-2xl h-14 bg-muted/40 border-none font-bold",
+                      errors.external_id && "ring-2 ring-destructive",
+                    )}
+                    {...register("external_id")}
+                  />
+                  <ErrorDisplay message={errors.external_id?.message} />
                 </div>
               </div>
             )}
@@ -680,7 +736,7 @@ export function PersonnelFormModal({
                       <LazyLookupSelect
                         value={field.value ? String(field.value) : undefined}
                         onChange={field.onChange}
-                        items={lookups.roles}
+                        items={lookups?.roles || []}
                         placeholder="Seçiniz..."
                         hasError={!!errors.role_id}
                       />
@@ -688,7 +744,7 @@ export function PersonnelFormModal({
                   />
                   <ErrorDisplay message={errors.role_id?.message} />
                 </div>
-                <div className="space-y-3">
+                 <div className="space-y-3">
                   <label className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground ml-1 text-left">
                     Bölüm (Section)
                   </label>
@@ -701,7 +757,7 @@ export function PersonnelFormModal({
                         onChange={(val) => {
                           field.onChange(val);
                           // Bölüm seçildiğinde otomatik olarak 2. Onaycı (Manager) alanını doldur:
-                          const selectedSection = lookups.sections.find(
+                          const selectedSection = lookups?.sections?.find(
                             (s) => String(s.id) === val,
                           );
                           if (selectedSection && selectedSection.manager_id) {
@@ -712,8 +768,34 @@ export function PersonnelFormModal({
                           } else {
                             setValue("auth2", ""); // O bölümün yöneticisi yoksa boşalt
                           }
+                          // Bölüm değiştiğinde Birim (Department) ve 1. Onaycıyı (auth1) otomatik olarak ilk elemanla doldur:
+                          const sectionDepts = lookups?.departments?.filter(
+                            (d) => String(d.section_id) === String(val)
+                          ) || [];
+
+                          if (sectionDepts.length > 0) {
+                            const firstDept = sectionDepts[0];
+                            setValue("department", String(firstDept.id), {
+                              shouldValidate: true,
+                              shouldDirty: true,
+                            });
+
+                            if (firstDept.supervisor_id) {
+                              setValue("auth1", firstDept.supervisor_id, {
+                                shouldValidate: true,
+                                shouldDirty: true,
+                              });
+                            } else {
+                              setValue("auth1", "");
+                            }
+                          } else {
+                            setValue("department", "");
+                            setValue("auth1", "");
+                          }
                         }}
-                        items={lookups.sections}
+                        items={lookups?.sections?.filter(
+                          s => s.is_active !== false || Number(s.id) === Number(editingPersonnel?.section)
+                        ) || []}
                         placeholder="Seçiniz..."
                       />
                     )}
@@ -732,7 +814,7 @@ export function PersonnelFormModal({
                         onChange={(val) => {
                           field.onChange(val);
                           // Birim seçildiğinde otomatik olarak 1. Onaycı (Supervisor) alanını doldur:
-                          const selectedDepartment = lookups.departments.find(
+                          const selectedDepartment = lookups?.departments?.find(
                             (d) => String(d.id) === val,
                           );
                           if (
@@ -748,8 +830,9 @@ export function PersonnelFormModal({
                             setValue("auth1", ""); // O birimin yöneticisi yoksa boşalt
                           }
                         }}
-                        items={lookups.departments}
-                        placeholder="Seçiniz..."
+                        items={filteredDepartments}
+                        placeholder={selectedSection ? "Seçiniz..." : "Önce Bölüm Seçiniz..."}
+                        disabled={!selectedSection}
                       />
                     )}
                   />
@@ -765,7 +848,9 @@ export function PersonnelFormModal({
                       <LazyLookupSelect
                         value={field.value ? String(field.value) : undefined}
                         onChange={field.onChange}
-                        items={lookups.titles}
+                        items={lookups?.titles?.filter(
+                          t => t.is_active !== false || Number(t.id) === Number(editingPersonnel?.title)
+                        ) || []}
                         placeholder="Seçiniz..."
                       />
                     )}
