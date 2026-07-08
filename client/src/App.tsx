@@ -22,6 +22,7 @@ import FoodMenuManager from "./pages/settings/FoodMenuManager";
 import Home from "./pages/Home";
 import UretimTerminal from "./pages/UretimTerminal";
 import MesScreensNavigator from "./pages/MesScreensNavigator";
+import MeasurementMonitoring from "./pages/MeasurementMonitoring";
 import Reports from "./pages/Reports";
 import PersonnelMovementReport from "./pages/PersonnelMovementReport";
 import PhoneDirectoryPage from "./pages/PhoneDirectoryPage";
@@ -184,6 +185,7 @@ function App() {
               {/* Üretim Ekranları Gezgini */}
               <Route element={<ProtectedRoute allowedRoles={["Admin", "Yönetici"]} />}>
                 <Route path="mes-screens" element={<MesScreensNavigator />} />
+                <Route path="mes-measurements" element={<MeasurementMonitoring />} />
               </Route>
 
               {/* IT Destek Yönetim Paneli */}

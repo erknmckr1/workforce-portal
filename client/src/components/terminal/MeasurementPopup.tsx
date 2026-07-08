@@ -37,6 +37,10 @@ const MeasurementPopup: React.FC<MeasurementPopupProps> = ({
     weight_50cm: number;
   } | null>(null);
 
+  const [dateFilter, setDateFilter] = useState<string>("Tümü");
+  const [startDate, setStartDate] = useState<string>("");
+  const [endDate, setEndDate] = useState<string>("");
+
   const resetForm = () => {
     setSelectedId(null);
     setForm({
@@ -57,6 +61,49 @@ const MeasurementPopup: React.FC<MeasurementPopupProps> = ({
     if (isNaN(val)) return false;
     return val < limits.lowerLimit || val > limits.upperLimit;
   }, [form.exitWeight50cm, limits]);
+
+  const filteredHistory = React.useMemo(() => {
+    if (dateFilter === "Tümü") return history;
+
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const todayEnd = todayStart + 24 * 60 * 60 * 1000 - 1;
+
+    return history.filter((row) => {
+      const rowTime = new Date(row.createdAt).getTime();
+
+      if (dateFilter === "Bugün") {
+        return rowTime >= todayStart && rowTime <= todayEnd;
+      }
+
+      if (dateFilter === "Dün") {
+        const yesterdayStart = todayStart - 24 * 60 * 60 * 1000;
+        const yesterdayEnd = todayStart - 1;
+        return rowTime >= yesterdayStart && rowTime <= yesterdayEnd;
+      }
+
+      if (dateFilter === "Bu Hafta") {
+        const day = now.getDay();
+        const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+        const weekStart = new Date(now.setDate(diff));
+        weekStart.setHours(0, 0, 0, 0);
+        return rowTime >= weekStart.getTime();
+      }
+
+      if (dateFilter === "Bu Ay") {
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+        return rowTime >= monthStart;
+      }
+
+      if (dateFilter === "Özel") {
+        const start = startDate ? new Date(startDate).getTime() : 0;
+        const end = endDate ? new Date(endDate).getTime() + 24 * 60 * 60 * 1000 - 1 : Infinity;
+        return rowTime >= start && rowTime <= end;
+      }
+
+      return true;
+    });
+  }, [history, dateFilter, startDate, endDate]);
 
   const fetchHistory = async (materialNo: string) => {
     try {
@@ -463,6 +510,48 @@ const MeasurementPopup: React.FC<MeasurementPopupProps> = ({
               </button>
             </div>
 
+            {/* Tarih Filtreleme Seçenekleri */}
+            <div className="mb-4 p-3 bg-secondary/20 rounded-xl border border-border flex flex-wrap items-center gap-3">
+              <div className="flex flex-col gap-1">
+                <label className="text-[9px] font-black uppercase tracking-wider text-muted-foreground">Tarih Filtresi</label>
+                <select
+                  value={dateFilter}
+                  onChange={(e) => setDateFilter(e.target.value)}
+                  className="h-10 px-3 bg-background border border-border rounded-lg text-xs font-semibold focus:ring-2 focus:ring-primary focus:outline-none transition-all cursor-pointer min-w-32"
+                >
+                  <option value="Tümü">Tümü</option>
+                  <option value="Bugün">Bugün</option>
+                  <option value="Dün">Dün</option>
+                  <option value="Bu Hafta">Bu Hafta</option>
+                  <option value="Bu Ay">Bu Ay</option>
+                  <option value="Özel">Özel Tarih Aralığı</option>
+                </select>
+              </div>
+
+              {dateFilter === "Özel" && (
+                <>
+                  <div className="flex flex-col gap-1 animate-in slide-in-from-left duration-200">
+                    <label className="text-[9px] font-black uppercase tracking-wider text-muted-foreground">Başlangıç Tarihi</label>
+                    <input
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      className="h-10 px-3 bg-background border border-border rounded-lg text-xs font-mono font-bold focus:ring-2 focus:ring-primary focus:outline-none transition-all"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1 animate-in slide-in-from-left duration-200">
+                    <label className="text-[9px] font-black uppercase tracking-wider text-muted-foreground">Bitiş Tarihi</label>
+                    <input
+                      type="date"
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                      className="h-10 px-3 bg-background border border-border rounded-lg text-xs font-mono font-bold focus:ring-2 focus:ring-primary focus:outline-none transition-all"
+                    />
+                  </div>
+                </>
+              )}
+            </div>
+
             <div className="flex-1 bg-secondary/10 border border-border rounded-2xl overflow-hidden flex flex-col shadow-inner">
               <div className="grid grid-cols-6 gap-4 p-4 border-b border-border bg-secondary/50 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
                 <div className="col-span-1">Operatör</div>
@@ -473,8 +562,8 @@ const MeasurementPopup: React.FC<MeasurementPopupProps> = ({
                 <div className="col-span-1">Tarih</div>
               </div>
               <div className="flex-1 overflow-y-auto p-2 space-y-2 custom-scrollbar">
-                {history.length > 0 ? (
-                  history.map((row) => (
+                {filteredHistory.length > 0 ? (
+                  filteredHistory.map((row) => (
                     <div
                       key={row.id}
                       onClick={() => handleSelectedRow(row)}

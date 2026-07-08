@@ -80,6 +80,12 @@ const getDurationText = (createdStr: string, resolvedStr: string) => {
 
 export default function ITRequests() {
   const { user } = useAuthStore();
+  const isITUser = user?.role === "Bilgi İşlem" || 
+    user?.department === "Bilgi İşlem" || 
+    (user?.department ? (
+      user.department.toLowerCase().replace(/ı/g, 'i').replace(/ş/g, 's').replace(/\s+/g, '').includes("bilgiislem") ||
+      user.department.toLowerCase().replace(/ı/g, 'i').replace(/ş/g, 's').replace(/\s+/g, '').includes("bilgislem")
+    ) : false);
   const [requests, setRequests] = useState<ITRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -147,7 +153,7 @@ export default function ITRequests() {
   const loadRequests = async () => {
     try {
       setLoading(true);
-      const res = await apiClient.get("/it-requests");
+      const res = await apiClient.get("/it-requests?assignedOnly=true");
       setRequests(res.data.requests || []);
     } catch {
       toast.error("Talepler yüklenirken hata oluştu.");
@@ -188,7 +194,7 @@ export default function ITRequests() {
     // Kullanıcının talep listesini arka planda her 12 saniyede bir güncelle
     const interval = setInterval(async () => {
       try {
-        const res = await apiClient.get("/it-requests");
+        const res = await apiClient.get("/it-requests?assignedOnly=true");
         const reqs = res.data.requests || [];
         setRequests(reqs);
 
@@ -527,8 +533,12 @@ export default function ITRequests() {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Terminal Status Alert */}
-          {(selectedRequest.status === "Çözüldü" || selectedRequest.status === "İptal") && (
+          {/* Terminal Status Alert veya Beklemede Uyarısı */}
+          {(!isITUser && selectedRequest.status === "Beklemede") ? (
+            <div className="p-3 bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400 rounded-xl text-center text-xs font-semibold mb-2">
+              ℹ Talebiniz bilgi işlem birimi tarafından kabul edildikten sonra sohbet başlayacaktır.
+            </div>
+          ) : (selectedRequest.status === "Çözüldü" || selectedRequest.status === "İptal") && (
             <div className={cn(
               "p-3 rounded-2xl mb-2 border text-center text-xs font-black uppercase tracking-wider space-y-1 shrink-0",
               selectedRequest.status === "Çözüldü"
@@ -579,7 +589,7 @@ export default function ITRequests() {
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 className="w-11 h-11 rounded-xl border border-border/50 bg-card hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground transition-all shrink-0"
-                disabled={selectedRequest.status === "Çözüldü" || selectedRequest.status === "İptal"}
+                disabled={selectedRequest.status === "Çözüldü" || selectedRequest.status === "İptal" || (!isITUser && selectedRequest.status === "Beklemede")}
               >
                 <Paperclip size={16} />
               </button>
@@ -588,13 +598,13 @@ export default function ITRequests() {
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
                 onPaste={handlePaste}
-                placeholder="Mesajınızı yazın (Ekran görüntüsü yapıştırabilirsiniz)..."
+                placeholder={(!isITUser && selectedRequest.status === "Beklemede") ? "Talep kabul edildikten sonra yazabilirsiniz..." : "Mesajınızı yazın (Ekran görüntüsü yapıştırabilirsiniz)..."}
                 className="flex-1 h-11 px-4 rounded-xl bg-muted/30 border border-border/50 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-primary/25 placeholder:text-muted-foreground/60"
-                disabled={selectedRequest.status === "Çözüldü" || selectedRequest.status === "İptal"}
+                disabled={selectedRequest.status === "Çözüldü" || selectedRequest.status === "İptal" || (!isITUser && selectedRequest.status === "Beklemede")}
               />
               <button
                 type="submit"
-                disabled={isSending || (!newMessage.trim() && !selectedFile) || selectedRequest.status === "Çözüldü" || selectedRequest.status === "İptal"}
+                disabled={isSending || (!newMessage.trim() && !selectedFile) || selectedRequest.status === "Çözüldü" || selectedRequest.status === "İptal" || (!isITUser && selectedRequest.status === "Beklemede")}
                 className="w-11 h-11 rounded-xl bg-primary text-primary-foreground flex items-center justify-center hover:bg-primary/95 disabled:opacity-50 transition-all shrink-0 shadow-md shadow-primary/10"
               >
                 {isSending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}

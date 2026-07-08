@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Settings,
@@ -12,7 +12,6 @@ import {
   Monitor,
   Scale,
 } from "lucide-react";
-import MeasurementHistoryModal from "../components/terminal/MeasurementHistoryModal";
 
 interface ScreenCard {
   id: string;
@@ -110,7 +109,6 @@ const screens: ScreenCard[] = [
 
 const MesScreensNavigator = () => {
   const navigate = useNavigate();
-  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
   return (
     <div className="flex flex-col space-y-8">
@@ -140,7 +138,7 @@ const MesScreensNavigator = () => {
             key={screen.id}
             onClick={() => {
               if (screen.id === "olcum-takip") {
-                setIsHistoryOpen(true);
+                navigate("/mes-measurements");
               } else {
                 navigate(`/uretim/${screen.section}/${screen.area}`);
               }
@@ -178,11 +176,6 @@ const MesScreensNavigator = () => {
         ))}
       </div>
 
-      {/* MEASUREMENT HISTORY MODAL */}
-      <MeasurementHistoryModal
-        isOpen={isHistoryOpen}
-        onClose={() => setIsHistoryOpen(false)}
-      />
     </div>
   );
 };

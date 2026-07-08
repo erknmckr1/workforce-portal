@@ -296,21 +296,18 @@ export default function Sidebar({
         )}
       >
         {/* Logo Alanı */}
-        <div className="flex items-center justify-between h-20 px-6 border-b border-border/50 overflow-hidden">
-          <div className="flex items-center gap-3">
+        <div className={cn("flex items-center border-b border-border/50 overflow-hidden shrink-0 h-20", collapsed ? "justify-center px-0" : "justify-between px-6")}>
+          <div className={cn("flex items-center", collapsed ? "justify-center" : "gap-3")}>
             <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center shrink-0 shadow-lg shadow-primary/20">
               <Briefcase className="text-primary-foreground" size={20} />
             </div>
-            <div
-              className={cn(
-                "flex flex-col transition-opacity duration-300",
-                collapsed ? "lg:opacity-0" : "opacity-100",
-              )}
-            >
-              <span className="font-black text-lg tracking-tighter text-foreground leading-none">
-                Midas
-              </span>
-            </div>
+            {!collapsed && (
+              <div className="flex flex-col transition-opacity duration-300">
+                <span className="font-black text-lg tracking-tighter text-foreground leading-none">
+                  Midas
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Mobile Close Button */}
@@ -323,7 +320,7 @@ export default function Sidebar({
         </div>
 
         {/* Menü Öğeleri */}
-        <nav className="flex-1 overflow-y-auto py-6 px-4 space-y-2 custom-scrollbar">
+        <nav className={cn("flex-1 overflow-y-auto py-6 space-y-2 custom-scrollbar", collapsed ? "px-2" : "px-4")}>
           {(() => {
             const isITDept = user?.department && (
               user.department.toLowerCase().replace(/ı/g, 'i').replace(/ş/g, 's').replace(/\s+/g, '').includes("bilgiislem") ||
@@ -355,7 +352,8 @@ export default function Sidebar({
                         setExpandedMenu(isExpanded ? null : item.title);
                       }}
                       className={cn(
-                        "flex items-center gap-4 px-4 h-12 w-full rounded-xl transition-all group relative overflow-hidden",
+                        "flex items-center rounded-xl transition-all group relative overflow-hidden h-12",
+                        collapsed ? "justify-center px-0 w-12 mx-auto" : "gap-4 px-4 w-full",
                         isActive && !isExpanded
                           ? "bg-primary/10 text-primary"
                           : "text-muted-foreground hover:bg-muted hover:text-foreground",
@@ -370,10 +368,10 @@ export default function Sidebar({
                       />
                       <span
                         className={cn(
-                          "font-bold text-sm tracking-tight transition-all text-left flex-1",
+                          "font-bold text-sm tracking-tight transition-all duration-300 whitespace-nowrap text-left flex-1",
                           collapsed
-                            ? "lg:opacity-0 lg:w-0"
-                            : "opacity-100 w-auto",
+                            ? "opacity-0 w-0 overflow-hidden pointer-events-none invisible"
+                            : "opacity-100 w-auto ml-4 visible",
                         )}
                       >
                         {item.title}
@@ -395,7 +393,8 @@ export default function Sidebar({
                         if (window.innerWidth < 1024) onToggle();
                       }}
                       className={cn(
-                        "flex items-center gap-4 px-4 h-12 rounded-xl transition-all group relative overflow-hidden",
+                        "flex items-center rounded-xl transition-all group relative overflow-hidden h-12",
+                        collapsed ? "justify-center px-0 w-12 mx-auto" : "gap-4 px-4",
                         isActive
                           ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20"
                           : "text-muted-foreground hover:bg-muted hover:text-foreground",
@@ -412,17 +411,20 @@ export default function Sidebar({
                       />
                       <span
                         className={cn(
-                          "font-bold text-sm tracking-tight transition-all",
+                          "font-bold text-sm tracking-tight transition-all duration-300 whitespace-nowrap",
                           collapsed
-                            ? "lg:opacity-0 lg:w-0"
-                            : "opacity-100 w-auto",
+                            ? "opacity-0 w-0 overflow-hidden pointer-events-none invisible"
+                            : "opacity-100 w-auto ml-4 visible",
                         )}
                       >
                         {item.title}
                       </span>
 
                       {isActive && (
-                        <div className="absolute left-0 w-1 h-6 bg-primary-foreground rounded-r-full" />
+                        <div className={cn(
+                          "absolute w-1 h-6 bg-primary-foreground rounded-r-full transition-all duration-300",
+                          collapsed ? "-left-4" : "left-0"
+                        )} />
                       )}
                     </Link>
                   )}
@@ -495,8 +497,8 @@ export default function Sidebar({
           <button
             onClick={handleLogout}
             className={cn(
-              "flex items-center gap-4 px-4 h-12 w-full rounded-xl transition-all text-muted-foreground hover:bg-destructive/10 hover:text-destructive active:scale-95",
-              collapsed ? "lg:justify-center" : "",
+              "flex items-center rounded-xl transition-all text-muted-foreground hover:bg-destructive/10 hover:text-destructive active:scale-95 h-12",
+              collapsed ? "justify-center px-0 w-12 mx-auto" : "gap-4 px-4 w-full",
             )}
           >
             <LogOut size={20} className="shrink-0" />
