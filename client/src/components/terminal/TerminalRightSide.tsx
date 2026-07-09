@@ -599,7 +599,7 @@ const TerminalRightSide = ({
           </button>
         )}
 
-        {areaName === "buzlama" && (
+        {(areaName === "buzlama" || areaName === "taslama" || areaName === "kurutiras") && (
           <button
             onClick={() =>
               handleGuardedAction((opId) => onOpenMeasurementModal(opId))

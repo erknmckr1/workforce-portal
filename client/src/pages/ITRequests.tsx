@@ -524,7 +524,13 @@ export default function ITRequests() {
                         isMe ? "text-primary-foreground/60" : "text-muted-foreground/60"
                       )}
                     >
-                      {new Date(msg.created_at).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })}
+                      {new Date(msg.created_at).toLocaleString("tr-TR", {
+                        day: "2-digit",
+                        month: "2-digit",
+                        year: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
                     </span>
                   </div>
                 );

@@ -600,7 +600,13 @@ export default function ITSupportDashboard() {
                         isMe ? "text-primary-foreground/60" : "text-muted-foreground/60"
                       )}
                     >
-                      {new Date(msg.created_at).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })}
+                       {new Date(msg.created_at).toLocaleString("tr-TR", {
+                         day: "2-digit",
+                         month: "2-digit",
+                         year: "numeric",
+                         hour: "2-digit",
+                         minute: "2-digit",
+                       })}
                     </span>
                   </div>
                 );
@@ -608,6 +614,13 @@ export default function ITSupportDashboard() {
             )}
             <div ref={messagesEndRef} />
           </div>
+
+          {/* Claim Warning */}
+          {selectedRequest.status === "Beklemede" && (
+            <div className="p-3 bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 rounded-xl text-center text-xs font-semibold mb-2">
+              ⚠️ Bu talep henüz üstlenilmemiştir. Yanıt gönderebilmek için yukarıdan durumunu 'İşlemde' yapmalısınız.
+            </div>
+          )}
 
           {/* Send Input */}
           <form onSubmit={handleSendMessage} className="pt-4 border-t border-border/50 flex flex-col gap-2 shrink-0">
@@ -639,7 +652,7 @@ export default function ITSupportDashboard() {
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 className="w-11 h-11 rounded-xl border border-border/50 bg-card hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground transition-all shrink-0"
-                disabled={selectedRequest.status === "Çözüldü" || selectedRequest.status === "İptal"}
+                disabled={selectedRequest.status === "Çözüldü" || selectedRequest.status === "İptal" || selectedRequest.status === "Beklemede"}
               >
                 <Paperclip size={16} />
               </button>
@@ -648,13 +661,13 @@ export default function ITSupportDashboard() {
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
                 onPaste={handlePaste}
-                placeholder="Personelle sohbet edin (Ekran görüntüsü yapıştırabilirsiniz)..."
+                placeholder={selectedRequest.status === "Beklemede" ? "Talebi yanıtlamak için önce 'İşlemde' yapmalısınız..." : "Personelle sohbet edin (Ekran görüntüsü yapıştırabilirsiniz)..."}
                 className="flex-1 h-11 px-4 rounded-xl bg-muted/30 border border-border/50 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-primary/25 placeholder:text-muted-foreground/60"
-                disabled={selectedRequest.status === "Çözüldü" || selectedRequest.status === "İptal"}
+                disabled={selectedRequest.status === "Çözüldü" || selectedRequest.status === "İptal" || selectedRequest.status === "Beklemede"}
               />
               <button
                 type="submit"
-                disabled={isSending || (!newMessage.trim() && !selectedFile) || selectedRequest.status === "Çözüldü" || selectedRequest.status === "İptal"}
+                disabled={isSending || (!newMessage.trim() && !selectedFile) || selectedRequest.status === "Çözüldü" || selectedRequest.status === "İptal" || selectedRequest.status === "Beklemede"}
                 className="w-11 h-11 rounded-xl bg-primary text-primary-foreground flex items-center justify-center hover:bg-primary/95 disabled:opacity-50 transition-all shrink-0 shadow-md shadow-primary/10"
               >
                 {isSending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}

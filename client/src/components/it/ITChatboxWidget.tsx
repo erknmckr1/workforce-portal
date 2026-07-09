@@ -593,7 +593,13 @@ export default function ITChatboxWidget() {
                               isMe ? "text-primary-foreground/60" : "text-muted-foreground/60"
                             )}
                           >
-                            {new Date(msg.created_at).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })}
+                             {new Date(msg.created_at).toLocaleString("tr-TR", {
+                               day: "2-digit",
+                               month: "2-digit",
+                               year: "numeric",
+                               hour: "2-digit",
+                               minute: "2-digit",
+                             })}
                           </span>
                         </div>
                       );
@@ -603,9 +609,11 @@ export default function ITChatboxWidget() {
                 </div>
 
                   {/* Terminal Status Alert veya Beklemede Uyarısı */}
-                  {(!isITUser && activeRequest.status === "Beklemede") ? (
+                  {activeRequest.status === "Beklemede" ? (
                     <div className="p-3 bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400 rounded-xl text-center text-xs font-semibold mb-2">
-                      ℹ Talebiniz bilgi işlem birimi tarafından kabul edildikten sonra sohbet başlayacaktır.
+                      {isITUser 
+                        ? "ℹ Bu talep henüz üstlenilmemiştir. Lütfen IT Yönetim Panelinden durumunu 'İşlemde' yapınız."
+                        : "ℹ Talebiniz bilgi işlem birimi tarafından kabul edildikten sonra sohbet başlayacaktır."}
                     </div>
                   ) : (activeRequest.status === "Çözüldü" || activeRequest.status === "İptal") && (
                     <div className={cn(
@@ -628,11 +636,11 @@ export default function ITChatboxWidget() {
                     </div>
                   )}
 
-                  <form onSubmit={handleSendMessage} className="pt-2 border-t border-border/40 flex flex-col gap-2 shrink-0">
+                  <form onSubmit={handleSendMessage} className="pt-3 border-t border-border/50 flex flex-col gap-2 shrink-0">
                   {filePreview && (
                     <div className="flex items-center gap-2 bg-muted/40 p-2 rounded-xl border border-border/40 relative">
-                      <img src={filePreview} alt="upload preview" className="w-12 h-12 object-cover rounded-lg border border-border/60" />
-                      <span className="text-[10px] font-bold text-muted-foreground truncate max-w-50">
+                      <img src={filePreview} alt="upload preview" className="w-10 h-10 object-cover rounded-lg border border-border/60" />
+                      <span className="text-[9px] font-bold text-muted-foreground truncate max-w-40">
                         {selectedFile?.name || "Ekran Görüntüsü"}
                       </span>
                       <button
@@ -640,7 +648,7 @@ export default function ITChatboxWidget() {
                         onClick={clearFile}
                         className="absolute right-2 top-1/2 -translate-y-1/2 p-1 bg-background rounded-full border hover:bg-muted text-muted-foreground hover:text-foreground transition-all"
                       >
-                        <X size={12} />
+                        <X size={10} />
                       </button>
                     </div>
                   )}
@@ -657,7 +665,7 @@ export default function ITChatboxWidget() {
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
                       className="w-10 h-10 rounded-xl border border-border/50 bg-card hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground transition-all shrink-0"
-                      disabled={activeRequest.status === "Çözüldü" || activeRequest.status === "İptal" || (!isITUser && activeRequest.status === "Beklemede")}
+                      disabled={activeRequest.status === "Çözüldü" || activeRequest.status === "İptal" || activeRequest.status === "Beklemede"}
                     >
                       <Paperclip size={16} />
                     </button>
@@ -666,13 +674,13 @@ export default function ITChatboxWidget() {
                       value={newMessage}
                       onChange={(e) => setNewMessage(e.target.value)}
                       onPaste={handlePaste}
-                      placeholder={(!isITUser && activeRequest.status === "Beklemede") ? "Talep kabul edildikten sonra yazabilirsiniz..." : "IT birimine mesaj gönderin (Ekran görüntüsü yapıştırabilirsiniz)..."}
+                      placeholder={activeRequest.status === "Beklemede" ? "Talep kabul edildikten sonra yazabilirsiniz..." : "IT birimine mesaj gönderin (Ekran görüntüsü yapıştırabilirsiniz)..."}
                       className="flex-1 h-10 px-4 rounded-xl bg-card border border-border/50 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-primary/25 placeholder:text-muted-foreground/60"
-                      disabled={activeRequest.status === "Çözüldü" || activeRequest.status === "İptal" || (!isITUser && activeRequest.status === "Beklemede")}
+                      disabled={activeRequest.status === "Çözüldü" || activeRequest.status === "İptal" || activeRequest.status === "Beklemede"}
                     />
                     <button
                       type="submit"
-                      disabled={isSending || (!newMessage.trim() && !selectedFile) || activeRequest.status === "Çözüldü" || activeRequest.status === "İptal" || (!isITUser && activeRequest.status === "Beklemede")}
+                      disabled={isSending || (!newMessage.trim() && !selectedFile) || activeRequest.status === "Çözüldü" || activeRequest.status === "İptal" || activeRequest.status === "Beklemede"}
                       className="w-10 h-10 rounded-xl bg-primary text-primary-foreground flex items-center justify-center hover:bg-primary/95 disabled:opacity-50 transition-all shrink-0 shadow-md shadow-primary/15"
                     >
                       {isSending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}

@@ -95,9 +95,13 @@ export const getRequests = async (req: Request, res: Response): Promise<Response
         const isIT = isITUser(user);
 
         let requests;
+        const assignedOnly = req.query.assignedOnly === "true";
+
         if (isIT) {
-            // Bilgi işlem personeli tüm talepleri görür (talep sahibinin departmanıyla birlikte)
+            const whereClause = assignedOnly ? { assigned_to: operator_id } : {};
+            // Bilgi işlem personeli tüm talepleri görür veya sadece üstlendiklerini
             requests = await ITRequest.findAll({
+                where: whereClause,
                 include: [
                     {
                         model: Operator,
@@ -215,6 +219,10 @@ export const sendMessage = async (req: Request, res: Response): Promise<Response
             return res.status(403).json({ message: "Bu talebe mesaj gönderme yetkiniz yok." });
         }
 
+        if (isIT && request.status === "Beklemede") {
+            return res.status(400).json({ message: "Sohbeti başlatmak için önce talebi 'İşlemde' olarak güncelleyiniz." });
+        }
+
         let attachment_url: string | null = null;
         if (req.file) {
             attachment_url = saveAttachment(req.file);
@@ -228,11 +236,8 @@ export const sendMessage = async (req: Request, res: Response): Promise<Response
             attachment_url
         });
 
-        // 2. Talebin güncellenme tarihini güncelle ve eğer mesajı gönderen IT ise ve üstlenilmediyse ata
+        // 2. Talebin güncellenme tarihini güncelle
         const updatePayload: any = { updated_at: new Date() };
-        if (isIT && !request.assigned_to) {
-            updatePayload.assigned_to = operator_id;
-        }
         await request.update(updatePayload);
 
         // Gönderen detaylarını ekleyip dönelim
