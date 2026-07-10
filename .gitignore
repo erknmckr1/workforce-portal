@@ -61,6 +61,8 @@ server/src/scripts
 !server/src/scripts/migrate_mes_leaves.ts
 /server/scripts
 server/scripts
+/server/src/scripts/importExcelMeasurements.ts
+server/src/scripts/importExcelMeasurements.ts
 
 # Scratch & Experimental
 /server/scratch

@@ -113,12 +113,12 @@ function App() {
               element={isAuthenticated ? <MainLayout /> : <Navigate to="/login" />}
             >
               {/* Panel (Eski Dashboard) */}
-              <Route element={<ProtectedRoute allowedRoles={["Admin", "Müdür", "Yönetici", "Personel", "İK", "Revir", "Güvenlik", "Ustabasi"]} />}>
+              <Route element={<ProtectedRoute allowedRoles={["Admin", "Müdür", "Yönetici", "Personel", "İK", "Revir", "Güvenlik", "Ustabasi", "Mühendis"]} />}>
                 <Route path="panel" element={<Dashboard />} />
               </Route>
 
               {/* İzinlerim (Herkes Görebilir) */}
-              <Route element={<ProtectedRoute allowedRoles={["Admin", "Müdür", "Yönetici", "Personel", "İK", "Revir", "Güvenlik", "Ustabasi"]} />}>
+              <Route element={<ProtectedRoute allowedRoles={["Admin", "Müdür", "Yönetici", "Personel", "İK", "Revir", "Güvenlik", "Ustabasi", "Mühendis"]} />}>
                 <Route path="leaves" element={<Leaves />} />
               </Route>
 
@@ -172,18 +172,18 @@ function App() {
               </Route>
 
               {/* Senelik Plan - Tüm personel görebilir */}
-              <Route element={<ProtectedRoute allowedRoles={["Admin", "İK", "Müdür", "Yönetici", "Personel", "Revir", "Güvenlik", "Ustabasi"]} />}>
+              <Route element={<ProtectedRoute allowedRoles={["Admin", "İK", "Müdür", "Yönetici", "Personel", "Revir", "Güvenlik", "Ustabasi", "Mühendis"]} />}>
                 <Route path="yearly-plan" element={<YearlyCalendarPage />} />
               </Route>
               
-              <Route element={<ProtectedRoute allowedRoles={["Admin", "İK", "Müdür", "Yönetici", "Personel", "Revir", "Güvenlik", "Ustabasi", "Bilgi İşlem"]} />}>
+              <Route element={<ProtectedRoute allowedRoles={["Admin", "İK", "Müdür", "Yönetici", "Personel", "Revir", "Güvenlik", "Ustabasi", "Bilgi İşlem", "Mühendis"]} />}>
                 <Route path="food-menu" element={<FoodMenuPage />} />
                 <Route path="phone-directory" element={<PhoneDirectoryPage />} />
                 <Route path="it-requests" element={<ITRequests />} />
               </Route>
 
               {/* Üretim Ekranları Gezgini */}
-              <Route element={<ProtectedRoute allowedRoles={["Admin", "Yönetici"]} />}>
+              <Route element={<ProtectedRoute allowedRoles={["Admin", "Yönetici", "Mühendis"]} />}>
                 <Route path="mes-screens" element={<MesScreensNavigator />} />
                 <Route path="mes-measurements" element={<MeasurementMonitoring />} />
               </Route>

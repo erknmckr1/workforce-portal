@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "nodemon --exec ts-node src/server.ts",
     "seed:phone": "ts-node src/scripts/seed_phone_directory.ts",
+    "import:measurements": "ts-node src/scripts/importExcelMeasurements.ts",
     "build": "tsc",
     "start": "node dist/server.js"
   },
