@@ -21,6 +21,7 @@ import sequelize from "../config/database";
 import timecureSequelize from "../config/timecureDatabase";
 import sapSequelize from "../config/mesDatabase";
 import ExternalMovement from "../models/ExternalMovement";
+import { sendScrapWeightWarningEmail } from "../services/emailService";
 import fs from "fs";
 import path from "path";
 
@@ -1104,8 +1105,19 @@ export const getScrapMeasurements = async (req: Request, res: Response) => {
   }
 
   try {
-    const measurements = await ScrapMeasurement.findAll({
-      where: { order_no: String(order_no) },
+    const measurements = await Measurement.findAll({
+      where: { 
+        order_no: String(order_no),
+        gold_setting: { [Op.ne]: null }
+      },
+      include: [
+        {
+          model: Operator,
+          as: "OperatorDetail",
+          attributes: ["name", "surname"],
+          required: false,
+        }
+      ],
       order: [["createdAt", "DESC"]],
     });
 
@@ -1113,6 +1125,39 @@ export const getScrapMeasurements = async (req: Request, res: Response) => {
   } catch (error) {
     console.error("getScrapMeasurements Error:", error);
     return res.status(500).json({ message: "Ölçüm verileri çekilemedi." });
+  }
+};
+
+// Arka planda tolerans kontrolü yapıp gerekirse uyarı e-postası gönderen yardımcı fonksiyon
+const checkToleranceAndSendEmail = async (orderId: string, resultGram: number) => {
+  try {
+    const sapOrder = await SapOrder.findOne({ where: { ORDER_ID: orderId } });
+    if (!sapOrder) return;
+
+    const materialNo = sapOrder.MATERIAL_NO;
+    const results: any[] = await sequelize.query(
+      `
+      SELECT weight_50cm 
+      FROM mes.dbo.zincir_50cm_gr 
+      WHERE materialCode = :materialNo
+      `,
+      {
+        replacements: { materialNo },
+        type: QueryTypes.SELECT
+      }
+    );
+
+    if (results && results.length > 0) {
+      const systemGram = parseFloat(results[0].weight_50cm);
+      if (!isNaN(systemGram) && systemGram > 0) {
+        const percentDiff = ((resultGram - systemGram) / systemGram) * 100;
+        if (Math.abs(percentDiff) > 5) {
+          await sendScrapWeightWarningEmail(orderId, materialNo, systemGram, resultGram, percentDiff);
+        }
+      }
+    }
+  } catch (err) {
+    console.error("checkToleranceAndSendEmail Hatası:", err);
   }
 };
 
@@ -1128,16 +1173,43 @@ export const submitScrapMeasurement = async (req: Request, res: Response) => {
       });
     }
 
-    const newMeasurement = await ScrapMeasurement.create({
+    // Tartım alanları doğrulaması
+    const weighedQty = parseInt(formState.weighedQuantity);
+    const weighedWt = parseFloat(formState.weighedWeight);
+    if (isNaN(weighedQty) || weighedQty <= 0 || isNaN(weighedWt) || weighedWt <= 0) {
+      return res.status(400).json({
+        message: "Tartılan Adet ve Tartılan Gram alanları doldurulmalıdır ve sıfırdan büyük olmalıdır.",
+      });
+    }
+
+    const resultWeight = weighedWt / weighedQty;
+
+    // SapOrder üzerinden material_no çözme
+    const sapOrder = await SapOrder.findOne({ where: { ORDER_ID: formState.orderId } });
+    const materialNo = sapOrder ? sapOrder.MATERIAL_NO : "";
+
+    const newMeasurement = await Measurement.create({
       order_no: formState.orderId,
-      operator_id: user_id,
+      material_no: materialNo,
+      operator: user_id,
       area_name: areaName,
-      entry_measurement: parseFloat(formState.entryGramage) || 0,
-      exit_measurement: parseFloat(formState.exitGramage) || 0,
+      entry_measurement: formState.entryGramage !== null && formState.entryGramage !== undefined ? String(formState.entryGramage) : null,
+      exit_measurement: formState.exitGramage !== null && formState.exitGramage !== undefined ? String(formState.exitGramage) : null,
+      entry_weight_50cm: null,
+      exit_weight_50cm: null,
+      description: formState.description || "Fire Girişi Kaydı",
+      measurement_package: weighedQty,
+      data_entry_date: new Date(),
       gold_setting: parseFloat(formState.goldSetting) || 0,
       gold_pure_scrap: parseFloat(formState.gold_pure_scrap) || 0,
       measurement_diff: parseFloat(formState.diffirence) || 0,
+      weighed_quantity: weighedQty,
+      weighed_weight: weighedWt,
+      result_weight: resultWeight,
     });
+
+    // Arka planda tolerans denetimi tetiklenir
+    checkToleranceAndSendEmail(formState.orderId, resultWeight);
 
     return res.status(200).json(newMeasurement);
   } catch (error) {
@@ -1150,20 +1222,38 @@ export const updateScrapMeasurement = async (req: Request, res: Response) => {
   const { formState, id } = req.body;
 
   try {
-    const measurement = await ScrapMeasurement.findByPk(id);
+    const measurement = await Measurement.findByPk(id);
     if (!measurement) {
       return res
         .status(404)
         .json({ message: "Güncellenecek kayıt bulunamadı." });
     }
 
+    // Tartım alanları doğrulaması
+    const weighedQty = parseInt(formState.weighedQuantity);
+    const weighedWt = parseFloat(formState.weighedWeight);
+    if (isNaN(weighedQty) || weighedQty <= 0 || isNaN(weighedWt) || weighedWt <= 0) {
+      return res.status(400).json({
+        message: "Tartılan Adet ve Tartılan Gram alanları doldurulmalıdır ve sıfırdan büyük olmalıdır.",
+      });
+    }
+
+    const resultWeight = weighedWt / weighedQty;
+
     await measurement.update({
-      entry_measurement: parseFloat(formState.entryGramage) || 0,
-      exit_measurement: parseFloat(formState.exitGramage) || 0,
+      entry_measurement: formState.entryGramage !== null && formState.entryGramage !== undefined ? String(formState.entryGramage) : null,
+      exit_measurement: formState.exitGramage !== null && formState.exitGramage !== undefined ? String(formState.exitGramage) : null,
       gold_setting: parseFloat(formState.goldSetting) || 0,
       gold_pure_scrap: parseFloat(formState.gold_pure_scrap) || 0,
       measurement_diff: parseFloat(formState.diffirence) || 0,
+      weighed_quantity: weighedQty,
+      weighed_weight: weighedWt,
+      result_weight: resultWeight,
+      measurement_package: weighedQty,
     });
+
+    // Arka planda tolerans denetimi tetiklenir
+    checkToleranceAndSendEmail(formState.orderId, resultWeight);
 
     return res.status(200).json({ message: "Kayıt güncellendi." });
   } catch (error) {
@@ -1215,7 +1305,7 @@ export const getMeasurements = async (req: Request, res: Response) => {
           required: false,
         },
       ],
-      order: [["createdAt", "DESC"]],
+      order: [["data_entry_date", "DESC"]],
     });
 
     res.json(measurements);
@@ -1251,7 +1341,7 @@ export const getMeasurementsByMaterial = async (req: Request, res: Response) => 
           required: false,
         },
       ],
-      order: [["createdAt", "DESC"]],
+      order: [["data_entry_date", "DESC"]],
       limit: limitNum,
       offset: offset,
     });

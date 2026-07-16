@@ -23,6 +23,9 @@ interface ScrapMeasurement {
   gold_setting: number;
   gold_pure_scrap: number;
   measurement_diff: number;
+  weighed_quantity?: number;
+  weighed_weight?: number;
+  result_weight?: number;
   createdAt: string;
 }
 
@@ -42,6 +45,12 @@ const FirePopup: React.FC<FirePopupProps> = ({
   const [history, setHistory] = useState<ScrapMeasurement[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
 
+  const [orderInfo, setOrderInfo] = useState<{
+    materialNo: string;
+    description: string;
+    systemWeight: number | null;
+  } | null>(null);
+
   const [form, setForm] = useState({
     orderId: "",
     goldSetting: 0,
@@ -49,6 +58,9 @@ const FirePopup: React.FC<FirePopupProps> = ({
     exitGramage: 0,
     gold_pure_scrap: 0,
     diffirence: 0,
+    weighedQuantity: "",
+    weighedWeight: "",
+    resultWeight: "",
   });
 
   // Otomatik hesaplamalar
@@ -76,6 +88,18 @@ const FirePopup: React.FC<FirePopupProps> = ({
     }));
   }, [form.entryGramage, form.exitGramage, form.goldSetting]);
 
+  // Otomatik tartılan adet/gramaj sonuç hesaplaması
+  useEffect(() => {
+    const qty = parseFloat(form.weighedQuantity);
+    const wt = parseFloat(form.weighedWeight);
+    if (!isNaN(qty) && qty > 0 && !isNaN(wt) && wt > 0) {
+      const res = wt / qty;
+      setForm((prev) => ({ ...prev, resultWeight: res.toFixed(4) }));
+    } else {
+      setForm((prev) => ({ ...prev, resultWeight: "" }));
+    }
+  }, [form.weighedQuantity, form.weighedWeight]);
+
   const fetchHistory = async (orderId: string) => {
     try {
       const res = await apiClient.get(
@@ -96,62 +120,88 @@ const FirePopup: React.FC<FirePopupProps> = ({
       const rawCarat = res.data.CARAT || "0";
       const numericCarat = parseFloat(rawCarat.replace(/[^0-9.]/g, ""));
 
+      const matNo = res.data.MATERIAL_NO || "";
+      const desc = res.data.ITEM_DESCRIPTION || "";
+      let sysWeight: number | null = null;
+
+      if (matNo) {
+        try {
+          const limitRes = await apiClient.get(`/mes/measure-limits/${matNo}`);
+          sysWeight = limitRes.data.weight_50cm || null;
+        } catch (err) {
+          console.log("Zincir limitleri çekilemedi:", err);
+        }
+      }
+
       setForm((prev) => ({
-        ...prev,
+        orderId: prev.orderId,
         goldSetting: numericCarat,
+        entryGramage: 0,
+        exitGramage: 0,
+        gold_pure_scrap: 0,
+        diffirence: 0,
+        weighedQuantity: "",
+        weighedWeight: "",
+        resultWeight: "",
       }));
+
+      setOrderInfo({
+        materialNo: matNo,
+        description: desc,
+        systemWeight: sysWeight,
+      });
+
       toast.success("Sipariş bilgileri getirildi.");
       await fetchHistory(form.orderId);
     } catch (error) {
       console.log(error);
       toast.error("Sipariş bulunamadı veya bir hata oluştu.");
+      setOrderInfo(null);
     } finally {
       setLoading(false);
     }
   };
 
   const handleSave = async () => {
-    if (!form.orderId || form.entryGramage <= 0) {
-      toast.error("Lütfen sipariş no ve giriş ölçüsünü kontrol edin.");
+    if (!form.orderId) {
+      toast.error("Lütfen önce geçerli bir sipariş barkodu okutunuz.");
+      return;
+    }
+
+    const weighedQty = parseInt(form.weighedQuantity);
+    const weighedWt = parseFloat(form.weighedWeight);
+    if (isNaN(weighedQty) || weighedQty <= 0 || isNaN(weighedWt) || weighedWt <= 0) {
+      toast.error("Lütfen Tartılan Adet ve Tartılan Gram alanlarını sıfırdan büyük olacak şekilde doldurunuz.");
       return;
     }
 
     setLoading(true);
     try {
+      const payloadFormState = {
+        ...form,
+        weighedQuantity: weighedQty,
+        weighedWeight: weighedWt,
+        resultWeight: form.resultWeight
+      };
+
       if (selectedId) {
         await apiClient.put("/mes/scrap-measurements", {
-          formState: form,
+          formState: payloadFormState,
           id: selectedId,
         });
         toast.success("Ölçüm güncellendi.");
-        setForm({
-          orderId: "",
-          goldSetting: 0,
-          entryGramage: 0,
-          exitGramage: 0,
-          gold_pure_scrap: 0,
-          diffirence: 0,
-        });
       } else {
         await apiClient.post("/mes/scrap-measurements", {
-          formState: form,
+          formState: payloadFormState,
           user_id: operatorId || user?.id_dec,
           areaName,
         });
         toast.success("Ölçüm kaydedildi.");
-        setForm({
-          orderId: "",
-          goldSetting: 0,
-          entryGramage: 0,
-          exitGramage: 0,
-          gold_pure_scrap: 0,
-          diffirence: 0,
-        });
       }
       await fetchHistory(form.orderId);
-      resetForm(false); // Sadece ölçüleri sıfırla, sipariş no kalsın
+      resetForm(false); // Sadece ölçüleri sıfırla, sipariş no ve geçmiş kalsın
     } catch (error) {
-      toast.error("İşlem başarısız oldu.");
+      toast.error("İşlem başarısız oldu.", { description: (error as any)?.message || "Bilinmeyen bir hata oluştu." });
     } finally {
       setLoading(false);
     }
@@ -165,14 +215,18 @@ const FirePopup: React.FC<FirePopupProps> = ({
       exitGramage: 0,
       gold_pure_scrap: 0,
       diffirence: 0,
+      weighedQuantity: "",
+      weighedWeight: "",
+      resultWeight: "",
     }));
+    setOrderInfo(null);
     if (full) {
       setHistory([]);
       setSelectedId(null);
     }
   };
 
-  const handleEdit = (item: ScrapMeasurement) => {
+  const handleEdit = async (item: ScrapMeasurement) => {
     setSelectedId(item.id);
     setForm({
       orderId: item.order_no,
@@ -181,7 +235,34 @@ const FirePopup: React.FC<FirePopupProps> = ({
       exitGramage: item.exit_measurement,
       gold_pure_scrap: item.gold_pure_scrap,
       diffirence: item.measurement_diff,
+      weighedQuantity: String(item.weighed_quantity ?? ""),
+      weighedWeight: String(item.weighed_weight ?? ""),
+      resultWeight: String(item.result_weight ?? ""),
     });
+
+    // Edit modunda sipariş detaylarını göster
+    try {
+      const res = await apiClient.get(`/mes/order/${item.order_no}`);
+      const matNo = res.data.MATERIAL_NO || "";
+      const desc = res.data.ITEM_DESCRIPTION || "";
+      let sysWeight: number | null = null;
+      if (matNo) {
+        try {
+          const limitRes = await apiClient.get(`/mes/measure-limits/${matNo}`);
+          sysWeight = limitRes.data.weight_50cm || null;
+        } catch (err) {
+          console.log("Zincir limitleri çekilemedi:", err);
+        }
+      }
+      setOrderInfo({
+        materialNo: matNo,
+        description: desc,
+        systemWeight: sysWeight,
+      });
+    } catch (err) {
+      console.log(err);
+      setOrderInfo(null);
+    }
   };
 
   return (
@@ -195,7 +276,7 @@ const FirePopup: React.FC<FirePopupProps> = ({
             </div>
             <div>
               <h2 className="text-xl font-black tracking-tight text-foreground uppercase">
-                Fire Veri Girişi
+                {areaName === "taslama" ? "Veri Girişi" : "Fire Veri Girişi"}
               </h2>
               <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
                 {areaName} Terminali
@@ -236,6 +317,23 @@ const FirePopup: React.FC<FirePopupProps> = ({
                   <Search size={18} />
                 </button>
               </div>
+              {orderInfo && (
+                <div className="mt-3 p-4 bg-secondary/40 rounded-2xl border border-border space-y-2 animate-in fade-in duration-200">
+                  <div className="flex justify-between items-center gap-4">
+                    <div className="text-xs font-mono font-black text-primary truncate">
+                      {orderInfo.materialNo}
+                    </div>
+                    {orderInfo.systemWeight !== null && (
+                      <div className="text-[10px] font-mono font-black text-foreground bg-primary/10 px-2 py-0.5 rounded-lg border border-primary/20 shrink-0">
+                        Sistem Gramı: {orderInfo.systemWeight} g
+                      </div>
+                    )}
+                  </div>
+                  <div className="text-[10px] font-bold uppercase text-muted-foreground leading-normal">
+                    {orderInfo.description}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -298,6 +396,58 @@ const FirePopup: React.FC<FirePopupProps> = ({
               </div>
             </div>
 
+            {/* Tartım Alanları */}
+            <div className="grid grid-cols-2 gap-4 pt-4 border-t border-border/50">
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider ml-1">
+                  Tartılan Adet
+                </label>
+                <input
+                  type="number"
+                  value={form.weighedQuantity}
+                  onChange={(e) =>
+                    setForm({ ...form, weighedQuantity: e.target.value })
+                  }
+                  placeholder="0"
+                  className="w-full bg-secondary/30 border border-border rounded-xl px-4 py-3 outline-none focus:border-primary transition-all font-bold"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider ml-1">
+                  Tartılan Gram
+                </label>
+                <input
+                  type="number"
+                  value={form.weighedWeight}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(",", ".");
+                    setForm({ ...form, weighedWeight: val });
+                  }}
+                  placeholder="0.00"
+                  className="w-full bg-secondary/30 border border-border rounded-xl px-4 py-3 outline-none focus:border-primary transition-all font-bold"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider ml-1">
+                  Sonuç Gram
+                </label>
+                <div className="w-full bg-primary/10 border border-primary/20 rounded-xl px-4 py-3 font-black text-primary text-sm h-12 flex items-center justify-center">
+                  {form.resultWeight ? `${form.resultWeight} g` : "-"}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider ml-1">
+                  Sistem Gramı
+                </label>
+                <div className="w-full bg-secondary/30 border border-border rounded-xl px-4 py-3 font-black text-foreground text-sm h-12 flex items-center justify-center">
+                  {orderInfo && orderInfo.systemWeight !== null ? `${orderInfo.systemWeight} g` : "Tanımsız"}
+                </div>
+              </div>
+            </div>
+
             <div className="p-5 bg-linear-to-br from-mds/20 to-orange-500/5 rounded-3xl border border-mds/20 relative overflow-hidden group">
               <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform">
                 <Calculator size={64} />
@@ -323,7 +473,7 @@ const FirePopup: React.FC<FirePopupProps> = ({
               >
                 <Save
                   size={20}
-                  className="group-hover:translate-y-[-2px] transition-transform"
+                  className=" transition-transform"
                 />
                 <span className="uppercase tracking-widest text-xs">
                   {selectedId ? "Güncelle" : "Kaydet"}
@@ -355,7 +505,7 @@ const FirePopup: React.FC<FirePopupProps> = ({
               )}
             </div>
 
-            <div className="flex-1 bg-secondary/20 rounded-3xl border border-border overflow-hidden flex flex-col min-h-[400px]">
+            <div className="flex-1 bg-secondary/20 rounded-3xl border border-border overflow-hidden flex flex-col min-h-100">
               {history.length === 0 ? (
                 <div className="flex-1 flex flex-col items-center justify-center p-12 text-center">
                   <div className="w-16 h-16 bg-secondary flex items-center justify-center mb-4 rounded-full">
@@ -377,6 +527,9 @@ const FirePopup: React.FC<FirePopupProps> = ({
                         </th>
                         <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
                           Giriş / Çıkış
+                        </th>
+                        <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                          Sonuç Gram
                         </th>
                         <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
                           Has Fire
@@ -420,6 +573,11 @@ const FirePopup: React.FC<FirePopupProps> = ({
                                 {item.exit_measurement}
                               </span>
                             </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="text-xs font-mono font-bold text-foreground">
+                              {item.result_weight ? `${item.result_weight} g` : "-"}
+                            </span>
                           </td>
                           <td className="px-6 py-4">
                             <span className="text-sm font-black text-mds tracking-tighter">

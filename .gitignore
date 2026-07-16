@@ -63,6 +63,10 @@ server/src/scripts
 server/scripts
 /server/src/scripts/importExcelMeasurements.ts
 server/src/scripts/importExcelMeasurements.ts
+/server/src/scripts/importUnitGrams.ts
+server/src/scripts/importUnitGrams.ts
+/server/src/scripts/migrateScrapToMeasurements.ts
+server/src/scripts/migrateScrapToMeasurements.ts
 
 # Scratch & Experimental
 /server/scratch

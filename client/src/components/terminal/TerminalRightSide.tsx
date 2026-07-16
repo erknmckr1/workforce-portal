@@ -593,13 +593,13 @@ const TerminalRightSide = ({
                 className="group-hover:scale-110 transition-transform"
               />
               <span className="text-[10px] uppercase tracking-[0.2em]">
-                Fire Girişi
+                Veri Girişi
               </span>
             </div>
           </button>
         )}
 
-        {(areaName === "buzlama" || areaName === "taslama" || areaName === "kurutiras") && (
+        {(areaName === "buzlama" || areaName === "kurutiras") && (
           <button
             onClick={() =>
               handleGuardedAction((opId) => onOpenMeasurementModal(opId))

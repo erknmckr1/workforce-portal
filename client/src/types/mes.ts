@@ -23,6 +23,13 @@ export interface MeasurementRecord {
   description: string;
   measurement_package: number;
   createdAt: string;
+  data_entry_date?: string;
+  gold_setting?: number;
+  gold_pure_scrap?: number;
+  measurement_diff?: number;
+  weighed_quantity?: number;
+  weighed_weight?: number;
+  result_weight?: number;
 }
 
 export interface MesMachine {

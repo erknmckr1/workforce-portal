@@ -18,6 +18,12 @@ export class Measurement extends Model {
   public measure_status!: string | null;
   public who_deleted_measure!: string | null;
   public delete_date!: Date | null;
+  public gold_setting!: number | null;
+  public gold_pure_scrap!: number | null;
+  public measurement_diff!: number | null;
+  public weighed_quantity!: number | null;
+  public weighed_weight!: number | null;
+  public result_weight!: number | null;
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
 }
@@ -87,6 +93,30 @@ Measurement.init(
     },
     delete_date: {
       type: DataTypes.DATE,
+      allowNull: true,
+    },
+    gold_setting: {
+      type: DataTypes.FLOAT,
+      allowNull: true,
+    },
+    gold_pure_scrap: {
+      type: DataTypes.FLOAT,
+      allowNull: true,
+    },
+    measurement_diff: {
+      type: DataTypes.FLOAT,
+      allowNull: true,
+    },
+    weighed_quantity: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+    },
+    weighed_weight: {
+      type: DataTypes.FLOAT,
+      allowNull: true,
+    },
+    result_weight: {
+      type: DataTypes.FLOAT,
       allowNull: true,
     },
   },

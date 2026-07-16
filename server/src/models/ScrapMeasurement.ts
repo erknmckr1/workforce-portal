@@ -11,6 +11,9 @@ export class ScrapMeasurement extends Model {
   public gold_setting!: number;
   public gold_pure_scrap!: number;
   public measurement_diff!: number;
+  public weighed_quantity!: number | null;
+  public weighed_weight!: number | null;
+  public result_weight!: number | null;
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
 }
@@ -53,6 +56,18 @@ ScrapMeasurement.init(
     measurement_diff: {
       type: DataTypes.FLOAT,
       defaultValue: 0,
+    },
+    weighed_quantity: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+    },
+    weighed_weight: {
+      type: DataTypes.FLOAT,
+      allowNull: true,
+    },
+    result_weight: {
+      type: DataTypes.FLOAT,
+      allowNull: true,
     },
   },
   {

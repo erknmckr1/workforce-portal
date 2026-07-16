@@ -10,10 +10,7 @@ import {
   ChevronDown,
   Briefcase,
   FileText,
-  Files,
-  ClipboardCheck,
   ShieldCheck,
-  Stethoscope,
   MonitorSmartphone,
   Wrench,
   CalendarRange,
@@ -24,6 +21,7 @@ import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/authStore";
 import apiClient from "@/lib/api";
 import { toast } from "sonner";
+import { useModuleStore } from "@/store/moduleStore";
 
 const menuItems = [
   {
@@ -43,9 +41,8 @@ const menuItems = [
     ],
   },
   {
-    title: "İzinlerim",
+    title: "İzin İşlemleri",
     icon: CalendarDays,
-    path: "/leaves",
     roles: [
       "Admin",
       "Müdür",
@@ -57,18 +54,38 @@ const menuItems = [
       "Ustabasi",
       "Mühendis",
     ],
-  },
-  {
-    title: "Onay Bekleyenler",
-    icon: ClipboardCheck,
-path: "/leave-approvals",
-    roles: ["Admin", "Müdür", "Yönetici", "İK", "Ustabasi"],
-  },
-  {
-    title: "Tüm İzinler",
-    icon: Files,
-    path: "/all-leaves",
-    roles: ["Admin", "İK"],
+    children: [
+      {
+        title: "İzinlerim",
+        path: "/leaves",
+        roles: [
+          "Admin",
+          "Müdür",
+          "Yönetici",
+          "Personel",
+          "İK",
+          "Revir",
+          "Güvenlik",
+          "Ustabasi",
+          "Mühendis",
+        ],
+      },
+      {
+        title: "Onay Bekleyenler",
+        path: "/leave-approvals",
+        roles: ["Admin", "Müdür", "Yönetici", "İK", "Ustabasi"],
+      },
+      {
+        title: "Tüm İzinler",
+        path: "/all-leaves",
+        roles: ["Admin", "İK"],
+      },
+      {
+        title: "Revir İşlemleri",
+        path: "/infirmary",
+        roles: ["Admin", "Revir"],
+      },
+    ],
   },
   {
     title: "Personel Yönetimi",
@@ -81,18 +98,6 @@ path: "/leave-approvals",
     icon: ShieldCheck,
     path: "/security",
     roles: ["Admin", "Güvenlik"],
-  },
-  {
-    title: "Raporlar",
-    icon: FileText,
-    path: "/reports",
-    roles: ["Admin", "İK", "Müdür"],
-  },
-  {
-    title: "Revir İşlemleri",
-    icon: Stethoscope,
-    path: "/infirmary",
-    roles: ["Admin", "Revir"],
   },
   {
     title: "Üretim Ekranları",
@@ -200,6 +205,11 @@ path: "/leave-approvals",
           "Mühendis",
         ],
       },
+      {
+        title: "Raporlar",
+        path: "/reports",
+        roles: ["Admin", "İK", "Müdür"],
+      },
     ],
   },
   {
@@ -266,11 +276,20 @@ export default function Sidebar({
       location.pathname.startsWith("/settings/it-support")
       ? "IT Desteği"
       : location.pathname.startsWith("/settings") ||
-        location.pathname.startsWith("/calendar-manager")
+        location.pathname.startsWith("/calendar-manager") ||
+        location.pathname.startsWith("/password-resets")
         ? "Ayarlar"
-        : location.pathname.startsWith("/yearly-plan")
+        : location.pathname.startsWith("/yearly-plan") ||
+          location.pathname.startsWith("/food-menu") ||
+          location.pathname.startsWith("/phone-directory") ||
+          location.pathname.startsWith("/reports")
           ? "Araçlar"
-          : null,
+          : location.pathname.startsWith("/leaves") ||
+            location.pathname.startsWith("/leave-approvals") ||
+            location.pathname.startsWith("/all-leaves") ||
+            location.pathname.startsWith("/infirmary")
+            ? "İzin İşlemleri"
+            : null,
   );
 
   const handleLogout = async () => {
@@ -479,26 +498,29 @@ export default function Sidebar({
         {/* Alt Kısım: İşlemler & Çıkış */}
         <div className="p-4 border-t border-border/50 space-y-2">
           {/* Kiosk Açma Butonu */}
-          {/* <button
-            onClick={() => useModuleStore.getState().openPopup()}
-            className={cn(
-              "flex items-center gap-4 px-4 h-12 w-full rounded-xl transition-all  bg-orange-500/10 hover:bg-orange-500 text-foreground hover:text-card group",
-              collapsed ? "lg:justify-center" : "",
-            )}
-          >
-            <MonitorSmartphone
-              size={20}
-              className="shrink-0 group-hover:scale-110 transition-transform"
-            />
-            <span
+          {/* Kiosk Açma Butonu */}
+          {user?.role === "Admin" && (
+            <button
+              onClick={() => useModuleStore.getState().openPopup()}
               className={cn(
-                "font-bold text-sm tracking-tight",
-                collapsed ? "lg:hidden" : "block",
+                "flex items-center gap-4 px-4 h-12 w-full rounded-xl transition-all bg-orange-500/10 hover:bg-orange-500 text-foreground hover:text-card group",
+                collapsed ? "lg:justify-center" : "",
               )}
             >
-              Kiosk Ekranı
-            </span>
-          </button>*/}
+              <MonitorSmartphone
+                size={20}
+                className="shrink-0 group-hover:scale-110 transition-transform"
+              />
+              <span
+                className={cn(
+                  "font-bold text-sm tracking-tight",
+                  collapsed ? "lg:hidden" : "block",
+                )}
+              >
+                Kiosk Ekranı
+              </span>
+            </button>
+          )}
 
           {/* Oturumu Kapat */}
           <button

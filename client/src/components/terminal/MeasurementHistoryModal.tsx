@@ -143,7 +143,7 @@ const MeasurementHistoryModal: React.FC<MeasurementHistoryModalProps> = ({
     const todayEnd = todayStart + 24 * 60 * 60 * 1000 - 1;
 
     return history.filter((row) => {
-      const rowTime = new Date(row.createdAt).getTime();
+      const rowTime = new Date(row.data_entry_date || row.createdAt).getTime();
 
       if (dateFilter === "Bugün") {
         return rowTime >= todayStart && rowTime <= todayEnd;
@@ -444,7 +444,7 @@ const MeasurementHistoryModal: React.FC<MeasurementHistoryModalProps> = ({
                         <div className="flex items-center gap-1 opacity-70">
                           <Calendar size={10} />
                           <span>
-                            {new Date(row.createdAt).toLocaleString("tr-TR", {
+                            {new Date(row.data_entry_date || row.createdAt).toLocaleString("tr-TR", {
                               day: "2-digit",
                               month: "2-digit",
                               year: "numeric",

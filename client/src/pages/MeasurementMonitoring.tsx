@@ -24,11 +24,24 @@ interface MeasureLimits {
 }
 
 export default function MeasurementMonitoring() {
+  const scrollRef = React.useRef<HTMLDivElement>(null);
+  const formatWeight = (val: number | null | undefined) => {
+    if (val === null || val === undefined) return "-";
+    const num = Number(val);
+    if (isNaN(num)) return "-";
+    return num % 1 === 0 ? `${num}g` : `${num.toFixed(3)}g`;
+  };
   const [loading, setLoading] = useState(false);
   const [materialNo, setMaterialNo] = useState("");
   const [history, setHistory] = useState<MeasurementRecord[]>([]);
   const [limits, setLimits] = useState<MeasureLimits | null>(null);
   const [searchedMaterial, setSearchedMaterial] = useState("");
+
+  React.useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollLeft = 0;
+    }
+  }, [history]);
 
   const [dateFilter, setDateFilter] = useState<string>("Tümü");
   const [startDate, setStartDate] = useState<string>("");
@@ -115,7 +128,7 @@ export default function MeasurementMonitoring() {
     const todayEnd = todayStart + 24 * 60 * 60 * 1000 - 1;
 
     return history.filter((row) => {
-      const rowTime = new Date(row.createdAt).getTime();
+      const rowTime = new Date(row.data_entry_date || row.createdAt).getTime();
 
       if (dateFilter === "Bugün") {
         return rowTime >= todayStart && rowTime <= todayEnd;
@@ -385,124 +398,158 @@ export default function MeasurementMonitoring() {
             </div>
           </div>
 
-          <div className="flex-1 border border-border rounded-xl overflow-hidden flex flex-col bg-secondary/5 min-h-0">
-            {/* TABLE HEADER */}
-            <div className="grid grid-cols-12 gap-2 p-3 border-b border-border bg-secondary/20 text-[11px] font-black uppercase tracking-wider text-muted-foreground shrink-0 select-none">
-              <div className="col-span-2">Bölüm</div>
-              <div className="col-span-2">Malzeme Kodu</div>
-              <div className="col-span-2">Sipariş No</div>
-              <div className="col-span-2">Operatör</div>
-              <div className="col-span-1">Giriş Ölçü</div>
-              <div className="col-span-1">Çıkış Ölçü</div>
-              <div className="col-span-1 text-center">Gir. (50cm)</div>
-              <div className="col-span-1 text-center">Çık. (50cm)</div>
-            </div>
-
-            {/* TABLE BODY (Scrollable rows) */}
-            <div className="flex-1 overflow-y-auto p-2 space-y-1.5 custom-scrollbar min-h-0">
-              {loading ? (
-                <div className="h-full flex items-center justify-center text-muted-foreground/50 font-bold uppercase tracking-widest text-xs animate-pulse">
-                  Ölçümler Yükleniyor...
+          <div className="flex-grow border border-border rounded-xl overflow-hidden flex flex-col bg-secondary/5 min-h-0">
+            {/* Scrollable Table Area (Both vertical and horizontal scroll handled here) */}
+            <div className="flex-1 overflow-auto custom-scrollbar relative min-h-0">
+              <div className="min-w-[1460px] flex flex-col">
+                {/* TABLE HEADER (Sticky at the top of scroll container) */}
+                <div className="grid gap-2 p-3 border-b border-border bg-secondary text-[10px] font-black uppercase tracking-wider text-muted-foreground shrink-0 select-none sticky top-0 z-10 shadow-xs" style={{ gridTemplateColumns: "100px 140px 110px 160px 100px 100px 100px 100px 80px 110px 120px 120px 120px" }}>
+                  <div>Bölüm</div>
+                  <div>Malzeme</div>
+                  <div>Sipariş</div>
+                  <div>Operatör</div>
+                  <div>Giriş Ö.</div>
+                  <div>Çıkış Ö.</div>
+                  <div className="text-center">Giriş (50)</div>
+                  <div className="text-center">Çıkış (50)</div>
+                  <div className="text-center">Ayar</div>
+                  <div className="text-center">Tartılan Ad.</div>
+                  <div className="text-center">Tartılan Gr.</div>
+                  <div className="text-center">Sonuç Gr.</div>
+                  <div className="text-center">Has Fire</div>
                 </div>
-              ) : !searchedMaterial ? (
-                <div className="h-full flex items-center justify-center text-muted-foreground/30 font-black uppercase tracking-widest text-xs flex-col gap-3 py-16">
-                  <Search size={36} className="opacity-20" />
-                  Sorgulamak istediğiniz malzeme kodunu sol tarafa girip "Sorgula" butonuna basın.
-                </div>
-              ) : filteredHistory.length > 0 ? (
-                filteredHistory.map((row) => {
-                  const isSelected = selectedRowIds.includes(row.id);
-                  const isOutOfRange = limits
-                    ? row.exit_weight_50cm < limits.lowerLimit || row.exit_weight_50cm > limits.upperLimit
-                    : false;
 
-                  return (
-                    <div
-                      key={row.id}
-                      onClick={() => {
-                        setSelectedRowIds(prev => 
-                          prev.includes(row.id) 
-                            ? prev.filter(id => id !== row.id) 
-                            : [...prev, row.id]
-                        );
-                      }}
-                      className={cn(
-                        "grid grid-cols-12 gap-2 p-3 rounded-lg text-[13px] font-mono font-bold border transition-all shadow-xs cursor-pointer select-none",
-                        isSelected
-                          ? "bg-primary/10 border-primary text-primary"
-                          : isOutOfRange
-                            ? "bg-destructive/5 border-destructive/30 hover:border-destructive/60 text-destructive"
-                            : "bg-background border-border hover:border-primary/50 text-foreground"
-                      )}
-                    >
-                      {/* İstasyon Adı */}
-                      <div className="col-span-2 flex items-center uppercase tracking-wider text-muted-foreground text-xs truncate">
-                        <div className="w-1.5 h-1.5 rounded-full bg-primary/70 mr-1.5" />
-                        {row.area_name}
-                      </div>
-                      
-                      {/* Malzeme Kodu */}
-                      <div className="col-span-2 flex items-center text-primary truncate">
-                        {row.material_no}
-                      </div>
-                      
-                      <div className="col-span-2 flex items-center gap-1 truncate">
-                        <Hash size={10} className="opacity-40" />
-                        {row.order_no}
-                      </div>
-                      
-                      <div className="col-span-2 flex items-center gap-1 truncate opacity-80">
-                        <User size={10} className="opacity-40" />
-                        {row.OperatorDetail 
-                          ? `${row.OperatorDetail.name} ${row.OperatorDetail.surname}`
-                          : row.operator}
-                      </div>
-                      
-                      <div className="col-span-1 flex items-center">
-                        {row.entry_measurement || "-"}
-                      </div>
-                      
-                      <div className="col-span-1 flex items-center">
-                        {row.exit_measurement || "-"}
-                      </div>
-                      
-                      <div className="col-span-1 flex items-center justify-center text-amber-500">
-                        {row.entry_weight_50cm ? `${row.entry_weight_50cm} g` : "-"}
-                      </div>
-                      
-                      <div className={cn("col-span-1 flex items-center justify-center", isOutOfRange ? "text-destructive font-black" : "text-amber-500")}>
-                        {row.exit_weight_50cm ? `${row.exit_weight_50cm} g` : "-"}
-                        {isOutOfRange && " ⚠️"}
-                      </div>
-                      
-                      {/* Açıklama ve Tarih Alt Bilgisi */}
-                      <div className="col-span-12 mt-1.5 pt-1.5 border-t border-border/30 text-[11px] text-muted-foreground flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1">
-                        <div className="flex items-center gap-1">
-                          <Info size={11} className="mt-0.5" />
-                          <span>{row.description || "Açıklama bulunmuyor."}</span>
-                        </div>
-                        <div className="flex items-center gap-1 opacity-70">
-                          <Calendar size={11} />
-                          <span>
-                            {new Date(row.createdAt).toLocaleString("tr-TR", {
-                              day: "2-digit",
-                              month: "2-digit",
-                              year: "numeric",
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })}
-                          </span>
-                        </div>
-                      </div>
+                {/* TABLE BODY (Grows inside the scrollable container) */}
+                <div className="p-2 space-y-1.5">
+                  {loading ? (
+                    <div className="py-20 flex items-center justify-center text-muted-foreground/50 font-bold uppercase tracking-widest text-xs animate-pulse">
+                      Ölçümler Yükleniyor...
                     </div>
-                  );
-                })
-              ) : (
-                <div className="h-full flex items-center justify-center text-muted-foreground/30 font-black uppercase tracking-widest text-xs flex-col gap-3 py-16">
-                  <Scale size={36} className="opacity-20" />
-                  "{searchedMaterial}" Malzemesi İçin Kayıtlı Ölçüm Bulunmamaktadır.
+                  ) : !searchedMaterial ? (
+                    <div className="py-20 flex items-center justify-center text-muted-foreground/30 font-black uppercase tracking-widest text-xs flex-col gap-3">
+                      <Search size={36} className="opacity-20" />
+                      Sorgulamak istediğiniz malzeme kodunu sol tarafa girip "Sorgula" butonuna basın.
+                    </div>
+                  ) : filteredHistory.length > 0 ? (
+                    filteredHistory.map((row) => {
+                      const isSelected = selectedRowIds.includes(row.id);
+                      const isOutOfRange = limits
+                        ? row.exit_weight_50cm < limits.lowerLimit || row.exit_weight_50cm > limits.upperLimit
+                        : false;
+
+                      return (
+                        <div
+                          key={row.id}
+                          onClick={() => {
+                            setSelectedRowIds(prev => 
+                              prev.includes(row.id) 
+                                ? prev.filter(id => id !== row.id) 
+                                : [...prev, row.id]
+                            );
+                          }}
+                          className={cn(
+                            "grid gap-2 p-3 rounded-lg text-[12px] font-mono font-bold border transition-all shadow-xs cursor-pointer select-none",
+                            isSelected
+                              ? "bg-primary/10 border-primary text-primary"
+                              : isOutOfRange
+                                ? "bg-destructive/5 border-destructive/30 hover:border-destructive/60 text-destructive"
+                                : "bg-background border-border hover:border-primary/50 text-foreground"
+                          )}
+                          style={{ gridTemplateColumns: "100px 140px 110px 160px 100px 100px 100px 100px 80px 110px 120px 120px 120px" }}
+                        >
+                          {/* İstasyon Adı */}
+                          <div className="flex items-center uppercase tracking-wider text-muted-foreground text-[10px] min-w-0">
+                            <div className="w-1.5 h-1.5 rounded-full bg-primary/70 mr-1.5 shrink-0" />
+                            <span className="truncate">{row.area_name}</span>
+                          </div>
+                          
+                          {/* Malzeme Kodu */}
+                          <div className="flex items-center text-primary min-w-0">
+                            <span className="truncate">{row.material_no}</span>
+                          </div>
+                          
+                          <div className="flex items-center gap-0.5 min-w-0">
+                            <Hash size={9} className="opacity-40 animate-pulse shrink-0" />
+                            <span className="truncate">{row.order_no}</span>
+                          </div>
+                          
+                          <div className="flex items-center gap-0.5 min-w-0 opacity-80">
+                            <User size={9} className="opacity-40 shrink-0" />
+                            <span className="truncate">
+                              {row.OperatorDetail 
+                                ? `${row.OperatorDetail.name} ${row.OperatorDetail.surname}`
+                                : row.operator}
+                            </span>
+                          </div>
+                          
+                          <div className="flex items-center truncate">
+                            {row.entry_measurement || "-"}
+                          </div>
+                          
+                          <div className="flex items-center truncate">
+                            {row.exit_measurement || "-"}
+                          </div>
+                          
+                          <div className="flex items-center justify-center text-amber-500">
+                            {formatWeight(row.entry_weight_50cm)}
+                          </div>
+                          
+                          <div className={cn("flex items-center justify-center", isOutOfRange ? "text-destructive font-black" : "text-amber-500")}>
+                            {row.exit_weight_50cm ? formatWeight(row.exit_weight_50cm) : "-"}
+                            {isOutOfRange && " ⚠️"}
+                          </div>
+
+                          {/* Fire Sütunları */}
+                          <div className="flex items-center justify-center text-foreground/80">
+                            {row.gold_setting ? `${row.gold_setting}K` : "-"}
+                          </div>
+
+                          <div className="flex items-center justify-center text-foreground/80">
+                            {row.weighed_quantity || "-"}
+                          </div>
+
+                          <div className="flex items-center justify-center text-primary">
+                            {formatWeight(row.weighed_weight)}
+                          </div>
+
+                          <div className="flex items-center justify-center text-primary">
+                            {formatWeight(row.result_weight)}
+                          </div>
+
+                          <div className="flex items-center justify-center text-amber-500">
+                            {formatWeight(row.gold_pure_scrap)}
+                          </div>
+                          
+                          {/* Açıklama ve Tarih Alt Bilgisi */}
+                          <div className="mt-1 pt-1.5 border-t border-border/30 text-[10px] text-muted-foreground flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1" style={{ gridColumn: "span 13 / span 13" }}>
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <Info size={10} className="mt-0.5 shrink-0" />
+                              <span>{row.description || "Açıklama bulunmuyor."}</span>
+                            </div>
+                            <div className="flex items-center gap-1 opacity-70">
+                              <Calendar size={10} />
+                              <span>
+                                {new Date(row.data_entry_date || row.createdAt).toLocaleString("tr-TR", {
+                                  day: "2-digit",
+                                  month: "2-digit",
+                                  year: "numeric",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="py-20 flex items-center justify-center text-muted-foreground/30 font-black uppercase tracking-widest text-xs flex-col gap-3">
+                      <Scale size={36} className="opacity-20" />
+                      "{searchedMaterial}" Malzemesi İçin Kayıtlı Ölçüm Bulunmamaktadır.
+                    </div>
+                  )}
                 </div>
-              )}
+              </div>
             </div>
 
             {/* PAGINATION FOOTER */}
