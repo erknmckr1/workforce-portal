@@ -94,22 +94,12 @@ const FirePopup: React.FC<FirePopupProps> = ({
     const wt = parseFloat(form.weighedWeight);
     if (!isNaN(qty) && qty > 0 && !isNaN(wt) && wt > 0) {
       const res = wt / qty;
-      setForm((prev) => ({ ...prev, resultWeight: res.toFixed(4) }));
+      setForm((prev) => ({ ...prev, resultWeight: res.toFixed(3) }));
     } else {
       setForm((prev) => ({ ...prev, resultWeight: "" }));
     }
   }, [form.weighedQuantity, form.weighedWeight]);
 
-  const fetchHistory = async (orderId: string) => {
-    try {
-      const res = await apiClient.get(
-        `/mes/scrap-measurements?order_no=${orderId}`,
-      );
-      setHistory(res.data);
-    } catch (error) {
-      console.error("History fetch error", error);
-    }
-  };
 
   const handleSearchOrder = async () => {
     if (!form.orderId) return;
@@ -133,30 +123,57 @@ const FirePopup: React.FC<FirePopupProps> = ({
         }
       }
 
-      setForm((prev) => ({
-        orderId: prev.orderId,
-        goldSetting: numericCarat,
-        entryGramage: 0,
-        exitGramage: 0,
-        gold_pure_scrap: 0,
-        diffirence: 0,
-        weighedQuantity: "",
-        weighedWeight: "",
-        resultWeight: "",
-      }));
-
       setOrderInfo({
         materialNo: matNo,
         description: desc,
         systemWeight: sysWeight,
       });
 
-      toast.success("Sipariş bilgileri getirildi.");
-      await fetchHistory(form.orderId);
+      // Siparişe ait geçmişi çek
+      const historyRes = await apiClient.get(
+        `/mes/scrap-measurements?order_no=${form.orderId}`,
+      );
+      const historyList = historyRes.data || [];
+      setHistory(historyList);
+
+      // Çıkışı henüz yapılmamış açık bir kayıt var mı kontrol et
+      const openRecord = historyList.find((item: any) => !item.exit_measurement);
+
+      if (openRecord) {
+        setSelectedId(openRecord.id);
+        setForm({
+          orderId: form.orderId,
+          goldSetting: openRecord.gold_setting || numericCarat,
+          entryGramage: parseFloat(openRecord.entry_measurement) || 0,
+          exitGramage: parseFloat(openRecord.exit_measurement) || 0,
+          gold_pure_scrap: parseFloat(openRecord.gold_pure_scrap) || 0,
+          diffirence: parseFloat(openRecord.measurement_diff) || 0,
+          weighedQuantity: String(openRecord.weighed_quantity ?? ""),
+          weighedWeight: String(openRecord.weighed_weight ?? ""),
+          resultWeight: String(openRecord.result_weight ?? ""),
+        });
+        toast.info("Bu sipariş için aktif açık kayıt bulundu. Çıkış işlemini yapabilirsiniz.");
+      } else {
+        setSelectedId(null);
+        setForm({
+          orderId: form.orderId,
+          goldSetting: numericCarat,
+          entryGramage: 0,
+          exitGramage: 0,
+          gold_pure_scrap: 0,
+          diffirence: 0,
+          weighedQuantity: "",
+          weighedWeight: "",
+          resultWeight: "",
+        });
+        toast.success("Sipariş bilgileri getirildi. Giriş işlemini başlatabilirsiniz.");
+      }
     } catch (error) {
       console.log(error);
       toast.error("Sipariş bulunamadı veya bir hata oluştu.");
       setOrderInfo(null);
+      setSelectedId(null);
+      setHistory([]);
     } finally {
       setLoading(false);
     }
@@ -168,20 +185,43 @@ const FirePopup: React.FC<FirePopupProps> = ({
       return;
     }
 
-    const weighedQty = parseInt(form.weighedQuantity);
-    const weighedWt = parseFloat(form.weighedWeight);
-    if (isNaN(weighedQty) || weighedQty <= 0 || isNaN(weighedWt) || weighedWt <= 0) {
-      toast.error("Lütfen Tartılan Adet ve Tartılan Gram alanlarını sıfırdan büyük olacak şekilde doldurunuz.");
-      return;
+    const isExitMode = selectedId !== null;
+
+    // Giriş modunda doğrulamalar: Giriş Gramajı 0'dan büyük olmalı
+    if (!isExitMode) {
+      const entryGram = parseFloat(String(form.entryGramage));
+      if (isNaN(entryGram) || entryGram <= 0) {
+        toast.error("Lütfen Giriş Gramajını sıfırdan büyük olacak şekilde giriniz.");
+        return;
+      }
+    }
+
+    // Çıkış modunda doğrulamalar: Çıkış Gramı, Tartılan Adet ve Tartılan Gram 0'dan büyük olmalı
+    if (isExitMode) {
+      const exitGram = parseFloat(String(form.exitGramage));
+      const weighedQty = parseInt(form.weighedQuantity);
+      const weighedWt = parseFloat(form.weighedWeight);
+
+      if (isNaN(exitGram) || exitGram <= 0) {
+        toast.error("Lütfen Çıkış Gramajını sıfırdan büyük olacak şekilde giriniz.");
+        return;
+      }
+
+      if (isNaN(weighedQty) || weighedQty <= 0 || isNaN(weighedWt) || weighedWt <= 0) {
+        toast.error("Lütfen Tartılan Adet ve Tartılan Gram alanlarını sıfırdan büyük olacak şekilde doldurunuz.");
+        return;
+      }
     }
 
     setLoading(true);
     try {
       const payloadFormState = {
         ...form,
-        weighedQuantity: weighedQty,
-        weighedWeight: weighedWt,
-        resultWeight: form.resultWeight
+        entryGramage: parseFloat(String(form.entryGramage)) || 0,
+        exitGramage: parseFloat(String(form.exitGramage)) || 0,
+        weighedQuantity: form.weighedQuantity ? parseInt(form.weighedQuantity) : null,
+        weighedWeight: form.weighedWeight ? parseFloat(form.weighedWeight) : null,
+        resultWeight: form.resultWeight ? parseFloat(form.resultWeight) : null,
       };
 
       if (selectedId) {
@@ -189,19 +229,25 @@ const FirePopup: React.FC<FirePopupProps> = ({
           formState: payloadFormState,
           id: selectedId,
         });
-        toast.success("Ölçüm güncellendi.");
+        toast.success("Ölçüm tamamlandı ve güncellendi.");
       } else {
         await apiClient.post("/mes/scrap-measurements", {
           formState: payloadFormState,
           user_id: operatorId || user?.id_dec,
           areaName,
         });
-        toast.success("Ölçüm kaydedildi.");
+        toast.success("Giriş ölçümü başarıyla kaydedildi.");
       }
-      await fetchHistory(form.orderId);
-      resetForm(false); // Sadece ölçüleri sıfırla, sipariş no ve geçmiş kalsın
+      
+      // Kayıttan sonra seçili ID'yi sıfırla ve verileri tazele
+      setSelectedId(null);
+      const historyRes = await apiClient.get(
+        `/mes/scrap-measurements?order_no=${form.orderId}`,
+      );
+      setHistory(historyRes.data || []);
+      resetForm(false); // Arama kutusu ve sipariş bilgileri kalsın, giriş form alanları sıfırlansın
     } catch (error) {
-      toast.error("İşlem başarısız oldu.", { description: (error as any)?.message || "Bilinmeyen bir hata oluştu." });
+      toast.error("İşlem başarısız oldu.", { description: (error as any)?.message || (error as any)?.response?.data?.message || "Bilinmeyen bir hata oluştu." });
     } finally {
       setLoading(false);
     }
@@ -219,8 +265,8 @@ const FirePopup: React.FC<FirePopupProps> = ({
       weighedWeight: "",
       resultWeight: "",
     }));
-    setOrderInfo(null);
     if (full) {
+      setOrderInfo(null);
       setHistory([]);
       setSelectedId(null);
     }
@@ -320,8 +366,19 @@ const FirePopup: React.FC<FirePopupProps> = ({
               {orderInfo && (
                 <div className="mt-3 p-4 bg-secondary/40 rounded-2xl border border-border space-y-2 animate-in fade-in duration-200">
                   <div className="flex justify-between items-center gap-4">
-                    <div className="text-xs font-mono font-black text-primary truncate">
-                      {orderInfo.materialNo}
+                    <div className="flex items-center gap-2">
+                      <div className="text-xs font-mono font-black text-primary truncate">
+                        {orderInfo.materialNo}
+                      </div>
+                      {selectedId !== null ? (
+                        <span className="bg-amber-500/10 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-full font-black text-[9px] uppercase border border-amber-500/20 shrink-0">
+                          ⏳ ÇIKIŞ KAYDI
+                        </span>
+                      ) : (
+                        <span className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded-full font-black text-[9px] uppercase border border-emerald-500/20 shrink-0">
+                          🆕 YENİ GİRİŞ
+                        </span>
+                      )}
                     </div>
                     {orderInfo.systemWeight !== null && (
                       <div className="text-[10px] font-mono font-black text-foreground bg-primary/10 px-2 py-0.5 rounded-lg border border-primary/20 shrink-0">
@@ -368,14 +425,15 @@ const FirePopup: React.FC<FirePopupProps> = ({
                 </label>
                 <input
                   type="text"
-                  value={form.entryGramage}
+                  value={form.entryGramage || ""}
+                  disabled={selectedId !== null}
                   onChange={(e) => {
                     const val = e.target.value.replace(",", ".");
                     if (!isNaN(Number(val)) || val === "" || val === ".") {
                       setForm({ ...form, entryGramage: val as any });
                     }
                   }}
-                  className="w-full bg-secondary/30 border border-border rounded-xl px-4 py-3 outline-none focus:border-success/50 transition-all font-bold text-success"
+                  className="w-full bg-secondary/30 disabled:opacity-50 disabled:cursor-not-allowed border border-border rounded-xl px-4 py-3 outline-none focus:border-success/50 transition-all font-bold text-success"
                 />
               </div>
               <div className="space-y-2">
@@ -384,14 +442,15 @@ const FirePopup: React.FC<FirePopupProps> = ({
                 </label>
                 <input
                   type="text"
-                  value={form.exitGramage}
+                  value={form.exitGramage || ""}
+                  disabled={selectedId === null}
                   onChange={(e) => {
                     const val = e.target.value.replace(",", ".");
                     if (!isNaN(Number(val)) || val === "" || val === ".") {
                       setForm({ ...form, exitGramage: val as any });
                     }
                   }}
-                  className="w-full bg-secondary/30 border border-border rounded-xl px-4 py-3 outline-none focus:border-destructive/50 transition-all font-bold text-destructive"
+                  className="w-full bg-secondary/30 disabled:opacity-50 disabled:cursor-not-allowed border border-border rounded-xl px-4 py-3 outline-none focus:border-destructive/50 transition-all font-bold text-destructive"
                 />
               </div>
             </div>
@@ -405,11 +464,12 @@ const FirePopup: React.FC<FirePopupProps> = ({
                 <input
                   type="number"
                   value={form.weighedQuantity}
+                  disabled={selectedId === null}
                   onChange={(e) =>
                     setForm({ ...form, weighedQuantity: e.target.value })
                   }
                   placeholder="0"
-                  className="w-full bg-secondary/30 border border-border rounded-xl px-4 py-3 outline-none focus:border-primary transition-all font-bold"
+                  className="w-full bg-secondary/30 disabled:opacity-50 disabled:cursor-not-allowed border border-border rounded-xl px-4 py-3 outline-none focus:border-primary transition-all font-bold"
                 />
               </div>
               <div className="space-y-2">
@@ -419,12 +479,13 @@ const FirePopup: React.FC<FirePopupProps> = ({
                 <input
                   type="number"
                   value={form.weighedWeight}
+                  disabled={selectedId === null}
                   onChange={(e) => {
                     const val = e.target.value.replace(",", ".");
                     setForm({ ...form, weighedWeight: val });
                   }}
                   placeholder="0.00"
-                  className="w-full bg-secondary/30 border border-border rounded-xl px-4 py-3 outline-none focus:border-primary transition-all font-bold"
+                  className="w-full bg-secondary/30 disabled:opacity-50 disabled:cursor-not-allowed border border-border rounded-xl px-4 py-3 outline-none focus:border-primary transition-all font-bold"
                 />
               </div>
             </div>
@@ -576,12 +637,12 @@ const FirePopup: React.FC<FirePopupProps> = ({
                           </td>
                           <td className="px-6 py-4">
                             <span className="text-xs font-mono font-bold text-foreground">
-                              {item.result_weight ? `${item.result_weight} g` : "-"}
+                              {item.result_weight ? `${Number(item.result_weight) % 1 === 0 ? item.result_weight : Number(item.result_weight).toFixed(3)} g` : "-"}
                             </span>
                           </td>
                           <td className="px-6 py-4">
                             <span className="text-sm font-black text-mds tracking-tighter">
-                              {item.gold_pure_scrap}{" "}
+                              {item.gold_pure_scrap !== undefined && item.gold_pure_scrap !== null ? (Number(item.gold_pure_scrap) % 1 === 0 ? item.gold_pure_scrap : Number(item.gold_pure_scrap).toFixed(3)) : "-"}{" "}
                               <span className="text-[10px] font-normal text-muted-foreground">
                                 gr
                               </span>

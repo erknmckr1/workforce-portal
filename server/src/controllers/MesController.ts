@@ -1173,20 +1173,76 @@ export const submitScrapMeasurement = async (req: Request, res: Response) => {
       });
     }
 
-    // Tartım alanları doğrulaması
-    const weighedQty = parseInt(formState.weighedQuantity);
-    const weighedWt = parseFloat(formState.weighedWeight);
-    if (isNaN(weighedQty) || weighedQty <= 0 || isNaN(weighedWt) || weighedWt <= 0) {
+    // Mükerrer Açık Kayıt Kontrolü
+    const existingOpen = await Measurement.findOne({
+      where: {
+        order_no: formState.orderId,
+        area_name: areaName,
+        exit_measurement: null,
+      }
+    });
+    if (existingOpen) {
       return res.status(400).json({
-        message: "Tartılan Adet ve Tartılan Gram alanları doldurulmalıdır ve sıfırdan büyük olmalıdır.",
+        message: "Bu sipariş için zaten açık (tamamlanmamış) bir kayıt bulunmaktadır.",
       });
     }
 
-    const resultWeight = weighedWt / weighedQty;
+    const exitMeasurement = formState.exitGramage !== null && formState.exitGramage !== undefined && String(formState.exitGramage).trim() !== "" && String(formState.exitGramage).trim() !== "0"
+      ? String(formState.exitGramage).trim()
+      : null;
+
+    let weighedQty: number | null = null;
+    let weighedWt: number | null = null;
+    let resultWeight: number | null = null;
+
+    if (exitMeasurement) {
+      weighedQty = parseInt(formState.weighedQuantity);
+      weighedWt = parseFloat(formState.weighedWeight);
+      if (isNaN(weighedQty) || weighedQty <= 0 || isNaN(weighedWt) || weighedWt <= 0) {
+        return res.status(400).json({
+          message: "Tartılan Adet ve Tartılan Gram alanları doldurulmalıdır ve sıfırdan büyük olmalıdır.",
+        });
+      }
+      resultWeight = weighedWt / weighedQty;
+    }
 
     // SapOrder üzerinden material_no çözme
     const sapOrder = await SapOrder.findOne({ where: { ORDER_ID: formState.orderId } });
     const materialNo = sapOrder ? sapOrder.MATERIAL_NO : "";
+
+    // Tolerans kontrolü ve measure_status belirleme
+    let measureStatus: string | null = null;
+    if (exitMeasurement && resultWeight) {
+      try {
+        if (sapOrder) {
+          const results: any[] = await sequelize.query(
+            `
+            SELECT weight_50cm 
+            FROM mes.dbo.zincir_50cm_gr 
+            WHERE materialCode = :materialNo
+            `,
+            {
+              replacements: { materialNo },
+              type: QueryTypes.SELECT
+            }
+          );
+          if (results && results.length > 0) {
+            const systemGram = parseFloat(results[0].weight_50cm);
+            if (!isNaN(systemGram) && systemGram > 0) {
+              const percentDiff = ((resultWeight - systemGram) / systemGram) * 100;
+              if (Math.abs(percentDiff) > 5) {
+                measureStatus = "2";
+                await sendScrapWeightWarningEmail(formState.orderId, materialNo, systemGram, resultWeight, percentDiff);
+              } else {
+                measureStatus = "1";
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.error("submitScrapMeasurement Tolerance Check Error:", err);
+      }
+    }
 
     const newMeasurement = await Measurement.create({
       order_no: formState.orderId,
@@ -1194,7 +1250,7 @@ export const submitScrapMeasurement = async (req: Request, res: Response) => {
       operator: user_id,
       area_name: areaName,
       entry_measurement: formState.entryGramage !== null && formState.entryGramage !== undefined ? String(formState.entryGramage) : null,
-      exit_measurement: formState.exitGramage !== null && formState.exitGramage !== undefined ? String(formState.exitGramage) : null,
+      exit_measurement: exitMeasurement,
       entry_weight_50cm: null,
       exit_weight_50cm: null,
       description: formState.description || "Fire Girişi Kaydı",
@@ -1206,10 +1262,8 @@ export const submitScrapMeasurement = async (req: Request, res: Response) => {
       weighed_quantity: weighedQty,
       weighed_weight: weighedWt,
       result_weight: resultWeight,
+      measure_status: measureStatus,
     });
-
-    // Arka planda tolerans denetimi tetiklenir
-    checkToleranceAndSendEmail(formState.orderId, resultWeight);
 
     return res.status(200).json(newMeasurement);
   } catch (error) {
@@ -1229,20 +1283,62 @@ export const updateScrapMeasurement = async (req: Request, res: Response) => {
         .json({ message: "Güncellenecek kayıt bulunamadı." });
     }
 
-    // Tartım alanları doğrulaması
-    const weighedQty = parseInt(formState.weighedQuantity);
-    const weighedWt = parseFloat(formState.weighedWeight);
-    if (isNaN(weighedQty) || weighedQty <= 0 || isNaN(weighedWt) || weighedWt <= 0) {
-      return res.status(400).json({
-        message: "Tartılan Adet ve Tartılan Gram alanları doldurulmalıdır ve sıfırdan büyük olmalıdır.",
-      });
-    }
+    const exitMeasurement = formState.exitGramage !== null && formState.exitGramage !== undefined && String(formState.exitGramage).trim() !== "" && String(formState.exitGramage).trim() !== "0"
+      ? String(formState.exitGramage).trim()
+      : null;
 
-    const resultWeight = weighedWt / weighedQty;
+    let weighedQty: number | null = null;
+    let weighedWt: number | null = null;
+    let resultWeight: number | null = null;
+    let measureStatus: string | null = measurement.measure_status;
+
+    if (exitMeasurement) {
+      weighedQty = parseInt(formState.weighedQuantity);
+      weighedWt = parseFloat(formState.weighedWeight);
+      if (isNaN(weighedQty) || weighedQty <= 0 || isNaN(weighedWt) || weighedWt <= 0) {
+        return res.status(400).json({
+          message: "Tartılan Adet ve Tartılan Gram alanları doldurulmalıdır ve sıfırdan büyük olmalıdır.",
+        });
+      }
+      resultWeight = weighedWt / weighedQty;
+
+      // Tolerans kontrolü ve measure_status belirleme
+      try {
+        const sapOrder = await SapOrder.findOne({ where: { ORDER_ID: measurement.order_no } });
+        if (sapOrder) {
+          const materialNo = sapOrder.MATERIAL_NO;
+          const results: any[] = await sequelize.query(
+            `
+            SELECT weight_50cm 
+            FROM mes.dbo.zincir_50cm_gr 
+            WHERE materialCode = :materialNo
+            `,
+            {
+              replacements: { materialNo },
+              type: QueryTypes.SELECT
+            }
+          );
+          if (results && results.length > 0) {
+            const systemGram = parseFloat(results[0].weight_50cm);
+            if (!isNaN(systemGram) && systemGram > 0) {
+              const percentDiff = ((resultWeight - systemGram) / systemGram) * 100;
+              if (Math.abs(percentDiff) > 5) {
+                measureStatus = "2";
+                await sendScrapWeightWarningEmail(measurement.order_no, materialNo, systemGram, resultWeight, percentDiff);
+              } else {
+                measureStatus = "1";
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Tolerans kontrolü sırasında hata:", err);
+      }
+    }
 
     await measurement.update({
       entry_measurement: formState.entryGramage !== null && formState.entryGramage !== undefined ? String(formState.entryGramage) : null,
-      exit_measurement: formState.exitGramage !== null && formState.exitGramage !== undefined ? String(formState.exitGramage) : null,
+      exit_measurement: exitMeasurement,
       gold_setting: parseFloat(formState.goldSetting) || 0,
       gold_pure_scrap: parseFloat(formState.gold_pure_scrap) || 0,
       measurement_diff: parseFloat(formState.diffirence) || 0,
@@ -1250,10 +1346,8 @@ export const updateScrapMeasurement = async (req: Request, res: Response) => {
       weighed_weight: weighedWt,
       result_weight: resultWeight,
       measurement_package: weighedQty,
+      measure_status: measureStatus,
     });
-
-    // Arka planda tolerans denetimi tetiklenir
-    checkToleranceAndSendEmail(formState.orderId, resultWeight);
 
     return res.status(200).json({ message: "Kayıt güncellendi." });
   } catch (error) {
