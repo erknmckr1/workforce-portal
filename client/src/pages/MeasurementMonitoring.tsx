@@ -53,6 +53,64 @@ export default function MeasurementMonitoring() {
 
   const [selectedRowIds, setSelectedRowIds] = useState<number[]>([]);
 
+  // Column Filters State
+  const [columnFilters, setColumnFilters] = useState<{
+    area_name: string;
+    material_no: string;
+    order_no: string;
+    operator: string;
+    entry_measurement: string;
+    exit_measurement: string;
+    entry_weight_50cm: string;
+    exit_weight_50cm: string;
+    gold_setting: string;
+    weighed_quantity: string;
+    weighed_weight: string;
+    result_weight: string;
+    gold_pure_scrap: string;
+  }>({
+    area_name: "",
+    material_no: "",
+    order_no: "",
+    operator: "",
+    entry_measurement: "",
+    exit_measurement: "",
+    entry_weight_50cm: "",
+    exit_weight_50cm: "",
+    gold_setting: "",
+    weighed_quantity: "",
+    weighed_weight: "",
+    result_weight: "",
+    gold_pure_scrap: "",
+  });
+
+  const [activeFilterColumn, setActiveFilterColumn] = useState<string | null>(null);
+  const [globalFilter, setGlobalFilter] = useState("");
+
+  const hasActiveColumnFilter = useMemo(() => {
+    return globalFilter.trim() !== "" || Object.values(columnFilters).some((val) => val.trim() !== "");
+  }, [columnFilters, globalFilter]);
+
+  const clearAllColumnFilters = () => {
+    setColumnFilters({
+      area_name: "",
+      material_no: "",
+      order_no: "",
+      operator: "",
+      entry_measurement: "",
+      exit_measurement: "",
+      entry_weight_50cm: "",
+      exit_weight_50cm: "",
+      gold_setting: "",
+      weighed_quantity: "",
+      weighed_weight: "",
+      result_weight: "",
+      gold_pure_scrap: "",
+    });
+    setGlobalFilter("");
+    setActiveFilterColumn(null);
+  };
+
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -117,6 +175,7 @@ export default function MeasurementMonitoring() {
     setStartDate("");
     setEndDate("");
     setSelectedRowIds([]);
+    clearAllColumnFilters();
   };
 
   const handlePageChange = (newPage: number) => {
@@ -125,47 +184,84 @@ export default function MeasurementMonitoring() {
   };
 
   const filteredHistory = useMemo(() => {
-    if (dateFilter === "Tümü") return history;
-
-    const now = new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-    const todayEnd = todayStart + 24 * 60 * 60 * 1000 - 1;
-
     return history.filter((row) => {
-      const rowTime = new Date(row.data_entry_date || row.createdAt).getTime();
+      // 1. Tarih Filtresi
+      if (dateFilter !== "Tümü") {
+        const now = new Date();
+        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+        const todayEnd = todayStart + 24 * 60 * 60 * 1000 - 1;
+        const rowTime = new Date(row.data_entry_date || row.createdAt).getTime();
 
-      if (dateFilter === "Bugün") {
-        return rowTime >= todayStart && rowTime <= todayEnd;
+        if (dateFilter === "Bugün" && (rowTime < todayStart || rowTime > todayEnd)) {
+          return false;
+        }
+        if (dateFilter === "Dün") {
+          const yesterdayStart = todayStart - 24 * 60 * 60 * 1000;
+          const yesterdayEnd = todayStart - 1;
+          if (rowTime < yesterdayStart || rowTime > yesterdayEnd) return false;
+        }
+        if (dateFilter === "Bu Hafta") {
+          const day = now.getDay();
+          const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+          const weekStart = new Date(now.setDate(diff));
+          weekStart.setHours(0, 0, 0, 0);
+          if (rowTime < weekStart.getTime()) return false;
+        }
+        if (dateFilter === "Bu Ay") {
+          const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+          if (rowTime < monthStart) return false;
+        }
+        if (dateFilter === "Özel") {
+          const start = startDate ? new Date(startDate).getTime() : 0;
+          const end = endDate ? new Date(endDate).getTime() + 24 * 60 * 60 * 1000 - 1 : Infinity;
+          if (rowTime < start || rowTime > end) return false;
+        }
       }
 
-      if (dateFilter === "Dün") {
-        const yesterdayStart = todayStart - 24 * 60 * 60 * 1000;
-        const yesterdayEnd = todayStart - 1;
-        return rowTime >= yesterdayStart && rowTime <= yesterdayEnd;
+      // 2. Sütun Bazlı Filtreler
+      if (columnFilters.area_name && !row.area_name?.toLowerCase().includes(columnFilters.area_name.toLowerCase())) return false;
+      if (columnFilters.material_no && !row.material_no?.toLowerCase().includes(columnFilters.material_no.toLowerCase())) return false;
+      if (columnFilters.order_no && !row.order_no?.toLowerCase().includes(columnFilters.order_no.toLowerCase())) return false;
+      if (columnFilters.operator) {
+        const opText = row.OperatorDetail ? `${row.OperatorDetail.name} ${row.OperatorDetail.surname}` : row.operator;
+        if (!opText.toLowerCase().includes(columnFilters.operator.toLowerCase())) return false;
       }
+      if (columnFilters.entry_measurement && !row.entry_measurement?.toLowerCase().includes(columnFilters.entry_measurement.toLowerCase())) return false;
+      if (columnFilters.exit_measurement && !row.exit_measurement?.toLowerCase().includes(columnFilters.exit_measurement.toLowerCase())) return false;
+      if (columnFilters.entry_weight_50cm && String(row.entry_weight_50cm ?? "").indexOf(columnFilters.entry_weight_50cm) === -1) return false;
+      if (columnFilters.exit_weight_50cm && String(row.exit_weight_50cm ?? "").indexOf(columnFilters.exit_weight_50cm) === -1) return false;
+      if (columnFilters.gold_setting && String(row.gold_setting ?? "").indexOf(columnFilters.gold_setting) === -1) return false;
+      if (columnFilters.weighed_quantity && String(row.weighed_quantity ?? "").indexOf(columnFilters.weighed_quantity) === -1) return false;
+      if (columnFilters.weighed_weight && String(row.weighed_weight ?? "").indexOf(columnFilters.weighed_weight) === -1) return false;
+      if (columnFilters.result_weight && String(row.result_weight ?? "").indexOf(columnFilters.result_weight) === -1) return false;
+      if (columnFilters.gold_pure_scrap && String(row.gold_pure_scrap ?? "").indexOf(columnFilters.gold_pure_scrap) === -1) return false;
 
-      if (dateFilter === "Bu Hafta") {
-        const day = now.getDay();
-        const diff = now.getDate() - day + (day === 0 ? -6 : 1);
-        const weekStart = new Date(now.setDate(diff));
-        weekStart.setHours(0, 0, 0, 0);
-        return rowTime >= weekStart.getTime();
-      }
+      // 3. Genel Tablo İçi Arama (Global Search)
+      if (globalFilter.trim()) {
+        const term = globalFilter.trim().toLowerCase();
+        const opName = row.OperatorDetail ? `${row.OperatorDetail.name} ${row.OperatorDetail.surname}` : (row.operator || "");
+        const match =
+          (row.area_name && row.area_name.toLowerCase().includes(term)) ||
+          (row.material_no && row.material_no.toLowerCase().includes(term)) ||
+          (row.order_no && row.order_no.toLowerCase().includes(term)) ||
+          opName.toLowerCase().includes(term) ||
+          (row.entry_measurement && row.entry_measurement.toLowerCase().includes(term)) ||
+          (row.exit_measurement && row.exit_measurement.toLowerCase().includes(term)) ||
+          (row.description && row.description.toLowerCase().includes(term)) ||
+          (row.entry_weight_50cm !== null && String(row.entry_weight_50cm).includes(term)) ||
+          (row.exit_weight_50cm !== null && String(row.exit_weight_50cm).includes(term)) ||
+          (row.gold_setting !== null && String(row.gold_setting).includes(term)) ||
+          (row.weighed_quantity !== null && String(row.weighed_quantity).includes(term)) ||
+          (row.weighed_weight !== null && String(row.weighed_weight).includes(term)) ||
+          (row.result_weight !== null && String(row.result_weight).includes(term)) ||
+          (row.gold_pure_scrap !== null && String(row.gold_pure_scrap).includes(term));
 
-      if (dateFilter === "Bu Ay") {
-        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
-        return rowTime >= monthStart;
-      }
-
-      if (dateFilter === "Özel") {
-        const start = startDate ? new Date(startDate).getTime() : 0;
-        const end = endDate ? new Date(endDate).getTime() + 24 * 60 * 60 * 1000 - 1 : Infinity;
-        return rowTime >= start && rowTime <= end;
+        if (!match) return false;
       }
 
       return true;
     });
-  }, [history, dateFilter, startDate, endDate]);
+  }, [history, dateFilter, startDate, endDate, columnFilters, globalFilter]);
 
   // İstatistik hesaplamaları
   const stats = useMemo(() => {
@@ -197,8 +293,93 @@ export default function MeasurementMonitoring() {
     return (totalWeight / selectedRows.length).toFixed(2);
   }, [filteredHistory, selectedRowIds]);
 
+  const renderHeaderCell = (label: string, field: keyof typeof columnFilters, align: "left" | "center" = "left") => {
+    const filterVal = columnFilters[field];
+    const isActive = filterVal.trim() !== "";
+    const isOpen = activeFilterColumn === field;
+
+    return (
+      <div className={cn("relative flex items-center gap-1 group select-none", align === "center" && "justify-center")}>
+        <span className="truncate">{label}</span>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setActiveFilterColumn(isOpen ? null : field);
+          }}
+          className={cn(
+            "p-1 rounded-md transition-all cursor-pointer relative shrink-0",
+            isActive
+              ? "bg-primary text-primary-foreground font-bold shadow-xs"
+              : "hover:bg-card text-muted-foreground/60 hover:text-foreground"
+          )}
+          title={`${label} filtrele`}
+        >
+          <Filter size={10} />
+          {isActive && (
+            <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-amber-400 rounded-full animate-ping" />
+          )}
+        </button>
+
+        {/* POPOVER DROPDOWN */}
+        {isOpen && (
+          <div 
+            className="absolute top-full mt-1.5 z-50 w-48 p-2.5 bg-card border border-border rounded-xl shadow-xl text-foreground font-normal normal-case animate-in fade-in zoom-in-95 duration-150"
+            style={{ left: align === "center" ? "50%" : "0", transform: align === "center" ? "translateX(-50%)" : "none" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">{label} Filtrele</span>
+              <button
+                type="button"
+                onClick={() => setActiveFilterColumn(null)}
+                className="text-muted-foreground hover:text-foreground text-xs p-0.5 rounded cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+            <input
+              type="text"
+              autoFocus
+              placeholder={`${label}...`}
+              value={filterVal}
+              onChange={(e) => setColumnFilters((prev) => ({ ...prev, [field]: e.target.value }))}
+              className="w-full h-8 px-2 bg-background border border-border rounded-md text-xs font-semibold outline-none focus:ring-1 focus:ring-primary shadow-inner mb-2"
+            />
+            <div className="flex justify-between items-center gap-1">
+              {isActive ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setColumnFilters((prev) => ({ ...prev, [field]: "" }));
+                    setActiveFilterColumn(null);
+                  }}
+                  className="px-2 py-1 bg-destructive/10 hover:bg-destructive hover:text-destructive-foreground text-destructive text-[10px] font-bold rounded transition-colors cursor-pointer"
+                >
+                  Temizle
+                </button>
+              ) : (
+                <span />
+              )}
+              <button
+                type="button"
+                onClick={() => setActiveFilterColumn(null)}
+                className="px-3 py-1 bg-primary text-primary-foreground text-[10px] font-bold rounded hover:bg-primary/90 transition-colors ml-auto cursor-pointer"
+              >
+                Tamam
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
-    <div className="flex flex-col space-y-4 h-[calc(100vh-90px)] overflow-hidden p-1">
+    <div 
+      className="flex flex-col space-y-4 h-[calc(100vh-90px)] overflow-hidden p-1"
+      onClick={() => activeFilterColumn && setActiveFilterColumn(null)}
+    >
       
       {/* METRICS & LIMITS BAR */}
       {limits && searchedMaterial && (
@@ -448,7 +629,7 @@ export default function MeasurementMonitoring() {
         {/* RIGHT COLUMN: TABLE */}
         <div className="flex-1 min-w-0 bg-card border border-border rounded-3xl p-5 shadow-sm flex flex-col overflow-hidden h-full">
           
-          <div className="flex justify-between items-center mb-4 shrink-0">
+          <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 mb-4 shrink-0">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center text-muted-foreground">
                 <History size={16} />
@@ -462,6 +643,44 @@ export default function MeasurementMonitoring() {
                 </p>
               </div>
             </div>
+
+            <div className="flex items-center gap-3">
+              {searchedMaterial && (
+                <div className="relative">
+                  <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    type="text"
+                    placeholder="Tabloda Hızlı Ara..."
+                    value={globalFilter}
+                    onChange={(e) => setGlobalFilter(e.target.value)}
+                    className="w-44 h-8 pl-8 pr-7 bg-background border border-border rounded-lg text-xs font-semibold focus:w-56 focus:ring-1 focus:ring-primary outline-none transition-all shadow-inner"
+                  />
+                  {globalFilter && (
+                    <button
+                      type="button"
+                      onClick={() => setGlobalFilter("")}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs p-0.5 rounded cursor-pointer"
+                      title="Aramayı Temizle"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {hasActiveColumnFilter && (
+                <button
+                  onClick={clearAllColumnFilters}
+                  className="text-xs text-muted-foreground hover:text-foreground font-semibold flex items-center gap-1.5 transition-colors cursor-pointer animate-in fade-in"
+                  title="Tüm sütun ve tablo filtrelerini temizle"
+                >
+                  <RotateCcw size={13} className="text-amber-500" />
+                  <span className="text-[11px] underline underline-offset-4 decoration-amber-500/40 hover:decoration-amber-500">
+                    Filtreleri Temizle
+                  </span>
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="grow border border-border rounded-xl overflow-hidden flex flex-col bg-secondary/5 min-h-0">
@@ -470,19 +689,19 @@ export default function MeasurementMonitoring() {
               <div className="min-w-365kucul flex flex-col">
                 {/* TABLE HEADER (Sticky at the top of scroll container) */}
                 <div className="grid gap-2 p-3 border-b border-border bg-secondary text-[10px] font-black uppercase tracking-wider text-muted-foreground shrink-0 select-none sticky top-0 z-10 shadow-xs" style={{ gridTemplateColumns: "100px 140px 110px 160px 100px 100px 100px 100px 80px 110px 120px 120px 120px" }}>
-                  <div>Bölüm</div>
-                  <div>Malzeme</div>
-                  <div>Sipariş</div>
-                  <div>Operatör</div>
-                  <div>Giriş Ö.</div>
-                  <div>Çıkış Ö.</div>
-                  <div className="text-center">Giriş (50)</div>
-                  <div className="text-center">Çıkış (50)</div>
-                  <div className="text-center">Ayar</div>
-                  <div className="text-center">Tartılan Ad.</div>
-                  <div className="text-center">Tartılan Gr.</div>
-                  <div className="text-center">Sonuç Gr.</div>
-                  <div className="text-center">Has Fire</div>
+                  {renderHeaderCell("Bölüm", "area_name")}
+                  {renderHeaderCell("Malzeme", "material_no")}
+                  {renderHeaderCell("Sipariş", "order_no")}
+                  {renderHeaderCell("Operatör", "operator")}
+                  {renderHeaderCell("Giriş Ö.", "entry_measurement")}
+                  {renderHeaderCell("Çıkış Ö.", "exit_measurement")}
+                  {renderHeaderCell("Giriş (50)", "entry_weight_50cm", "center")}
+                  {renderHeaderCell("Çıkış (50)", "exit_weight_50cm", "center")}
+                  {renderHeaderCell("Ayar", "gold_setting", "center")}
+                  {renderHeaderCell("Tartılan Ad.", "weighed_quantity", "center")}
+                  {renderHeaderCell("Tartılan Gr.", "weighed_weight", "center")}
+                  {renderHeaderCell("Sonuç Gr.", "result_weight", "center")}
+                  {renderHeaderCell("Has Fire", "gold_pure_scrap", "center")}
                 </div>
 
                 {/* TABLE BODY (Grows inside the scrollable container) */}
