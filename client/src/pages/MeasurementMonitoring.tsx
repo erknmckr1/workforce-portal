@@ -10,7 +10,10 @@ import {
   Search, 
   RotateCcw, 
   ChevronLeft, 
-  ChevronRight
+  ChevronRight,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Filter
 } from "lucide-react";
 import apiClient from "../lib/api";
 import type { MeasurementRecord } from "../types/mes";
@@ -36,6 +39,7 @@ export default function MeasurementMonitoring() {
   const [history, setHistory] = useState<MeasurementRecord[]>([]);
   const [limits, setLimits] = useState<MeasureLimits | null>(null);
   const [searchedMaterial, setSearchedMaterial] = useState("");
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   React.useEffect(() => {
     if (scrollRef.current) {
@@ -244,143 +248,205 @@ export default function MeasurementMonitoring() {
       )}
 
       {/* MAIN LAYOUT SPLIT */}
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-4 gap-4 min-h-0">
+      <div className="flex-1 flex flex-col lg:flex-row gap-4 min-h-0">
         
-        {/* LEFT COLUMN: FILTERS (Fixed / Independently scrollable if overflowed) */}
-        <div className="lg:col-span-1 p-5 bg-card border border-border rounded-3xl flex flex-col gap-4 shadow-sm h-full overflow-y-auto custom-scrollbar shrink-0">
-          <div>
-            <h3 className="text-xs font-black uppercase tracking-widest text-foreground flex items-center gap-2 mb-0.5">
-              <Search size={14} className="text-primary" />
-              Sorgu & Filtreler
-            </h3>
-            <p className="text-[9px] text-muted-foreground font-semibold uppercase tracking-wider">Malzeme Arama Paneli</p>
-          </div>
-
-          <form onSubmit={handleSearchSubmit} className="space-y-3">
-            <div className="space-y-1">
-              <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">MALZEME KODU</label>
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="Örn: YZ003821-14"
-                  value={materialNo}
-                  onChange={(e) => setMaterialNo(e.target.value)}
-                  className="w-full h-10 pl-8 pr-4 bg-background border border-border rounded-lg font-mono text-xs uppercase focus:ring-2 focus:ring-primary focus:border-primary transition-all shadow-inner"
-                  required
-                />
-                <Hash
-                  size={12}
-                  className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground/60"
-                />
-              </div>
-            </div>
-
-            <div className="flex gap-2">
+        {/* LEFT COLUMN: FILTERS (Collapsible) */}
+        <div 
+          className={cn(
+            "bg-card border border-border rounded-3xl flex flex-col shadow-sm transition-all duration-300 h-full overflow-y-auto custom-scrollbar shrink-0",
+            isSidebarCollapsed ? "lg:w-16 p-3 items-center gap-4" : "w-full lg:w-80 p-5 gap-4"
+          )}
+        >
+          {isSidebarCollapsed ? (
+            /* COLLAPSED SIDEBAR VIEW */
+            <div className="flex flex-col items-center gap-4 w-full animate-in fade-in duration-200">
               <button
                 type="button"
-                onClick={handleReset}
-                title="Aramayı Sıfırla"
-                className="h-10 px-3 bg-secondary hover:bg-secondary/80 text-secondary-foreground rounded-lg transition-all shadow-sm flex items-center justify-center active:scale-95 border border-border cursor-pointer"
+                onClick={() => setIsSidebarCollapsed(false)}
+                title="Sorgu & Filtre Panelini Genişlet"
+                className="w-10 h-10 bg-primary/10 hover:bg-primary text-primary hover:text-primary-foreground rounded-xl transition-all shadow-xs flex items-center justify-center active:scale-95 border border-primary/20 cursor-pointer"
               >
-                <RotateCcw size={14} />
+                <PanelLeftOpen size={18} />
               </button>
+
               <button
-                type="submit"
-                disabled={loading}
-                className="flex-1 h-10 bg-primary hover:bg-primary/90 text-primary-foreground font-black text-xs uppercase tracking-widest rounded-lg transition-all shadow-md flex items-center justify-center gap-1.5 active:scale-95 disabled:opacity-50 cursor-pointer"
+                type="button"
+                onClick={() => setIsSidebarCollapsed(false)}
+                title="Arama Yap"
+                className="w-10 h-10 bg-secondary hover:bg-secondary/80 text-foreground rounded-xl transition-all flex items-center justify-center active:scale-95 border border-border cursor-pointer relative"
               >
-                <Search size={12} />
-                Sorgula
+                <Search size={16} />
+                {searchedMaterial && (
+                  <span className="absolute -top-1 -right-1 w-3 h-3 bg-primary rounded-full border-2 border-card" />
+                )}
               </button>
-            </div>
-          </form>
 
-          {/* Tarih Filtreleme Seçenekleri */}
-          {searchedMaterial && (
-            <div className="space-y-3 pt-3 border-t border-border/50 animate-in fade-in duration-300">
-              <div className="space-y-1">
-                <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Tarih Filtresi</label>
-                <select
-                  value={dateFilter}
-                  onChange={(e) => setDateFilter(e.target.value)}
-                  className="w-full h-10 px-2 bg-background border border-border rounded-lg text-xs font-semibold focus:ring-2 focus:ring-primary focus:outline-none transition-all cursor-pointer shadow-xs"
+              {dateFilter !== "Tümü" && (
+                <div 
+                  className="w-10 h-10 bg-amber-500/10 text-amber-500 rounded-xl flex items-center justify-center border border-amber-500/20"
+                  title={`Filtre: ${dateFilter}`}
                 >
-                  <option value="Tümü">Tümü</option>
-                  <option value="Bugün">Bugün</option>
-                  <option value="Dün">Dün</option>
-                  <option value="Bu Hafta">Bu Hafta</option>
-                  <option value="Bu Ay">Bu Ay</option>
-                  <option value="Özel">Özel Tarih Aralığı</option>
-                </select>
-              </div>
+                  <Filter size={16} />
+                </div>
+              )}
 
-              {dateFilter === "Özel" && (
-                <div className="space-y-2.5 animate-in slide-in-from-top duration-200">
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Başlangıç Tarihi</label>
-                    <input
-                      type="date"
-                      value={startDate}
-                      onChange={(e) => setStartDate(e.target.value)}
-                      className="w-full h-10 px-2.5 bg-background border border-border rounded-lg text-xs font-mono font-bold focus:ring-2 focus:ring-primary focus:outline-none transition-all shadow-xs"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Bitiş Tarihi</label>
-                    <input
-                      type="date"
-                      value={endDate}
-                      onChange={(e) => setEndDate(e.target.value)}
-                      className="w-full h-10 px-2.5 bg-background border border-border rounded-lg text-xs font-mono font-bold focus:ring-2 focus:ring-primary focus:outline-none transition-all shadow-xs"
-                    />
-                  </div>
+              {stats && (
+                <div 
+                  className="p-2 bg-secondary/30 rounded-xl text-center border border-border/50 text-[10px] font-black text-muted-foreground"
+                  title={`Toplam Kayıt: ${stats.count}`}
+                >
+                  {stats.count}
                 </div>
               )}
             </div>
-          )}
-
-          {/* Seçimi Temizle Butonu */}
-          {selectedRowIds.length > 0 && (
-            <button
-              onClick={() => setSelectedRowIds([])}
-              className="mt-2 w-full h-10 bg-primary/10 hover:bg-primary hover:text-primary-foreground text-primary font-black text-xs uppercase tracking-widest rounded-lg transition-all shadow-xs flex items-center justify-center gap-2 active:scale-95 border border-primary/20 cursor-pointer fade-in duration-200 animate-out fade-out"
-            >
-              Seçimi Temizle ({selectedRowIds.length})
-            </button>
-          )}
-
-          {/* Özet & İstatistikler Kartı */}
-          {stats && searchedMaterial && (
-            <div className="mt-2 p-3.5 bg-secondary/15 border border-border/60 rounded-2xl space-y-2.5 animate-in fade-in duration-300">
-              <div className="text-[10px] font-black uppercase tracking-wider text-muted-foreground border-b border-border/40 pb-1.5 mb-1.5 flex items-center gap-1.5">
-                <Scale size={12} className="text-primary" />
-                Ölçüm Özet Bilgileri
-              </div>
-              
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-muted-foreground font-semibold">Sayfadaki Toplam Kayıt:</span>
-                <span className="text-foreground font-black">{stats.count}</span>
+          ) : (
+            /* EXPANDED SIDEBAR VIEW */
+            <>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-xs font-black uppercase tracking-widest text-foreground flex items-center gap-2 mb-0.5">
+                    <Search size={14} className="text-primary" />
+                    Sorgu & Filtreler
+                  </h3>
+                  <p className="text-[9px] text-muted-foreground font-semibold uppercase tracking-wider">Malzeme Arama Paneli</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsSidebarCollapsed(true)}
+                  title="Paneli Daralt (Tabloyu Genişlet)"
+                  className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg transition-all cursor-pointer border border-transparent hover:border-border"
+                >
+                  <PanelLeftClose size={18} />
+                </button>
               </div>
 
-              <div className="flex justify-between items-start text-xs gap-4">
-                <span className="text-muted-foreground font-semibold">
-                  {selectedRowIds.length > 0 ? "Seçilen Ortalama Gramaj:" : "Sayfa Ortalama Gramajı:"}
-                </span>
-                <span className={cn("text-right font-black", selectedRowIds.length > 0 ? "text-primary animate-pulse" : "text-foreground")}>
-                  {selectedRowIds.length > 0 ? `${selectedAvgWeight} g` : `${stats.averageWeight} g`}
-                  {selectedRowIds.length > 0 && (
-                    <span className="block text-[9px] font-black text-primary leading-none mt-0.5">
-                      ({selectedRowIds.length} satır)
-                    </span>
+              <form onSubmit={handleSearchSubmit} className="space-y-3">
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">MALZEME KODU</label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Örn: YZ003821-14"
+                      value={materialNo}
+                      onChange={(e) => setMaterialNo(e.target.value)}
+                      className="w-full h-10 pl-8 pr-4 bg-background border border-border rounded-lg font-mono text-xs uppercase focus:ring-2 focus:ring-primary focus:border-primary transition-all shadow-inner"
+                      required
+                    />
+                    <Hash
+                      size={12}
+                      className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground/60"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={handleReset}
+                    title="Aramayı Sıfırla"
+                    className="h-10 px-3 bg-secondary hover:bg-secondary/80 text-secondary-foreground rounded-lg transition-all shadow-sm flex items-center justify-center active:scale-95 border border-border cursor-pointer"
+                  >
+                    <RotateCcw size={14} />
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="flex-1 h-10 bg-primary hover:bg-primary/90 text-primary-foreground font-black text-xs uppercase tracking-widest rounded-lg transition-all shadow-md flex items-center justify-center gap-1.5 active:scale-95 disabled:opacity-50 cursor-pointer"
+                  >
+                    <Search size={12} />
+                    Sorgula
+                  </button>
+                </div>
+              </form>
+
+              {/* Tarih Filtreleme Seçenekleri */}
+              {searchedMaterial && (
+                <div className="space-y-3 pt-3 border-t border-border/50 animate-in fade-in duration-300">
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Tarih Filtresi</label>
+                    <select
+                      value={dateFilter}
+                      onChange={(e) => setDateFilter(e.target.value)}
+                      className="w-full h-10 px-2 bg-background border border-border rounded-lg text-xs font-semibold focus:ring-2 focus:ring-primary focus:outline-none transition-all cursor-pointer shadow-xs"
+                    >
+                      <option value="Tümü">Tümü</option>
+                      <option value="Bugün">Bugün</option>
+                      <option value="Dün">Dün</option>
+                      <option value="Bu Hafta">Bu Hafta</option>
+                      <option value="Bu Ay">Bu Ay</option>
+                      <option value="Özel">Özel Tarih Aralığı</option>
+                    </select>
+                  </div>
+
+                  {dateFilter === "Özel" && (
+                    <div className="space-y-2.5 animate-in slide-in-from-top duration-200">
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Başlangıç Tarihi</label>
+                        <input
+                          type="date"
+                          value={startDate}
+                          onChange={(e) => setStartDate(e.target.value)}
+                          className="w-full h-10 px-2.5 bg-background border border-border rounded-lg text-xs font-mono font-bold focus:ring-2 focus:ring-primary focus:outline-none transition-all shadow-xs"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Bitiş Tarihi</label>
+                        <input
+                          type="date"
+                          value={endDate}
+                          onChange={(e) => setEndDate(e.target.value)}
+                          className="w-full h-10 px-2.5 bg-background border border-border rounded-lg text-xs font-mono font-bold focus:ring-2 focus:ring-primary focus:outline-none transition-all shadow-xs"
+                        />
+                      </div>
+                    </div>
                   )}
-                </span>
-              </div>
-            </div>
+                </div>
+              )}
+
+              {/* Seçimi Temizle Butonu */}
+              {selectedRowIds.length > 0 && (
+                <button
+                  onClick={() => setSelectedRowIds([])}
+                  className="mt-2 w-full h-10 bg-primary/10 hover:bg-primary hover:text-primary-foreground text-primary font-black text-xs uppercase tracking-widest rounded-lg transition-all shadow-xs flex items-center justify-center gap-2 active:scale-95 border border-primary/20 cursor-pointer fade-in duration-200 animate-out fade-out"
+                >
+                  Seçimi Temizle ({selectedRowIds.length})
+                </button>
+              )}
+
+              {/* Özet & İstatistikler Kartı */}
+              {stats && searchedMaterial && (
+                <div className="mt-2 p-3.5 bg-secondary/15 border border-border/60 rounded-2xl space-y-2.5 animate-in fade-in duration-300">
+                  <div className="text-[10px] font-black uppercase tracking-wider text-muted-foreground border-b border-border/40 pb-1.5 mb-1.5 flex items-center gap-1.5">
+                    <Scale size={12} className="text-primary" />
+                    Ölçüm Özet Bilgileri
+                  </div>
+                  
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-muted-foreground font-semibold">Sayfadaki Toplam Kayıt:</span>
+                    <span className="text-foreground font-black">{stats.count}</span>
+                  </div>
+
+                  <div className="flex justify-between items-start text-xs gap-4">
+                    <span className="text-muted-foreground font-semibold">
+                      {selectedRowIds.length > 0 ? "Seçilen Ortalama Gramaj:" : "Sayfa Ortalama Gramajı:"}
+                    </span>
+                    <span className={cn("text-right font-black", selectedRowIds.length > 0 ? "text-primary animate-pulse" : "text-foreground")}>
+                      {selectedRowIds.length > 0 ? `${selectedAvgWeight} g` : `${stats.averageWeight} g`}
+                      {selectedRowIds.length > 0 && (
+                        <span className="block text-[9px] font-black text-primary leading-none mt-0.5">
+                          ({selectedRowIds.length} satır)
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
 
-        {/* RIGHT COLUMN: TABLE (Outer container fixed, internal rows scrollable) */}
-        <div className="lg:col-span-3 bg-card border border-border rounded-3xl p-5 shadow-sm flex flex-col overflow-hidden h-full">
+        {/* RIGHT COLUMN: TABLE */}
+        <div className="flex-1 min-w-0 bg-card border border-border rounded-3xl p-5 shadow-sm flex flex-col overflow-hidden h-full">
           
           <div className="flex justify-between items-center mb-4 shrink-0">
             <div className="flex items-center gap-2">
@@ -398,10 +464,10 @@ export default function MeasurementMonitoring() {
             </div>
           </div>
 
-          <div className="flex-grow border border-border rounded-xl overflow-hidden flex flex-col bg-secondary/5 min-h-0">
+          <div className="grow border border-border rounded-xl overflow-hidden flex flex-col bg-secondary/5 min-h-0">
             {/* Scrollable Table Area (Both vertical and horizontal scroll handled here) */}
             <div className="flex-1 overflow-auto custom-scrollbar relative min-h-0">
-              <div className="min-w-[1460px] flex flex-col">
+              <div className="min-w-365kucul flex flex-col">
                 {/* TABLE HEADER (Sticky at the top of scroll container) */}
                 <div className="grid gap-2 p-3 border-b border-border bg-secondary text-[10px] font-black uppercase tracking-wider text-muted-foreground shrink-0 select-none sticky top-0 z-10 shadow-xs" style={{ gridTemplateColumns: "100px 140px 110px 160px 100px 100px 100px 100px 80px 110px 120px 120px 120px" }}>
                   <div>Bölüm</div>

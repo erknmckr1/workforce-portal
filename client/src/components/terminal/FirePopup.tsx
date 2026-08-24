@@ -380,11 +380,6 @@ const FirePopup: React.FC<FirePopupProps> = ({
                         </span>
                       )}
                     </div>
-                    {orderInfo.systemWeight !== null && (
-                      <div className="text-[10px] font-mono font-black text-foreground bg-primary/10 px-2 py-0.5 rounded-lg border border-primary/20 shrink-0">
-                        Sistem Gramı: {orderInfo.systemWeight} g
-                      </div>
-                    )}
                   </div>
                   <div className="text-[10px] font-bold uppercase text-muted-foreground leading-normal">
                     {orderInfo.description}
