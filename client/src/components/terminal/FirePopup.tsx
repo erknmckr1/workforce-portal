@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   X,
   Save,
@@ -44,6 +44,11 @@ const FirePopup: React.FC<FirePopupProps> = ({
   const [loading, setLoading] = useState(false);
   const [history, setHistory] = useState<ScrapMeasurement[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  const orderInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    orderInputRef.current?.focus();
+  }, []);
 
   const [orderInfo, setOrderInfo] = useState<{
     materialNo: string;
@@ -136,36 +141,24 @@ const FirePopup: React.FC<FirePopupProps> = ({
       const historyList = historyRes.data || [];
       setHistory(historyList);
 
-      // Çıkışı henüz yapılmamış açık bir kayıt var mı kontrol et
-      const openRecord = historyList.find((item: any) => !item.exit_measurement);
+      // Varsayılan olarak her zaman sıfır Giriş Modu ile açalım
+      setSelectedId(null);
+      setForm({
+        orderId: form.orderId,
+        goldSetting: numericCarat,
+        entryGramage: 0,
+        exitGramage: 0,
+        gold_pure_scrap: 0,
+        diffirence: 0,
+        weighedQuantity: "",
+        weighedWeight: "",
+        resultWeight: "",
+      });
 
-      if (openRecord) {
-        setSelectedId(openRecord.id);
-        setForm({
-          orderId: form.orderId,
-          goldSetting: openRecord.gold_setting || numericCarat,
-          entryGramage: parseFloat(openRecord.entry_measurement) || 0,
-          exitGramage: parseFloat(openRecord.exit_measurement) || 0,
-          gold_pure_scrap: parseFloat(openRecord.gold_pure_scrap) || 0,
-          diffirence: parseFloat(openRecord.measurement_diff) || 0,
-          weighedQuantity: String(openRecord.weighed_quantity ?? ""),
-          weighedWeight: String(openRecord.weighed_weight ?? ""),
-          resultWeight: String(openRecord.result_weight ?? ""),
-        });
-        toast.info("Bu sipariş için aktif açık kayıt bulundu. Çıkış işlemini yapabilirsiniz.");
+      const hasOpenRecord = historyList.some((item: any) => !item.exit_measurement);
+      if (hasOpenRecord) {
+        toast.info("Sipariş getirildi. Yeni giriş yapabilir veya sağ listedeki açık kayda tıklayarak çıkış yapabilirsiniz.");
       } else {
-        setSelectedId(null);
-        setForm({
-          orderId: form.orderId,
-          goldSetting: numericCarat,
-          entryGramage: 0,
-          exitGramage: 0,
-          gold_pure_scrap: 0,
-          diffirence: 0,
-          weighedQuantity: "",
-          weighedWeight: "",
-          resultWeight: "",
-        });
         toast.success("Sipariş bilgileri getirildi. Giriş işlemini başlatabilirsiniz.");
       }
     } catch (error) {
@@ -239,13 +232,20 @@ const FirePopup: React.FC<FirePopupProps> = ({
         toast.success("Giriş ölçümü başarıyla kaydedildi.");
       }
       
-      // Kayıttan sonra seçili ID'yi sıfırla ve verileri tazele
+      // Kaydedilen siparişin geçmişini güncelle (sağ listede anında görünsün)
+      const currentOrderId = form.orderId;
       setSelectedId(null);
+      
       const historyRes = await apiClient.get(
-        `/mes/scrap-measurements?order_no=${form.orderId}`,
+        `/mes/scrap-measurements?order_no=${currentOrderId}`,
       );
       setHistory(historyRes.data || []);
-      resetForm(false); // Arama kutusu ve sipariş bilgileri kalsın, giriş form alanları sıfırlansın
+
+      // Sipariş barkod kutusunu ve form girdilerini temizle, ancak sağdaki geçmiş kalsın (full = false)
+      resetForm(false);
+      setTimeout(() => {
+        orderInputRef.current?.focus();
+      }, 100);
     } catch (error) {
       toast.error("İşlem başarısız oldu.", { description: (error as any)?.message || (error as any)?.response?.data?.message || "Bilinmeyen bir hata oluştu." });
     } finally {
@@ -255,7 +255,7 @@ const FirePopup: React.FC<FirePopupProps> = ({
 
   const resetForm = (full = true) => {
     setForm((prev) => ({
-      orderId: full ? "" : prev.orderId,
+      orderId: "", // Her zaman sipariş kutusunu temizle ki yeni barkod okutulabilsin
       goldSetting: full ? 0 : prev.goldSetting,
       entryGramage: 0,
       exitGramage: 0,
@@ -265,10 +265,10 @@ const FirePopup: React.FC<FirePopupProps> = ({
       weighedWeight: "",
       resultWeight: "",
     }));
+    setSelectedId(null); // Her zaman seçili ID'yi temizle (Yeni Giriş moduna dön)
     if (full) {
       setOrderInfo(null);
       setHistory([]);
-      setSelectedId(null);
     }
   };
 
@@ -346,6 +346,7 @@ const FirePopup: React.FC<FirePopupProps> = ({
               </label>
               <div className="relative group">
                 <input
+                  ref={orderInputRef}
                   type="text"
                   value={form.orderId}
                   onChange={(e) =>
@@ -421,14 +422,13 @@ const FirePopup: React.FC<FirePopupProps> = ({
                 <input
                   type="text"
                   value={form.entryGramage || ""}
-                  disabled={selectedId !== null}
                   onChange={(e) => {
                     const val = e.target.value.replace(",", ".");
                     if (!isNaN(Number(val)) || val === "" || val === ".") {
                       setForm({ ...form, entryGramage: val as any });
                     }
                   }}
-                  className="w-full bg-secondary/30 disabled:opacity-50 disabled:cursor-not-allowed border border-border rounded-xl px-4 py-3 outline-none focus:border-success/50 transition-all font-bold text-success"
+                  className="w-full bg-secondary/30 border border-border rounded-xl px-4 py-3 outline-none focus:border-success/50 transition-all font-bold text-success"
                 />
               </div>
               <div className="space-y-2">
@@ -625,9 +625,15 @@ const FirePopup: React.FC<FirePopupProps> = ({
                               <span className="text-muted-foreground/30">
                                 /
                               </span>
-                              <span className="text-xs font-mono text-destructive font-bold">
-                                {item.exit_measurement}
-                              </span>
+                              {item.exit_measurement ? (
+                                <span className="text-xs font-mono text-destructive font-bold">
+                                  {item.exit_measurement}
+                                </span>
+                              ) : (
+                                <span className="text-[9px] font-black text-amber-500 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded shrink-0">
+                                  ⏳ Çıkış Bekliyor
+                                </span>
+                              )}
                             </div>
                           </td>
                           <td className="px-6 py-4">

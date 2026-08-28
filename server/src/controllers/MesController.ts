@@ -1173,19 +1173,7 @@ export const submitScrapMeasurement = async (req: Request, res: Response) => {
       });
     }
 
-    // Mükerrer Açık Kayıt Kontrolü
-    const existingOpen = await Measurement.findOne({
-      where: {
-        order_no: formState.orderId,
-        area_name: areaName,
-        exit_measurement: null,
-      }
-    });
-    if (existingOpen) {
-      return res.status(400).json({
-        message: "Bu sipariş için zaten açık (tamamlanmamış) bir kayıt bulunmaktadır.",
-      });
-    }
+
 
     const exitMeasurement = formState.exitGramage !== null && formState.exitGramage !== undefined && String(formState.exitGramage).trim() !== "" && String(formState.exitGramage).trim() !== "0"
       ? String(formState.exitGramage).trim()
