@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -40,7 +41,10 @@ const loginSchema = z.object({
 type FormData = z.infer<typeof loginSchema>;
 
 export default function Login() {
-  const loginAction = useAuthStore((state) => state.login);
+  const { login: loginAction, isAuthenticated } = useAuthStore();
+  const location = useLocation();
+  const navigate = useNavigate();
+
   const [globalError, setGlobalError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -48,6 +52,19 @@ export default function Login() {
   const [resetId, setResetId] = useState("");
   const [resetLoading, setResetLoading] = useState(false);
   const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
+
+  // Gidilecek hedef sayfa (Önce state, sonra sessionStorage, en son /panel)
+  const from =
+    (location.state as any)?.from?.pathname
+      ? `${(location.state as any).from.pathname}${(location.state as any).from.search || ""}`
+      : sessionStorage.getItem("redirect_after_login") || "/panel";
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      sessionStorage.removeItem("redirect_after_login");
+      navigate(from, { replace: true });
+    }
+  }, [isAuthenticated, from, navigate]);
 
   const form = useForm<FormData>({
     resolver: zodResolver(loginSchema),
@@ -67,8 +84,10 @@ export default function Login() {
         password: data.password,
       });
 
+      sessionStorage.removeItem("redirect_after_login");
       toast.success("Giriş başarılı! Yönlendiriliyorsunuz...");
       loginAction(response.data.user);
+      navigate(from, { replace: true });
     } catch (err: unknown) {
       const error = err as AxiosError<{ message?: string }>;
       const errorMsg = error.response?.data?.message || "Sunucuyla iletişim kurulamadı.";

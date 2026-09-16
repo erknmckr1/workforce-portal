@@ -11,6 +11,7 @@ import {
   ChevronRight,
   Monitor,
   Scale,
+  Layers,
 } from "lucide-react";
 
 interface ScreenCard {
@@ -105,6 +106,15 @@ const screens: ScreenCard[] = [
     color: "from-orange-500 to-yellow-600",
     description: "Malzeme kodu ile istasyonların ölçüm geçmişini inceleyin.",
   },
+  {
+    id: "parti-takibi",
+    title: "Parti Takibi",
+    area: "parti-takibi",
+    section: "atolye",
+    icon: <Layers size={32} />,
+    color: "from-indigo-500 to-violet-600",
+    description: "Üretim partilerini, lot aşamalarını ve süreç takibini inceleyin.",
+  },
 ];
 
 const MesScreensNavigator = () => {
@@ -139,11 +149,13 @@ const MesScreensNavigator = () => {
             onClick={() => {
               if (screen.id === "olcum-takip") {
                 navigate("/mes-measurements");
+              } else if (screen.id === "parti-takibi") {
+                navigate("/parti-takibi");
               } else {
                 navigate(`/uretim/${screen.section}/${screen.area}`);
               }
             }}
-            className="group relative flex flex-col items-start p-6 bg-card border border-border rounded-[2.5rem] text-left transition-all hover:shadow-2xl hover:shadow-primary/5 hover:border-primary/50 overflow-hidden"
+            className="group relative flex flex-col items-start p-6 bg-card border border-border rounded-[2.5rem] text-left transition-all hover:shadow-2xl hover:shadow-primary/5 hover:border-primary/50 overflow-hidden cursor-pointer"
           >
             <div
               className={`p-4 bg-linear-to-br ${screen.color} text-card rounded-2xl mb-6 shadow-lg shadow-black/5 group-hover:scale-110 transition-transform duration-500`}
@@ -161,13 +173,16 @@ const MesScreensNavigator = () => {
             </div>
 
             <div className="mt-6 flex items-center gap-2 text-xs font-black uppercase tracking-widest text-primary opacity-0 group-hover:opacity-100 transition-all transform -translate-x-2.5 group-hover:translate-x-0 duration-500">
-              {screen.id === "olcum-takip" ? "Sorgula" : "Giriş Yap"} <ChevronRight size={14} />
+              {screen.id === "olcum-takip" || screen.id === "parti-takibi" ? "İncele" : "Giriş Yap"}{" "}
+              <ChevronRight size={14} />
             </div>
 
             {/* Decorative corner element */}
             <div className="absolute bottom-0 right-0 p-1 opacity-10">
               {screen.id === "olcum-takip" ? (
                 <Scale size={48} className="text-muted-foreground" />
+              ) : screen.id === "parti-takibi" ? (
+                <Layers size={48} className="text-muted-foreground" />
               ) : (
                 <Monitor size={48} className="text-muted-foreground" />
               )}

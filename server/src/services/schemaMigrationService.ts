@@ -99,4 +99,56 @@ export const ensureApplicationSchema = async () => {
     });
     console.log("Schema updated: measurements.result_weight");
   }
+
+  // Migration for mes_parti_logs table
+  try {
+    const partiColumns = await queryInterface.describeTable("mes_parti_logs");
+
+    if (!partiColumns["action_label"]) {
+      await queryInterface.addColumn("mes_parti_logs", "action_label", {
+        type: DataTypes.STRING(50),
+        allowNull: true,
+      });
+      console.log("Schema updated: mes_parti_logs.action_label");
+    }
+
+    if (!partiColumns["action_type"]) {
+      await queryInterface.addColumn("mes_parti_logs", "action_type", {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+      });
+      console.log("Schema updated: mes_parti_logs.action_type");
+    }
+
+    if (!partiColumns["islem_label"]) {
+      await queryInterface.addColumn("mes_parti_logs", "islem_label", {
+        type: DataTypes.STRING(100),
+        allowNull: true,
+      });
+      console.log("Schema updated: mes_parti_logs.islem_label");
+    }
+
+    if (!partiColumns["operator_name"]) {
+      await queryInterface.addColumn("mes_parti_logs", "operator_name", {
+        type: DataTypes.STRING(150),
+        allowNull: true,
+      });
+      console.log("Schema updated: mes_parti_logs.operator_name");
+    }
+
+    if (!partiColumns["record_date"]) {
+      await queryInterface.addColumn("mes_parti_logs", "record_date", {
+        type: DataTypes.DATE,
+        allowNull: true,
+      });
+      console.log("Schema updated: mes_parti_logs.record_date");
+    }
+  } catch (err) {
+    // Tablo henüz yoksa oluştur
+    console.log("mes_parti_logs tablosu bulunamadı, oluşturuluyor...");
+    const { MesPartiLog } = await import("../models");
+    await MesPartiLog.sync();
+    console.log("Schema updated: mes_parti_logs table created.");
+  }
 };
+

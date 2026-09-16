@@ -29,6 +29,7 @@ import { SectionParticipationLog } from "./SectionParticipationLog";
 import { IntranetDocument } from "./IntranetDocument";
 import { ITRequest } from "./ITRequest";
 import { ITRequestMessage } from "./ITRequestMessage";
+import { MesPartiLog, PartiActionType, PARTI_ACTION_LABELS } from "./MesPartiLog";
 
 // --- Lookups & Operator Associations ---
 Section.hasMany(Department, { foreignKey: "section_id" });
@@ -173,5 +174,8 @@ export {
     SectionParticipationLog,
     IntranetDocument,
     ITRequest,
-    ITRequestMessage
+    ITRequestMessage,
+    MesPartiLog,
+    PartiActionType,
+    PARTI_ACTION_LABELS
 };

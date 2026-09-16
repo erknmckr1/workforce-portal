@@ -1,11 +1,12 @@
 import { useEffect } from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useAuthStore } from "./store/authStore";
 import apiClient from "./lib/api";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import PersonnelManagement from "./pages/PersonnelManagement";
 import MainLayout from "./components/layout/MainLayout";
+import PartiTakibiLayout from "./components/layout/PartiTakibiLayout";
 import ProtectedRoute from "./components/layout/ProtectedRoute";
 import SettingsIndex from "./pages/settings/SettingsIndex";
 import Approvals from "./pages/settings/Approvals";
@@ -23,6 +24,7 @@ import Home from "./pages/Home";
 import UretimTerminal from "./pages/UretimTerminal";
 import MesScreensNavigator from "./pages/MesScreensNavigator";
 import MeasurementMonitoring from "./pages/MeasurementMonitoring";
+import PartiTakibi from "./pages/PartiTakibi";
 import Reports from "./pages/Reports";
 import PersonnelMovementReport from "./pages/PersonnelMovementReport";
 import PhoneDirectoryPage from "./pages/PhoneDirectoryPage";
@@ -47,8 +49,19 @@ const queryClient = new QueryClient({
   },
 });
 
+function AuthLayoutWrapper({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated } = useAuthStore();
+  const location = useLocation();
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  return <>{children}</>;
+}
+
 function App() {
-  const { isAuthenticated, isLoading, login, logout, setCheckingAuth } = useAuthStore();
+  const { isLoading, login, logout, setCheckingAuth } = useAuthStore();
 
   useEffect(() => {
     // Uygulama yüklendiğinde Cookie'deki oturumu kontrol et (checkAuth endpointi)
@@ -100,7 +113,7 @@ function App() {
             {/* 2. Giriş Sayfası */}
             <Route
               path="/login"
-              element={!isAuthenticated ? <Login /> : <Navigate to="/panel" />}
+              element={<Login />}
             />
 
             <Route path="/kiosk-terminal" element={<KioskPage />} />
@@ -108,9 +121,24 @@ function App() {
             {/* 2.5 MES Terminal (Üretim Ekranları) - Tam Ekran */}
             <Route path="/uretim/:section/:areaName" element={<UretimTerminal />} />
 
+            {/* 2.6 Parti Takibi - Özel Bağımsız Layout (Sidebar Yok - Tüm Kullanıcılar) */}
+            <Route
+              element={
+                <AuthLayoutWrapper>
+                  <PartiTakibiLayout />
+                </AuthLayoutWrapper>
+              }
+            >
+              <Route path="/parti-takibi" element={<PartiTakibi />} />
+            </Route>
+
             {/* 3. Korumalı Rotalar (Layout ile birlikte) */}
             <Route
-              element={isAuthenticated ? <MainLayout /> : <Navigate to="/login" />}
+              element={
+                <AuthLayoutWrapper>
+                  <MainLayout />
+                </AuthLayoutWrapper>
+              }
             >
               {/* Panel (Eski Dashboard) */}
               <Route element={<ProtectedRoute allowedRoles={["Admin", "Müdür", "Yönetici", "Personel", "İK", "Revir", "Güvenlik", "Ustabasi", "Mühendis"]} />}>

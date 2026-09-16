@@ -1,4 +1,4 @@
-import { Navigate, Outlet } from "react-router-dom";
+import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuthStore } from "@/store/authStore";
 
 interface ProtectedRouteProps {
@@ -7,9 +7,10 @@ interface ProtectedRouteProps {
 
 export default function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
   const { user, isAuthenticated } = useAuthStore();
+  const location = useLocation();
 
   if (!isAuthenticated || !user) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
   const isITDept = user.department && (

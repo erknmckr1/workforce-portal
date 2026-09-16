@@ -294,6 +294,7 @@ export default function Sidebar({
 
   const handleLogout = async () => {
     try {
+      sessionStorage.setItem("redirect_after_login", location.pathname + location.search);
       await apiClient.post("/auth/logout");
       logout();
       toast.success("Güvenli çıkış yapıldı.");

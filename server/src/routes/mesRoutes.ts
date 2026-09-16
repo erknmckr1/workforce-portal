@@ -1,5 +1,6 @@
 import { Router } from "express";
 import * as MesController from "../controllers/MesController";
+import * as MesPartiController from "../controllers/MesPartiController";
 
 const router = Router();
 
@@ -66,5 +67,10 @@ router.get("/field/participants", MesController.getActiveFieldParticipants);
 router.post("/start-setup", MesController.startSetup);
 router.post("/finish-setup", MesController.finishSetup);
 router.post("/start-process", MesController.startProcessFromSetup);
+
+// Parti Takibi (Batch Logs) Rotaları
+router.get("/parti-logs", MesPartiController.getPartiLogs);
+router.post("/parti-logs", MesPartiController.createPartiLog);
+router.delete("/parti-logs/:id", MesPartiController.deletePartiLog);
 
 export default router;
