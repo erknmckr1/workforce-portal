@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect } from "react";
 import {
-  User,
   Layers,
   Play,
   Square,
@@ -15,6 +14,7 @@ import {
   ChevronsLeft,
   ChevronsRight,
   Loader2,
+  Scan,
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import apiClient from "@/lib/api";
@@ -44,10 +44,10 @@ interface PartiLogItem {
 }
 
 const ISLEMLER = [
-  { id: "1", label: "İşlem 1" },
-  { id: "2", label: "İşlem 2" },
-  { id: "3", label: "İşlem 3" },
-  { id: "4", label: "İşlem 4" },
+  { id: "1", label: "Tambır" },
+  { id: "2", label: "Çt1" },
+  { id: "3", label: "Kurutma" },
+  { id: "4", label: "Eritme" },
 ];
 
 export const PARTI_ACTION_TYPES = {
@@ -76,7 +76,6 @@ export default function PartiTakibi() {
   // Refs
   const operatorInputRef = useRef<HTMLInputElement>(null);
   const partiInputRef = useRef<HTMLInputElement>(null);
-  const altPartiInputRef = useRef<HTMLInputElement>(null);
 
   // İlk yüklemede Operatör ID'ye odaklan
   useEffect(() => {
@@ -142,7 +141,7 @@ export default function PartiTakibi() {
     },
   });
 
-  // Operatör ID sorgulama
+  // Operatör ID sorgulama (NFC okutulduğunda Enter otomatik tetiklenir)
   const handleFetchOperator = async (idToSearch?: string) => {
     const searchId = (idToSearch || operatorInput).trim();
     if (!searchId) return;
@@ -159,10 +158,14 @@ export default function PartiTakibi() {
       } else {
         toast.error("Operatör bulunamadı.");
         setOperator(null);
+        setOperatorInput("");
+        setTimeout(() => operatorInputRef.current?.focus(), 80);
       }
     } catch {
       toast.error("Operatör bulunamadı.");
       setOperator(null);
+      setOperatorInput("");
+      setTimeout(() => operatorInputRef.current?.focus(), 80);
     } finally {
       setIsFetchingOperator(false);
     }
@@ -178,7 +181,6 @@ export default function PartiTakibi() {
   const handlePartiKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" && partiNo.trim()) {
       e.preventDefault();
-      altPartiInputRef.current?.focus();
     }
   };
 
@@ -209,8 +211,7 @@ export default function PartiTakibi() {
       return;
     }
     if (!altParti.trim()) {
-      toast.error("Alt parti numarası giriniz!");
-      altPartiInputRef.current?.focus();
+      toast.error("Lütfen alt parti seçiniz (1, 2, 3, 4)!");
       return;
     }
     if (!selectedIslem) {
@@ -277,11 +278,11 @@ export default function PartiTakibi() {
           )}
         </div>
 
-        {/* 1. OPERATÖR ID OKUTMA */}
+        {/* 1. OPERATÖR NFC / KART OKUTMA */}
         <div className="space-y-2">
           <label className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-1.5">
-            <User size={14} />
-            1. Operatör ID
+            <Scan size={14} className="text-indigo-500" />
+            1. Operatör NFC / Kart
           </label>
 
           {!operator ? (
@@ -294,7 +295,8 @@ export default function PartiTakibi() {
                 <input
                   ref={operatorInputRef}
                   type="text"
-                  placeholder="KART VEYA ID OKUTUN..."
+                  autoComplete="off"
+                  placeholder="NFC KARTINI OKUTUN..."
                   value={operatorInput}
                   onChange={(e) => setOperatorInput(e.target.value)}
                   onKeyDown={handleOperatorKeyDown}
@@ -307,7 +309,7 @@ export default function PartiTakibi() {
                 disabled={isFetchingOperator || !operatorInput.trim()}
                 className="px-4 py-3 bg-foreground text-background hover:opacity-90 disabled:opacity-40 rounded-xl font-bold text-xs tracking-wider uppercase transition-all cursor-pointer shrink-0"
               >
-                {isFetchingOperator ? "..." : "Tamam"}
+                {isFetchingOperator ? "..." : "Okut"}
               </button>
             </div>
           ) : (
@@ -327,56 +329,99 @@ export default function PartiTakibi() {
           )}
         </div>
 
-        {/* 2. PARTİ VE 3. ALT PARTİ ALANLARI */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {/* PARTİ NO */}
-          <div className="space-y-2">
+        {/* 2. PARTİ NO (Kompakt Kiosk Girişi - Sayısal Klavye Modu) */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
             <label className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-1.5">
               <Hash size={14} />
               2. Parti No
             </label>
+            {partiNo && (
+              <button
+                type="button"
+                onClick={() => setPartiNo("")}
+                className="text-[11px] font-bold text-muted-foreground hover:text-destructive px-1.5 py-0.5 cursor-pointer"
+              >
+                Temizle
+              </button>
+            )}
+          </div>
+
+          <div className="max-w-xs">
             <input
               ref={partiInputRef}
-              type="number"
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              autoComplete="off"
               placeholder="Örn: 104250"
               value={partiNo}
-              onChange={(e) => setPartiNo(e.target.value)}
+              onChange={(e) => {
+                const val = e.target.value.replace(/\D/g, "");
+                setPartiNo(val);
+              }}
               onKeyDown={handlePartiKeyDown}
               disabled={!operator}
               className={cn(
-                "w-full px-3.5 py-3 bg-secondary/60 border border-border rounded-xl font-mono text-base font-black text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-foreground focus:ring-1 focus:ring-foreground transition-all",
+                "w-full px-3.5 py-2.5 bg-secondary/60 border border-border rounded-xl font-mono text-base font-black text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-foreground focus:ring-1 focus:ring-foreground transition-all",
                 !operator && "opacity-40 cursor-not-allowed"
-              )}
-            />
-          </div>
-
-          {/* ALT PARTİ NO */}
-          <div className="space-y-2">
-            <label className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-1.5">
-              <Layers size={14} />
-              3. Alt Parti No
-            </label>
-            <input
-              ref={altPartiInputRef}
-              type="text"
-              placeholder={partiNo.trim() ? "Örn: 1, 2, A..." : "Önce Parti No"}
-              value={altParti}
-              onChange={(e) => setAltParti(e.target.value)}
-              disabled={!operator || !partiNo.trim()}
-              className={cn(
-                "w-full px-3.5 py-3 bg-secondary/60 border border-border rounded-xl font-mono text-base font-black text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-foreground focus:ring-1 focus:ring-foreground transition-all uppercase",
-                (!operator || !partiNo.trim()) && "opacity-40 cursor-not-allowed bg-muted/20"
               )}
             />
           </div>
         </div>
 
+        {/* 3. ALT PARTİ SEÇİMİ (1, 2, 3, 4 Dokunmatik Butonları) */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-1.5">
+              <Layers size={14} />
+              3. Alt Parti Seçimi
+            </label>
+            {altParti && (
+              <span className="text-[11px] font-mono font-bold px-2 py-0.5 bg-secondary border border-border rounded text-foreground">
+                Seçilen: {altParti}
+              </span>
+            )}
+          </div>
+          <div className="grid grid-cols-4 gap-2.5">
+            {["1", "2", "3", "4"].map((ap) => {
+              const isSelected = altParti === ap;
+              const isDisabled = !operator || !partiNo.trim();
+
+              return (
+                <button
+                  key={ap}
+                  type="button"
+                  disabled={isDisabled}
+                  onClick={() => setAltParti(ap)}
+                  className={cn(
+                    "py-4 px-3 rounded-xl border text-center font-black text-lg uppercase transition-all select-none cursor-pointer flex items-center justify-center active:scale-95 shadow-xs",
+                    isDisabled && "opacity-40 cursor-not-allowed pointer-events-none",
+                    isSelected
+                      ? "bg-foreground text-background border-foreground shadow-md scale-[1.03]"
+                      : "bg-secondary/60 border-border text-foreground hover:bg-secondary"
+                  )}
+                >
+                  {ap}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         {/* 4. İŞLEM SEÇİMİ (1, 2, 3, 4) */}
         <div className="space-y-2">
-          <label className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-1.5">
-            <Activity size={14} />
-            4. İşlem Seçimi
-          </label>
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-1.5">
+              <Activity size={14} />
+              4. İşlem Seçimi
+            </label>
+            {selectedIslem && (
+              <span className="text-[11px] font-mono font-bold px-2 py-0.5 bg-secondary border border-border rounded text-foreground">
+                Seçilen: {ISLEMLER.find((i) => i.id === selectedIslem)?.label || selectedIslem}
+              </span>
+            )}
+          </div>
           <div className="grid grid-cols-4 gap-2.5">
             {ISLEMLER.map((islem) => {
               const isSelected = selectedIslem === islem.id;
@@ -389,11 +434,11 @@ export default function PartiTakibi() {
                   disabled={isDisabled}
                   onClick={() => setSelectedIslem(islem.id)}
                   className={cn(
-                    "py-3.5 px-2 rounded-xl border text-center font-black text-sm uppercase transition-all select-none cursor-pointer flex flex-col items-center justify-center gap-1",
+                    "py-4 px-2 rounded-xl border text-center font-black text-sm uppercase transition-all select-none cursor-pointer flex flex-col items-center justify-center gap-1 active:scale-95 shadow-xs",
                     isDisabled && "opacity-40 cursor-not-allowed pointer-events-none",
                     isSelected
-                      ? "bg-foreground text-background border-foreground shadow-sm scale-[1.02]"
-                      : "bg-secondary/60 border-border text-muted-foreground hover:text-foreground hover:bg-secondary"
+                      ? "bg-foreground text-background border-foreground shadow-md scale-[1.03]"
+                      : "bg-secondary/60 border-border text-foreground hover:text-foreground hover:bg-secondary"
                   )}
                 >
                   <span className="text-xs font-mono opacity-60">#{islem.id}</span>
@@ -404,20 +449,20 @@ export default function PartiTakibi() {
           </div>
         </div>
 
-        {/* 5. OPERASYON BUTONLARI (BAŞLA / BİTİR) */}
-        <div className="pt-2 border-t border-border flex items-center gap-3">
+        {/* 5. OPERASYON BUTONLARI (BAŞLA / BİTİR - Genişletilmiş Kiosk Butonları) */}
+        <div className="pt-3 border-t border-border flex items-center gap-3">
           {/* BAŞLA BUTONU (Solid Green) */}
           <button
             onClick={() => handleOperationSubmit(PARTI_ACTION_TYPES.BASLA)}
             disabled={!isFormValid || isSubmitting}
             className={cn(
-              "flex-1 py-4 px-4 rounded-xl font-black text-base uppercase tracking-wider flex items-center justify-center gap-2 transition-all select-none",
+              "flex-1 py-5 px-4 rounded-xl font-black text-lg uppercase tracking-wider flex items-center justify-center gap-2.5 transition-all select-none shadow-md",
               isFormValid && !isSubmitting
-                ? "bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer active:scale-95 shadow-md"
+                ? "bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer active:scale-95 shadow-emerald-950/20"
                 : "bg-secondary text-muted-foreground/40 border border-border cursor-not-allowed"
             )}
           >
-            <Play size={18} className="fill-current" />
+            <Play size={20} className="fill-current" />
             <span>{isSubmitting ? "KAYDEDİLİYOR..." : "BAŞLA"}</span>
           </button>
 
@@ -426,13 +471,13 @@ export default function PartiTakibi() {
             onClick={() => handleOperationSubmit(PARTI_ACTION_TYPES.BITIR)}
             disabled={!isFormValid || isSubmitting}
             className={cn(
-              "flex-1 py-4 px-4 rounded-xl font-black text-base uppercase tracking-wider flex items-center justify-center gap-2 transition-all select-none",
+              "flex-1 py-5 px-4 rounded-xl font-black text-lg uppercase tracking-wider flex items-center justify-center gap-2.5 transition-all select-none shadow-md",
               isFormValid && !isSubmitting
-                ? "bg-red-600 hover:bg-red-500 text-white cursor-pointer active:scale-95 shadow-md"
+                ? "bg-red-600 hover:bg-red-500 text-white cursor-pointer active:scale-95 shadow-red-950/20"
                 : "bg-secondary text-muted-foreground/40 border border-border cursor-not-allowed"
             )}
           >
-            <Square size={18} className="fill-current" />
+            <Square size={20} className="fill-current" />
             <span>{isSubmitting ? "KAYDEDİLİYOR..." : "BİTİR"}</span>
           </button>
         </div>

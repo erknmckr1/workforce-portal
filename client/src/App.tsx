@@ -121,14 +121,8 @@ function App() {
             {/* 2.5 MES Terminal (Üretim Ekranları) - Tam Ekran */}
             <Route path="/uretim/:section/:areaName" element={<UretimTerminal />} />
 
-            {/* 2.6 Parti Takibi - Özel Bağımsız Layout (Sidebar Yok - Tüm Kullanıcılar) */}
-            <Route
-              element={
-                <AuthLayoutWrapper>
-                  <PartiTakibiLayout />
-                </AuthLayoutWrapper>
-              }
-            >
+            {/* 2.6 Parti Takibi - Bağımsız Kiosk Terminal (Şifresiz / Doğrudan Erişim) */}
+            <Route element={<PartiTakibiLayout />}>
               <Route path="/parti-takibi" element={<PartiTakibi />} />
             </Route>
 

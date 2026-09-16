@@ -74,10 +74,10 @@ export const createPartiLog = async (req: Request, res: Response) => {
 
     // 4. Varsayılan İşlem İsimlendirmesi
     const defaultLabels: Record<string, string> = {
-      "1": "İşlem 1",
-      "2": "İşlem 2",
-      "3": "İşlem 3",
-      "4": "İşlem 4",
+      "1": "Tambır",
+      "2": "Çt1",
+      "3": "Kurutma",
+      "4": "Eritme",
     };
     const finalIslemLabel =
       islem_label || defaultLabels[String(islem_id)] || `İşlem ${islem_id}`;
