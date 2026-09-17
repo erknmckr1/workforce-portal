@@ -252,7 +252,6 @@ export default function DataExport() {
     data: responseData,
     isLoading,
     isFetching,
-    refetch,
   } = useQuery({
     queryKey: ["exportData", selectedDatasetId, startDate, endDate, selectedArea],
     queryFn: async () => {
