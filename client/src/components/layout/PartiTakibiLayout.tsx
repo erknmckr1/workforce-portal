@@ -30,11 +30,11 @@ export default function PartiTakibiLayout() {
       )}
 
       {/* ÜST HEADER (Kiosk Modu - Şifresiz / Bağımsız Terminal) */}
-      <header className="h-16 border-b border-border bg-card/60 backdrop-blur-xl px-6 flex items-center justify-between shrink-0 z-30">
+      <header className="h-14 border-b border-border bg-card/60 backdrop-blur-xl px-4 sm:px-6 flex items-center justify-between shrink-0 z-30">
         {/* Sol Taraf: Logo & Başlık */}
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-500 flex items-center justify-center shadow-xs">
-            <Layers size={20} />
+          <div className="w-8 h-8 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-500 flex items-center justify-center shadow-xs">
+            <Layers size={18} />
           </div>
           <div>
             <div className="flex items-center gap-2">
@@ -49,30 +49,30 @@ export default function PartiTakibiLayout() {
         </div>
 
         {/* Sağ Taraf: İzin Girişi & Tema Değiştir */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
           {/* İzin Talebi / Kiosk Butonu */}
           <button
             onClick={() => setIsKioskOpen(true)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer active:scale-95 uppercase tracking-wider"
+            className="flex items-center gap-1.5 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer active:scale-95 uppercase tracking-wider"
             title="İzin Talebi / Kiosk Ekranı"
           >
-            <CalendarDays size={16} />
+            <CalendarDays size={15} />
             <span>İzin Girişi</span>
           </button>
 
           {/* Tema Değiştir */}
           <button
             onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-            className="p-2.5 bg-secondary hover:bg-muted text-muted-foreground hover:text-foreground rounded-xl border border-border transition-all cursor-pointer active:scale-95"
+            className="p-2 bg-secondary hover:bg-muted text-muted-foreground hover:text-foreground rounded-xl border border-border transition-all cursor-pointer active:scale-95"
             title="Temayı Değiştir"
           >
-            {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+            {theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}
           </button>
         </div>
       </header>
 
       {/* SAYFA İÇERİĞİ (Full Width / Split View Ready) */}
-      <main className="flex-1 overflow-y-auto bg-muted/20 custom-scrollbar p-4 lg:p-6">
+      <main className="flex-1 overflow-y-auto bg-muted/20 custom-scrollbar p-3 sm:p-4 lg:p-6">
         <div className="w-full h-full">
           <Outlet />
         </div>
