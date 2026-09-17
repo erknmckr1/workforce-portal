@@ -14,10 +14,21 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  css: {
+    transformer: 'lightningcss',
+    lightningcss: {
+      targets: {
+        chrome: 101 << 16,
+      },
+    },
+  },
+  build: {
+    target: ['chrome101', 'es2020'],
+    cssTarget: 'chrome101',
+  },
   server: {
     host: true,
     port: 5173,
     allowedHosts: [".ngrok-free.dev", ".ngrok-free.app", ".loca.lt", "192.168.0.77"],
   },
-
 })
