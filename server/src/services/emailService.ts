@@ -203,7 +203,7 @@ export const sendScrapWeightWarningEmail = async (
     resultGram: number,
     percentDiff: number
 ): Promise<EmailDeliveryResult> => {
-    const toEmail = process.env.SCRAP_WARNING_EMAIL || "atolyemerkez@midas.com.tr";
+    const toEmail = process.env.SCRAP_WARNING_EMAIL || "gguzel@midas.com.tr";
 
     const formattedDiff = percentDiff > 0 ? `+${percentDiff.toFixed(2)}` : percentDiff.toFixed(2);
 

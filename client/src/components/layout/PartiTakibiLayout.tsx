@@ -45,9 +45,6 @@ export default function PartiTakibiLayout() {
                 Parti Takibi Kiosk
               </span>
             </div>
-            <p className="text-[11px] text-muted-foreground hidden md:block">
-              Parti ve Lot Süreç Yönetim Terminali
-            </p>
           </div>
         </div>
 

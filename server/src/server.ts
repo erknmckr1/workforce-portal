@@ -14,6 +14,7 @@ import mesRoutes from "./routes/mesRoutes";
 import phoneDirectoryRoutes from "./routes/phoneDirectoryRoutes";
 import gameRoutes from "./routes/gameRoutes";
 import documentRoutes from "./routes/documentRoutes";
+import exportRoutes from "./routes/exportRoutes";
 import { startLeaveBalanceSyncScheduler } from "./services/leaveBalanceSyncScheduler";
 import itRequestRoutes from "./routes/itRequestRoutes";
 import { ensureApplicationSchema } from "./services/schemaMigrationService";
@@ -63,6 +64,7 @@ app.use("/api/phone-directory", phoneDirectoryRoutes);
 app.use("/api/game", gameRoutes);
 app.use("/api/documents", documentRoutes);
 app.use("/api/it-requests", itRequestRoutes);
+app.use("/api/export", exportRoutes);
 
 // Fotoğrafları frontend için /photos adresi ile dışarı aç
 const photoPath =

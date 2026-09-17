@@ -147,8 +147,15 @@ export const ensureApplicationSchema = async () => {
     // Tablo henüz yoksa oluştur
     console.log("mes_parti_logs tablosu bulunamadı, oluşturuluyor...");
     const { MesPartiLog } = await import("../models");
-    await MesPartiLog.sync();
     console.log("Schema updated: mes_parti_logs table created.");
+  }
+
+  try {
+    const { SystemAuditLog } = await import("../models");
+    await SystemAuditLog.sync();
+    console.log("Schema verified: system_audit_logs table ready.");
+  } catch (err) {
+    console.error("system_audit_logs sync error:", err);
   }
 };
 

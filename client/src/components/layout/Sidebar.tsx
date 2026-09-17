@@ -16,6 +16,7 @@ import {
   CalendarRange,
   Phone,
   LifeBuoy,
+  FileSpreadsheet,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/authStore";
@@ -155,6 +156,7 @@ const menuItems = [
       "Revir",
       "Güvenlik",
       "Ustabasi",
+      "Mühendis",
     ],
     children: [
       {
@@ -209,6 +211,12 @@ const menuItems = [
         title: "Raporlar",
         path: "/reports",
         roles: ["Admin", "İK", "Müdür"],
+      },
+      {
+        title: "Veri Dışa Aktarma",
+        path: "/export-data",
+        icon: FileSpreadsheet,
+        roles: ["Admin", "Müdür", "Yönetici", "Mühendis"],
       },
     ],
   },

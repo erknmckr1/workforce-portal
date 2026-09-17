@@ -32,6 +32,7 @@ import PhoneDirectoryManager from "./pages/settings/PhoneDirectoryManager";
 import DocumentManager from "./pages/settings/DocumentManager";
 import ITRequests from "./pages/ITRequests";
 import ITSupportDashboard from "./pages/settings/ITSupportDashboard";
+import DataExport from "./pages/DataExport";
 import { ThemeProvider } from "./components/theme-provider";
 import { ConfirmProvider } from "@/providers/ConfirmProvider";
 import "./App.css";
@@ -208,6 +209,11 @@ function App() {
               <Route element={<ProtectedRoute allowedRoles={["Admin", "Yönetici", "Mühendis"]} />}>
                 <Route path="mes-screens" element={<MesScreensNavigator />} />
                 <Route path="mes-measurements" element={<MeasurementMonitoring />} />
+              </Route>
+
+              {/* Veri Dışa Aktarma Merkezi */}
+              <Route element={<ProtectedRoute allowedRoles={["Admin", "Müdür", "Yönetici", "Mühendis"]} />}>
+                <Route path="export-data" element={<DataExport />} />
               </Route>
 
               {/* IT Destek Yönetim Paneli */}
