@@ -1,0 +1,16 @@
+{
+  "short_name": "Parti Takibi",
+  "name": "Midas Parti Takibi Kiosk",
+  "icons": [
+    {
+      "src": "/vite.svg",
+      "type": "image/svg+xml",
+      "sizes": "192x192 512x512"
+    }
+  ],
+  "start_url": "/parti-takibi",
+  "background_color": "#ffffff",
+  "theme_color": "#4f46e5",
+  "display": "standalone",
+  "orientation": "any"
+}

@@ -30,18 +30,18 @@ export default function PartiTakibiLayout() {
       )}
 
       {/* ÜST HEADER (Kiosk Modu - Şifresiz / Bağımsız Terminal) */}
-      <header className="h-14 border-b border-border bg-card/60 backdrop-blur-xl px-4 sm:px-6 flex items-center justify-between shrink-0 z-30">
+      <header className="h-12 sm:h-14 border-b border-border bg-card/60 backdrop-blur-xl px-3 sm:px-6 flex items-center justify-between shrink-0 z-30">
         {/* Sol Taraf: Logo & Başlık */}
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-500 flex items-center justify-center shadow-xs">
-            <Layers size={18} />
+        <div className="flex items-center gap-2.5">
+          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-500 flex items-center justify-center shadow-xs">
+            <Layers size={16} />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <span className="font-black text-sm tracking-tight text-foreground uppercase">
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <span className="font-black text-xs sm:text-sm tracking-tight text-foreground uppercase">
                 Midas
               </span>
-              <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-500 border border-indigo-500/20">
+              <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider px-1.5 sm:px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-500 border border-indigo-500/20">
                 Parti Takibi Kiosk
               </span>
             </div>
@@ -49,30 +49,30 @@ export default function PartiTakibiLayout() {
         </div>
 
         {/* Sağ Taraf: İzin Girişi & Tema Değiştir */}
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2">
           {/* İzin Talebi / Kiosk Butonu */}
           <button
             onClick={() => setIsKioskOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer active:scale-95 uppercase tracking-wider"
+            className="flex items-center gap-1 px-2 sm:px-3 py-1 sm:py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[10px] sm:text-xs rounded-lg shadow-xs transition-all cursor-pointer active:scale-95 uppercase tracking-wider"
             title="İzin Talebi / Kiosk Ekranı"
           >
-            <CalendarDays size={15} />
+            <CalendarDays size={13} />
             <span>İzin Girişi</span>
           </button>
 
           {/* Tema Değiştir */}
           <button
             onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-            className="p-2 bg-secondary hover:bg-muted text-muted-foreground hover:text-foreground rounded-xl border border-border transition-all cursor-pointer active:scale-95"
+            className="p-1.5 sm:p-2 bg-secondary hover:bg-muted text-muted-foreground hover:text-foreground rounded-xl border border-border transition-all cursor-pointer active:scale-95"
             title="Temayı Değiştir"
           >
-            {theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}
+            {theme === "dark" ? <Sun size={14} /> : <Moon size={14} />}
           </button>
         </div>
       </header>
 
       {/* SAYFA İÇERİĞİ (Full Width / Split View Ready) */}
-      <main className="flex-1 overflow-y-auto bg-muted/20 custom-scrollbar p-3 sm:p-4 lg:p-6">
+      <main className="flex-1 overflow-y-auto bg-muted/20 custom-scrollbar p-2.5 sm:p-4 lg:p-6">
         <div className="w-full h-full">
           <Outlet />
         </div>

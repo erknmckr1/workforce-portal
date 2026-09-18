@@ -1,7 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import apiClient from "@/lib/api";
-import * as XLSX from "xlsx";
 import { format } from "date-fns";
 import { tr } from "date-fns/locale";
 import {
@@ -247,7 +246,9 @@ export default function DataExport() {
     }
   };
 
-  // Veri Çekme Sorgusu
+  const [isExporting, setIsExporting] = useState(false);
+
+  // Veri Çekme Sorgusu (Önizleme ve Toplam Sayı için)
   const {
     data: responseData,
     isLoading,
@@ -261,17 +262,17 @@ export default function DataExport() {
           startDate: startDate || undefined,
           endDate: endDate || undefined,
           areaName: activeDataset.hasAreaFilter && selectedArea !== "all" ? selectedArea : undefined,
-          limit: 10000,
         },
       });
-      return res.data as { dataset: string; count: number; data: any[] };
+      return res.data as { dataset: string; count: number; totalCount: number; data: any[] };
     },
   });
 
   const records = responseData?.data || [];
+  const totalCount = responseData?.totalCount ?? records.length;
   const enabledColumns = currentColumns.filter((c) => c.enabled);
 
-  // Tarih ve Sayı formatlayıcı (Önizleme ve Excel için)
+  // Tarih ve Sayı formatlayıcı (Önizleme tablosu için)
   const formatCellValue = (key: string, val: any) => {
     if (val === null || val === undefined) return "-";
     if (
@@ -306,7 +307,7 @@ export default function DataExport() {
 
   // İndirme akışını başlat (Önce kullanıcı doğrulama modalını aç)
   const handleInitiateExport = () => {
-    if (!records || records.length === 0) {
+    if (totalCount === 0) {
       toast.error("Dışa aktarılacak kayıt bulunamadı.");
       return;
     }
@@ -319,71 +320,59 @@ export default function DataExport() {
     setIsAuthModalOpen(true);
   };
 
-  // Operatör ID modalından gelen ID'yi doğrula ve denetim logunu oluştur
+  // Backend üzerinden Excel oluştur ve doğrudan tarayıcıya indir
   const handleOperatorSubmit = async (operatorId: string) => {
+    setIsAuthModalOpen(false);
+    setIsExporting(true);
+    const toastId = toast.loading("Excel dosyası sunucuda hazırlanıyor, lütfen bekleyiniz...");
+
     try {
-      const response = await apiClient.post("/export/log-download", {
-        operatorId,
-        dataset: activeDataset.id,
-        datasetTitle: activeDataset.title,
-        areaName: selectedArea,
-        startDate,
-        endDate,
-        recordCount: records.length,
-        columns: enabledColumns.map((c) => c.customLabel.trim() || c.defaultLabel),
-      });
+      const response = await apiClient.post(
+        "/export/download-excel",
+        {
+          operatorId,
+          dataset: activeDataset.id,
+          datasetTitle: activeDataset.title,
+          areaName: selectedArea,
+          startDate: startDate || undefined,
+          endDate: endDate || undefined,
+          columns: enabledColumns.map((c) => ({
+            key: c.key,
+            label: c.customLabel.trim() || c.defaultLabel,
+          })),
+        },
+        {
+          responseType: "blob",
+        }
+      );
 
-      if (response.data?.success) {
-        setIsAuthModalOpen(false);
-        executeExport(response.data.operatorName || operatorId);
-      } else {
-        toast.error(response.data?.message || "Doğrulama yapılamadı.");
-      }
-    } catch (err: any) {
-      const msg =
-        err?.response?.data?.message ||
-        err?.message ||
-        "Operatör kimliği doğrulanamadı.";
-      toast.error(msg);
-    }
-  };
-
-  // Doğrulama onaylandıktan sonra Excel dosyasını oluştur ve indir
-  const executeExport = (operatorName: string) => {
-    try {
-      // 1. Veriyi sadece seçili sütunlarla ve kullanıcının özel başlıklarıyla dönüştür
-      const excelData = records.map((row) => {
-        const item: Record<string, any> = {};
-        enabledColumns.forEach((col) => {
-          const headerName = col.customLabel.trim() || col.defaultLabel;
-          const rawValue = row[col.key];
-          item[headerName] = formatCellValue(col.key, rawValue);
-        });
-        return item;
-      });
-
-      // 2. SheetJS ile Excel çalışma sayfası oluştur
-      const worksheet = XLSX.utils.json_to_sheet(excelData);
-
-      // Sütun genişliklerini otomatik ayarla
-      const colWidths = enabledColumns.map((col) => {
-        const titleLen = (col.customLabel || col.defaultLabel).length;
-        return { wch: Math.max(titleLen + 5, 14) };
-      });
-      worksheet["!cols"] = colWidths;
-
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, activeDataset.title.slice(0, 30));
-
-      // 3. Dosya adı oluştur ve indir
+      // İndirilen dosya adını al veya varsayılan oluştur
       const dateStr = format(new Date(), "yyyyMMdd_HHmm");
       const fileName = `${activeDataset.id}_${dateStr}.xlsx`;
-      XLSX.writeFile(workbook, fileName);
 
-      toast.success(`Sn. ${operatorName}, ${records.length} kayıt içeren "${fileName}" başarıyla indirildi ve sisteme kaydedildi!`);
-    } catch (error) {
-      console.error("Excel Export Error:", error);
-      toast.error("Excel oluşturulurken bir hata oluştu.");
+      // Blob verisinden indirme linki tetikle
+      const blob = new Blob([response.data], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", fileName);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+
+      const serverCount = response.headers["x-record-count"] || totalCount;
+      toast.success(`${serverCount} kayıt içeren Excel başarıyla indirildi!`, { id: toastId });
+    } catch (err: any) {
+      console.error("Backend Excel Export Error:", err);
+      toast.error(
+        err?.response?.data?.message || "Excel dosyası oluşturulurken bir hata oluştu.",
+        { id: toastId }
+      );
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -397,19 +386,23 @@ export default function DataExport() {
         action={
           <button
             onClick={handleInitiateExport}
-            disabled={isLoading || records.length === 0}
+            disabled={isLoading || isExporting || totalCount === 0}
             className={cn(
               "px-5 py-3 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg transition-all select-none cursor-pointer active:scale-95 shrink-0",
-              records.length > 0 && !isLoading
+              totalCount > 0 && !isLoading && !isExporting
                 ? "bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-950/20"
                 : "bg-secondary text-muted-foreground/40 border border-border cursor-not-allowed"
             )}
           >
-            <Download size={16} />
-            <span>Excel İndir (.xlsx)</span>
-            {records.length > 0 && (
+            {isExporting ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : (
+              <Download size={16} />
+            )}
+            <span>{isExporting ? "Excel Hazırlanıyor..." : "Excel İndir (.xlsx)"}</span>
+            {totalCount > 0 && (
               <span className="ml-1 text-[11px] font-mono px-1.5 py-0.5 rounded bg-black/20 text-white">
-                {records.length}
+                {totalCount.toLocaleString("tr-TR")}
               </span>
             )}
           </button>
@@ -671,7 +664,7 @@ export default function DataExport() {
               4. Canlı Tablo Önizleme
             </h2>
             <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-secondary border border-border text-foreground">
-              Toplam {records.length} Kayıt (İlk 10 Önizleniyor)
+              Toplam {totalCount.toLocaleString("tr-TR")} Kayıt (İlk {records.length} Önizleniyor)
             </span>
           </div>
 
@@ -681,16 +674,20 @@ export default function DataExport() {
             </span>
             <button
               onClick={handleInitiateExport}
-              disabled={isLoading || records.length === 0}
+              disabled={isLoading || isExporting || totalCount === 0}
               className={cn(
                 "px-3.5 py-1.5 rounded-lg font-bold text-xs uppercase tracking-wider flex items-center gap-1.5 transition-all select-none cursor-pointer active:scale-95 shrink-0",
-                records.length > 0 && !isLoading
+                totalCount > 0 && !isLoading && !isExporting
                   ? "bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm"
                   : "bg-secondary text-muted-foreground/40 border border-border cursor-not-allowed"
               )}
             >
-              <Download size={13} />
-              <span>Excel İndir</span>
+              {isExporting ? (
+                <Loader2 size={13} className="animate-spin" />
+              ) : (
+                <Download size={13} />
+              )}
+              <span>{isExporting ? "Hazırlanıyor..." : "Excel İndir"}</span>
             </button>
           </div>
         </div>

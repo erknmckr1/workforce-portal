@@ -249,19 +249,19 @@ export default function PartiTakibi() {
       {/* ========================================================= */}
       {/* 1. KİOSK FORM ALANI (Tablette Kompakt Üstte, Desktopta Orijinal Geniş Sol 5 Kolon) */}
       {/* ========================================================= */}
-      <div className="xl:col-span-5 bg-card border border-border rounded-2xl p-4 sm:p-5 xl:p-6 shadow-xs flex flex-col gap-3.5 xl:gap-6">
+      <div className="xl:col-span-5 bg-card border border-border rounded-2xl p-3.5 sm:p-4 xl:p-6 shadow-xs flex flex-col gap-2.5 sm:gap-3 xl:gap-6">
         
         {/* BAŞLIK */}
-        <div className="flex items-center justify-between border-b border-border pb-2.5 xl:pb-4">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-foreground text-background rounded-lg">
-              <Layers size={18} />
+        <div className="flex items-center justify-between border-b border-border pb-2 xl:pb-4">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 xl:p-2 bg-foreground text-background rounded-lg">
+              <Layers size={16} />
             </div>
             <div>
-              <h2 className="text-sm sm:text-base font-black uppercase tracking-tight text-foreground">
+              <h2 className="text-xs sm:text-sm xl:text-base font-black uppercase tracking-tight text-foreground">
                 Parti Veri Girişi
               </h2>
-              <p className="text-[11px] xl:text-xs text-muted-foreground font-medium">
+              <p className="text-[10px] xl:text-xs text-muted-foreground font-medium hidden sm:block">
                 Operasyon başlatma veya tamamlama kaydı
               </p>
             </div>
@@ -269,19 +269,19 @@ export default function PartiTakibi() {
           {operator && (
             <button
               onClick={() => resetForm(true)}
-              className="px-2.5 py-1.5 bg-secondary hover:bg-destructive hover:text-white text-muted-foreground rounded-lg text-xs font-bold transition-colors flex items-center gap-1 cursor-pointer"
+              className="px-2 py-1 xl:px-2.5 xl:py-1.5 bg-secondary hover:bg-destructive hover:text-white text-muted-foreground rounded-lg text-[11px] xl:text-xs font-bold transition-colors flex items-center gap-1 cursor-pointer"
               title="Operatörü Sıfırla"
             >
-              <RotateCcw size={13} />
+              <RotateCcw size={12} />
               <span>Sıfırla</span>
             </button>
           )}
         </div>
 
         {/* 1. OPERATÖR NFC / KART OKUTMA */}
-        <div className="space-y-1.5 xl:space-y-2">
-          <label className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-1.5">
-            <Scan size={14} className="text-indigo-500" />
+        <div className="space-y-1 xl:space-y-2">
+          <label className="text-[11px] xl:text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-1.5">
+            <Scan size={13} className="text-indigo-500" />
             1. Operatör NFC / Kart
           </label>
 
@@ -289,8 +289,8 @@ export default function PartiTakibi() {
             <div className="flex items-center gap-2">
               <div className="relative flex-1">
                 <Barcode
-                  className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground"
-                  size={16}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                  size={15}
                 />
                 <input
                   ref={operatorInputRef}
@@ -301,48 +301,48 @@ export default function PartiTakibi() {
                   onChange={(e) => setOperatorInput(e.target.value)}
                   onKeyDown={handleOperatorKeyDown}
                   disabled={isFetchingOperator}
-                  className="w-full pl-10 pr-3 py-2.5 bg-secondary/60 border border-border rounded-xl font-mono text-sm font-bold text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-foreground focus:ring-1 focus:ring-foreground transition-all uppercase"
+                  className="w-full pl-9 pr-2.5 py-2 xl:py-2.5 bg-secondary/60 border border-border rounded-xl font-mono text-xs sm:text-sm font-bold text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-foreground focus:ring-1 focus:ring-foreground transition-all uppercase"
                 />
               </div>
               <button
                 onClick={() => handleFetchOperator()}
                 disabled={isFetchingOperator || !operatorInput.trim()}
-                className="px-4 py-2.5 bg-foreground text-background hover:opacity-90 disabled:opacity-40 rounded-xl font-bold text-xs tracking-wider uppercase transition-all cursor-pointer shrink-0"
+                className="px-3.5 py-2 xl:px-4 xl:py-2.5 bg-foreground text-background hover:opacity-90 disabled:opacity-40 rounded-xl font-bold text-xs tracking-wider uppercase transition-all cursor-pointer shrink-0"
               >
                 {isFetchingOperator ? "..." : "Okut"}
               </button>
             </div>
           ) : (
-            <div className="p-2.5 xl:p-3 bg-secondary/80 border border-border rounded-xl flex items-center justify-between">
+            <div className="p-2 xl:p-3 bg-secondary/80 border border-border rounded-xl flex items-center justify-between">
               <div className="flex items-center gap-2.5 xl:gap-3">
-                <div className="w-8 h-8 xl:w-9 xl:h-9 rounded-lg bg-foreground text-background font-bold text-xs xl:text-sm flex items-center justify-center">
+                <div className="w-7 h-7 xl:w-9 xl:h-9 rounded-lg bg-foreground text-background font-bold text-xs xl:text-sm flex items-center justify-center">
                   {operator.name?.[0] || "O"}
                 </div>
                 <div className="text-xs sm:text-sm font-black text-foreground uppercase">
                   {operator.name} {operator.surname}
                 </div>
               </div>
-              <span className="text-[10px] xl:text-[11px] font-bold px-2 py-0.5 bg-emerald-600 text-white rounded-md">
+              <span className="text-[9px] xl:text-[11px] font-bold px-1.5 py-0.5 bg-emerald-600 text-white rounded-md">
                 Aktif
               </span>
             </div>
           )}
         </div>
 
-        {/* 2. PARTİ NO & 3. ALT PARTİ (Tablette yan yana kompakt, Desktopta alt alta orijinal) */}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-1 gap-3.5 xl:gap-6">
+        {/* 2. PARTİ NO & 3. ALT PARTİ (Tablette yan yana 2 kolon, Desktopta alt alta geniş) */}
+        <div className="grid grid-cols-2 xl:grid-cols-1 gap-2.5 sm:gap-3.5 xl:gap-6">
           {/* 2. PARTİ NO */}
-          <div className="space-y-1.5 xl:space-y-2">
+          <div className="space-y-1 xl:space-y-2">
             <div className="flex items-center justify-between">
-              <label className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-1.5">
-                <Hash size={14} />
+              <label className="text-[11px] xl:text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-1">
+                <Hash size={13} />
                 2. Parti No
               </label>
               {partiNo && (
                 <button
                   type="button"
                   onClick={() => setPartiNo("")}
-                  className="text-[10px] xl:text-[11px] font-bold text-muted-foreground hover:text-destructive px-1.5 py-0.5 cursor-pointer"
+                  className="text-[9px] xl:text-[11px] font-bold text-muted-foreground hover:text-destructive px-1 py-0.5 cursor-pointer"
                 >
                   Temizle
                 </button>
@@ -365,7 +365,7 @@ export default function PartiTakibi() {
                 onKeyDown={handlePartiKeyDown}
                 disabled={!operator}
                 className={cn(
-                  "w-full h-11 xl:h-auto px-3.5 py-2.5 bg-secondary/60 border border-border rounded-xl font-mono text-base font-black text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-foreground focus:ring-1 focus:ring-foreground transition-all",
+                  "w-full h-10 xl:h-auto px-3 py-2 xl:py-2.5 bg-secondary/60 border border-border rounded-xl font-mono text-sm sm:text-base font-black text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-foreground focus:ring-1 focus:ring-foreground transition-all",
                   !operator && "opacity-40 cursor-not-allowed"
                 )}
               />
@@ -373,19 +373,19 @@ export default function PartiTakibi() {
           </div>
 
           {/* 3. ALT PARTİ SEÇİMİ (1, 2, 3, 4) */}
-          <div className="space-y-1.5 xl:space-y-2">
+          <div className="space-y-1 xl:space-y-2">
             <div className="flex items-center justify-between">
-              <label className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-1.5">
-                <Layers size={14} />
-                3. Alt Parti Seçimi
+              <label className="text-[11px] xl:text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-1">
+                <Layers size={13} />
+                3. Alt Parti
               </label>
               {altParti && (
-                <span className="text-[10px] xl:text-[11px] font-mono font-bold px-1.5 py-0.5 bg-secondary border border-border rounded text-foreground">
+                <span className="text-[9px] xl:text-[11px] font-mono font-bold px-1.5 py-0.5 bg-secondary border border-border rounded text-foreground">
                   Seçilen: {altParti}
                 </span>
               )}
             </div>
-            <div className="grid grid-cols-4 gap-2 xl:gap-2.5">
+            <div className="grid grid-cols-4 gap-1.5 xl:gap-2.5">
               {["1", "2", "3", "4"].map((ap) => {
                 const isSelected = altParti === ap;
                 const isDisabled = !operator || !partiNo.trim();
@@ -397,7 +397,7 @@ export default function PartiTakibi() {
                     disabled={isDisabled}
                     onClick={() => setAltParti(ap)}
                     className={cn(
-                      "h-11 xl:h-auto xl:py-4 px-3 rounded-xl border text-center font-black text-base xl:text-lg uppercase transition-all select-none cursor-pointer flex items-center justify-center active:scale-95 shadow-xs",
+                      "h-10 xl:h-auto xl:py-4 px-2 rounded-xl border text-center font-black text-sm sm:text-base xl:text-lg uppercase transition-all select-none cursor-pointer flex items-center justify-center active:scale-95 shadow-xs",
                       isDisabled && "opacity-40 cursor-not-allowed pointer-events-none",
                       isSelected
                         ? "bg-foreground text-background border-foreground shadow-md scale-[1.03]"
@@ -413,19 +413,19 @@ export default function PartiTakibi() {
         </div>
 
         {/* 4. İŞLEM SEÇİMİ (Tambır, Çt1, Kurutma, Eritme) */}
-        <div className="space-y-1.5 xl:space-y-2">
+        <div className="space-y-1 xl:space-y-2">
           <div className="flex items-center justify-between">
-            <label className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-1.5">
-              <Activity size={14} />
+            <label className="text-[11px] xl:text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-1">
+              <Activity size={13} />
               4. İşlem Seçimi
             </label>
             {selectedIslem && (
-              <span className="text-[10px] xl:text-[11px] font-mono font-bold px-2 py-0.5 bg-secondary border border-border rounded text-foreground">
-                Seçilen: {ISLEMLER.find((i) => i.id === selectedIslem)?.label || selectedIslem}
+              <span className="text-[9px] xl:text-[11px] font-mono font-bold px-1.5 py-0.5 bg-secondary border border-border rounded text-foreground">
+                {ISLEMLER.find((i) => i.id === selectedIslem)?.label || selectedIslem}
               </span>
             )}
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 xl:gap-2.5">
+          <div className="grid grid-cols-4 gap-1.5 xl:gap-2.5">
             {ISLEMLER.map((islem) => {
               const isSelected = selectedIslem === islem.id;
               const isDisabled = !operator || !partiNo.trim() || !altParti.trim();
@@ -437,15 +437,15 @@ export default function PartiTakibi() {
                   disabled={isDisabled}
                   onClick={() => setSelectedIslem(islem.id)}
                   className={cn(
-                    "h-11 xl:h-auto xl:py-4 px-2 rounded-xl border text-center font-black text-xs sm:text-sm uppercase transition-all select-none cursor-pointer flex xl:flex-col items-center justify-center gap-1.5 xl:gap-1 active:scale-95 shadow-xs",
+                    "h-10 xl:h-auto xl:py-4 px-1.5 rounded-xl border text-center font-black text-[11px] sm:text-xs xl:text-sm uppercase transition-all select-none cursor-pointer flex xl:flex-col items-center justify-center gap-1 xl:gap-1 active:scale-95 shadow-xs",
                     isDisabled && "opacity-40 cursor-not-allowed pointer-events-none",
                     isSelected
                       ? "bg-foreground text-background border-foreground shadow-md scale-[1.02] xl:scale-[1.03]"
                       : "bg-secondary/60 border-border text-foreground hover:text-foreground hover:bg-secondary"
                   )}
                 >
-                  <span className="text-[11px] xl:text-xs font-mono opacity-60">#{islem.id}</span>
-                  <span>{islem.label}</span>
+                  <span className="text-[10px] xl:text-xs font-mono opacity-60">#{islem.id}</span>
+                  <span className="truncate">{islem.label}</span>
                 </button>
               );
             })}
@@ -453,19 +453,19 @@ export default function PartiTakibi() {
         </div>
 
         {/* 5. OPERASYON BUTONLARI (BAŞLA / BİTİR) */}
-        <div className="pt-2.5 xl:pt-3 border-t border-border flex items-center gap-3">
+        <div className="pt-2 xl:pt-3 border-t border-border flex items-center gap-2.5 xl:gap-3">
           {/* BAŞLA BUTONU (Solid Green) */}
           <button
             onClick={() => handleOperationSubmit(PARTI_ACTION_TYPES.BASLA)}
             disabled={!isFormValid || isSubmitting}
             className={cn(
-              "flex-1 py-3.5 sm:py-4 xl:py-5 px-4 rounded-xl font-black text-base sm:text-lg uppercase tracking-wider flex items-center justify-center gap-2 xl:gap-2.5 transition-all select-none shadow-md",
+              "flex-1 py-3 xl:py-5 px-3 rounded-xl font-black text-sm sm:text-base xl:text-lg uppercase tracking-wider flex items-center justify-center gap-1.5 xl:gap-2.5 transition-all select-none shadow-md",
               isFormValid && !isSubmitting
                 ? "bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer active:scale-95 shadow-emerald-950/20"
                 : "bg-secondary text-muted-foreground/40 border border-border cursor-not-allowed"
             )}
           >
-            <Play size={20} className="fill-current" />
+            <Play size={18} className="fill-current" />
             <span>{isSubmitting ? "KAYDEDİLİYOR..." : "BAŞLA"}</span>
           </button>
 
@@ -474,13 +474,13 @@ export default function PartiTakibi() {
             onClick={() => handleOperationSubmit(PARTI_ACTION_TYPES.BITIR)}
             disabled={!isFormValid || isSubmitting}
             className={cn(
-              "flex-1 py-3.5 sm:py-4 xl:py-5 px-4 rounded-xl font-black text-base sm:text-lg uppercase tracking-wider flex items-center justify-center gap-2 xl:gap-2.5 transition-all select-none shadow-md",
+              "flex-1 py-3 xl:py-5 px-3 rounded-xl font-black text-sm sm:text-base xl:text-lg uppercase tracking-wider flex items-center justify-center gap-1.5 xl:gap-2.5 transition-all select-none shadow-md",
               isFormValid && !isSubmitting
                 ? "bg-red-600 hover:bg-red-500 text-white cursor-pointer active:scale-95 shadow-red-950/20"
                 : "bg-secondary text-muted-foreground/40 border border-border cursor-not-allowed"
             )}
           >
-            <Square size={20} className="fill-current" />
+            <Square size={18} className="fill-current" />
             <span>{isSubmitting ? "KAYDEDİLİYOR..." : "BİTİR"}</span>
           </button>
         </div>
