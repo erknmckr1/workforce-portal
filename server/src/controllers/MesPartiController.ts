@@ -61,13 +61,32 @@ export const createPartiLog = async (req: Request, res: Response) => {
       `Durum ${numericActionType}`;
 
     // 3. Operatör Doğrulama & İsim Zenginleştirme
+    const cleanOpId = String(operator_id).trim();
+    let finalOperatorId = cleanOpId;
     let finalOperatorName = operator_name;
-    if (!finalOperatorName) {
-      const op = await Operator.findOne({
-        where: { id_dec: String(operator_id).trim() },
-        attributes: ["name", "surname"],
-      });
-      if (op) {
+
+    const opConditions: any[] = [
+      { id_dec: cleanOpId },
+      { id_hex: cleanOpId },
+    ];
+
+    if (/^[0-9a-fA-F]+$/.test(cleanOpId) && cleanOpId.length <= 16) {
+      const parsedDec = parseInt(cleanOpId, 16);
+      if (!isNaN(parsedDec) && parsedDec > 0) {
+        opConditions.push({ id_dec: String(parsedDec) });
+      }
+    }
+
+    const op = await Operator.findOne({
+      where: {
+        [Op.or]: opConditions,
+      },
+      attributes: ["id_dec", "name", "surname"],
+    });
+
+    if (op) {
+      finalOperatorId = op.id_dec; // Her zaman standart id_dec kaydedilsin
+      if (!finalOperatorName) {
         finalOperatorName = `${op.name} ${op.surname}`.trim();
       }
     }
@@ -90,7 +109,7 @@ export const createPartiLog = async (req: Request, res: Response) => {
       islem_label: finalIslemLabel,
       action_type: numericActionType,
       action_label: finalActionLabel,
-      operator_id: String(operator_id).trim(),
+      operator_id: finalOperatorId,
       operator_name: finalOperatorName || null,
       record_date: new Date(),
     });

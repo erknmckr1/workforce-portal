@@ -1586,16 +1586,47 @@ export const getMeasureLimits = async (req: Request, res: Response) => {
 export const getOperatorById = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+    if (!id || !String(id).trim()) {
+      return res.status(400).json({ message: "Operatör ID gereklidir." });
+    }
+
+    const cleanId = String(id).trim();
+
+    // Hem decimal hem hex değerini içeren olası arama koşulları
+    const orConditions: any[] = [
+      { id_dec: cleanId },
+      { id_hex: cleanId },
+    ];
+
+    // Eğer gelen değer geçerli bir hex ise, decimal karşılığını da ara
+    if (/^[0-9a-fA-F]+$/.test(cleanId) && cleanId.length <= 16) {
+      const parsedDec = parseInt(cleanId, 16);
+      if (!isNaN(parsedDec) && parsedDec > 0) {
+        orConditions.push({ id_dec: String(parsedDec) });
+      }
+    }
+
+    // Eğer gelen değer numerik decimal ise, hex karşılığını da ara
+    if (/^\d+$/.test(cleanId)) {
+      const numVal = parseInt(cleanId, 10);
+      if (!isNaN(numVal) && numVal > 0) {
+        const hexVal = numVal.toString(16).toUpperCase();
+        orConditions.push({ id_hex: hexVal });
+      }
+    }
+
     const operator = await Operator.findOne({
-      where: { id_dec: id },
-      attributes: ["id_dec", "name", "surname", "photo_url"],
+      where: {
+        [Op.or]: orConditions,
+      },
+      attributes: ["id_dec", "id_hex", "name", "surname", "photo_url"],
     });
 
     if (!operator) {
       return res.status(404).json({ message: "Operatör bulunamadı." });
     }
 
-    const isOnBreak = await isOperatorOnBreak(id as string);
+    const isOnBreak = await isOperatorOnBreak(operator.id_dec);
 
     return res.status(200).json({
       ...operator.toJSON(),
