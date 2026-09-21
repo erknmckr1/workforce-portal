@@ -43,6 +43,7 @@ export interface ILeave {
     auth1_responded_at?: string;
     auth2_responded_at?: string;
     exit_confirmed_at?: string;
+    created_at?: string;
     User?: { 
       name: string; 
       surname: string; 

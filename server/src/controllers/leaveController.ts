@@ -391,7 +391,7 @@ export const getLeaves = async (req: Request, res: Response): Promise<any> => {
       }
     }
     // GÜVENLİK ÖNCELİKLİ GÖRÜNÜM: (is_security bayrağı gelmişse veya rolü güvenlikse)
-    else if (is_security === "true") {
+    else if (is_security === "true" || roleId === 6) {
       const todayStart = new Date();
       todayStart.setHours(0, 0, 0, 0);
       const todayEnd = new Date();
@@ -515,12 +515,22 @@ export const getLeaves = async (req: Request, res: Response): Promise<any> => {
         { model: Operator, as: "Approver2", attributes: ["name", "surname"] },
       ],
       order: [["created_at", "DESC"]],
-      limit: Number(limit),
-      offset: offset,
+      limit:
+        (is_security === "true" || roleId === 6) && !req.query.limit
+          ? undefined
+          : Number(limit),
+      offset:
+        (is_security === "true" || roleId === 6) && !req.query.limit
+          ? undefined
+          : offset,
       distinct: true,
     });
 
-    const totalPages = Math.ceil(count / Number(limit));
+    const currentLimit =
+      (is_security === "true" || roleId === 6) && !req.query.limit
+        ? undefined
+        : Number(limit);
+    const totalPages = currentLimit ? Math.ceil(count / currentLimit) : 1;
     return res.status(200).json({
       data: leaves,
       totalCount: count,

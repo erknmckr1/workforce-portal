@@ -19,14 +19,21 @@ import { PageHeader } from "@/components/layout/PageHeader";
 
 export default function SecurityScreen() {
   const { user } = useAuthStore();
-  const { leaves, isLoading, confirmExit, isConfirmingExit } = useLeaves({ is_security: true });
+  const { leaves, isLoading, confirmExit, isConfirmingExit } = useLeaves({ is_security: true, limit: 500 });
   const [searchTerm, setSearchTerm] = useState("");
 
   const approvedLeaves = useMemo(() => {
-    return (leaves as ILeave[]).filter(l => 
-      l.leave_status_id === 3 && 
-      format(new Date(l.start_date), "HH:mm") !== "07:30"
-    );
+    return (leaves as ILeave[])
+      .filter((l) => l.leave_status_id === 3)
+      .sort((a, b) => {
+        // 1. Henüz çıkış yapmayanlar (bekleyenler) üstte, çıkış yapanlar altta
+        if (!a.exit_confirmed_at && b.exit_confirmed_at) return -1;
+        if (a.exit_confirmed_at && !b.exit_confirmed_at) return 1;
+        // 2. Kendi içlerinde son oluşturulandan ilke doğru (created_at DESC)
+        const timeA = a.created_at ? new Date(a.created_at).getTime() : a.id;
+        const timeB = b.created_at ? new Date(b.created_at).getTime() : b.id;
+        return timeB - timeA;
+      });
   }, [leaves]);
 
   const filteredLeaves = useMemo(() => {
