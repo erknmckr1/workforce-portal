@@ -1161,6 +1161,13 @@ const checkToleranceAndSendEmail = async (orderId: string, resultGram: number) =
   }
 };
 
+const toSafeFloat = (val: any, decimals = 4): number | null => {
+  if (val === null || val === undefined || val === "") return null;
+  const num = typeof val === "number" ? val : parseFloat(val);
+  if (isNaN(num)) return null;
+  return parseFloat(num.toFixed(decimals));
+};
+
 export const submitScrapMeasurement = async (req: Request, res: Response) => {
   const { formState, user_id, areaName } = req.body;
 
@@ -1173,8 +1180,6 @@ export const submitScrapMeasurement = async (req: Request, res: Response) => {
       });
     }
 
-
-
     const exitMeasurement = formState.exitGramage !== null && formState.exitGramage !== undefined && String(formState.exitGramage).trim() !== "" && String(formState.exitGramage).trim() !== "0"
       ? String(formState.exitGramage).trim()
       : null;
@@ -1185,13 +1190,13 @@ export const submitScrapMeasurement = async (req: Request, res: Response) => {
 
     if (exitMeasurement) {
       weighedQty = parseInt(formState.weighedQuantity);
-      weighedWt = parseFloat(formState.weighedWeight);
-      if (isNaN(weighedQty) || weighedQty <= 0 || isNaN(weighedWt) || weighedWt <= 0) {
+      weighedWt = toSafeFloat(formState.weighedWeight, 4);
+      if (isNaN(weighedQty) || weighedQty <= 0 || weighedWt === null || weighedWt <= 0) {
         return res.status(400).json({
           message: "Tartılan Adet ve Tartılan Gram alanları doldurulmalıdır ve sıfırdan büyük olmalıdır.",
         });
       }
-      resultWeight = weighedWt / weighedQty;
+      resultWeight = toSafeFloat(weighedWt / weighedQty, 4);
     }
 
     // SapOrder üzerinden material_no çözme
@@ -1244,9 +1249,9 @@ export const submitScrapMeasurement = async (req: Request, res: Response) => {
       description: formState.description || "Fire Girişi Kaydı",
       measurement_package: weighedQty,
       data_entry_date: new Date(),
-      gold_setting: parseFloat(formState.goldSetting) || 0,
-      gold_pure_scrap: parseFloat(formState.gold_pure_scrap) || 0,
-      measurement_diff: parseFloat(formState.diffirence) || 0,
+      gold_setting: toSafeFloat(formState.goldSetting, 4) || 0,
+      gold_pure_scrap: toSafeFloat(formState.gold_pure_scrap, 4) || 0,
+      measurement_diff: toSafeFloat(formState.diffirence, 4) || 0,
       weighed_quantity: weighedQty,
       weighed_weight: weighedWt,
       result_weight: resultWeight,
@@ -1282,13 +1287,18 @@ export const updateScrapMeasurement = async (req: Request, res: Response) => {
 
     if (exitMeasurement) {
       weighedQty = parseInt(formState.weighedQuantity);
-      weighedWt = parseFloat(formState.weighedWeight);
-      if (isNaN(weighedQty) || weighedQty <= 0 || isNaN(weighedWt) || weighedWt <= 0) {
+      weighedWt = toSafeFloat(formState.weighedWeight, 4);
+      if (isNaN(weighedQty) || weighedQty <= 0 || weighedWt === null || weighedWt <= 0) {
         return res.status(400).json({
           message: "Tartılan Adet ve Tartılan Gram alanları doldurulmalıdır ve sıfırdan büyük olmalıdır.",
         });
       }
-      resultWeight = weighedWt / weighedQty;
+      resultWeight = toSafeFloat(weighedWt / weighedQty, 4);
+      if (resultWeight === null) {
+        return res.status(400).json({
+          message: "Sonuç gramaj hesaplanamadı.",
+        });
+      }
 
       // Tolerans kontrolü ve measure_status belirleme
       try {
@@ -1327,9 +1337,9 @@ export const updateScrapMeasurement = async (req: Request, res: Response) => {
     await measurement.update({
       entry_measurement: formState.entryGramage !== null && formState.entryGramage !== undefined ? String(formState.entryGramage) : null,
       exit_measurement: exitMeasurement,
-      gold_setting: parseFloat(formState.goldSetting) || 0,
-      gold_pure_scrap: parseFloat(formState.gold_pure_scrap) || 0,
-      measurement_diff: parseFloat(formState.diffirence) || 0,
+      gold_setting: toSafeFloat(formState.goldSetting, 4) || 0,
+      gold_pure_scrap: toSafeFloat(formState.gold_pure_scrap, 4) || 0,
+      measurement_diff: toSafeFloat(formState.diffirence, 4) || 0,
       weighed_quantity: weighedQty,
       weighed_weight: weighedWt,
       result_weight: resultWeight,
