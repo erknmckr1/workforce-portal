@@ -5,6 +5,7 @@ import fs from "fs";
 import {
   getScrapTrackings,
   getScrapTrackingById,
+  getScrapReport,
   createScrapTracking,
   updateScrapTracking,
   deleteScrapTracking,
@@ -66,6 +67,7 @@ const handleMulterUpload = (req: any, res: any, next: any) => {
 };
 
 router.get("/", getScrapTrackings);
+router.get("/report", getScrapReport);
 router.get("/order/:orderNo", getSapOrderInfo);
 router.get("/:id", getScrapTrackingById);
 router.post("/", handleMulterUpload, createScrapTracking);

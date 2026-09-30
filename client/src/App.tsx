@@ -27,6 +27,7 @@ import MesScreensNavigator from "./pages/MesScreensNavigator";
 import MeasurementMonitoring from "./pages/MeasurementMonitoring";
 import PartiTakibi from "./pages/PartiTakibi";
 import HurdaTakibi from "./pages/HurdaTakibi";
+import HurdaRaporuPage from "./pages/HurdaRaporuPage";
 import Reports from "./pages/Reports";
 import PersonnelMovementReport from "./pages/PersonnelMovementReport";
 import PhoneDirectoryPage from "./pages/PhoneDirectoryPage";
@@ -129,9 +130,10 @@ function App() {
               <Route path="/parti-takibi" element={<PartiTakibi />} />
             </Route>
 
-            {/* 2.7 Hurda Takibi - Kendine Özgü Layout ile */}
+            {/* 2.7 Hurda Takibi ve Rapor Ekranı - Kendine Özgü Layout ile */}
             <Route element={<HurdaTakibiLayout />}>
               <Route path="/hurda-takibi" element={<HurdaTakibi />} />
+              <Route path="/hurda-raporu" element={<HurdaRaporuPage />} />
             </Route>
 
             {/* 3. Korumalı Rotalar (Layout ile birlikte) */}

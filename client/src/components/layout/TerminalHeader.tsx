@@ -16,6 +16,11 @@ interface TerminalHeaderProps {
   backLabel?: string;
   showKioskButton?: boolean;
   kioskButtonText?: string;
+  customAction?: {
+    label: string;
+    icon?: React.ReactNode;
+    onClick: () => void;
+  };
   rightContent?: React.ReactNode;
 }
 
@@ -93,6 +98,7 @@ export default function TerminalHeader({
   backLabel = "Geri Dön",
   showKioskButton = true,
   kioskButtonText = "İzin Girişi",
+  customAction,
   rightContent,
 }: TerminalHeaderProps) {
   const navigate = useNavigate();
@@ -159,9 +165,20 @@ export default function TerminalHeader({
           </div>
         </div>
 
-        {/* Sağ Taraf: Ek Bileşenler, İzin Girişi & Tema Değiştirici */}
+        {/* Sağ Taraf: Ek Bileşenler, Özel Aksiyon / İzin Girişi & Tema Değiştirici */}
         <div className="flex items-center gap-2">
           {rightContent}
+
+          {customAction && (
+            <button
+              onClick={customAction.onClick}
+              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 ${styles.buttonBg} ${styles.buttonHover} text-white font-bold text-[10px] sm:text-xs rounded-lg shadow-xs transition-all cursor-pointer active:scale-95 uppercase tracking-wider`}
+              title={customAction.label}
+            >
+              {customAction.icon}
+              <span>{customAction.label}</span>
+            </button>
+          )}
 
           {showKioskButton && (
             <button

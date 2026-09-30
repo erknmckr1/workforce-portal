@@ -301,3 +301,108 @@ export const getSapOrderInfo = async (req: Request, res: Response) => {
     return res.status(500).json({ message: "Sipariş bilgisi çekilemedi." });
   }
 };
+
+export const getScrapReport = async (req: Request, res: Response) => {
+  try {
+    const { start_date, end_date } = req.query;
+    const where: any = {};
+
+    if (start_date || end_date) {
+      where.created_at = {};
+      if (start_date) {
+        const start = new Date(String(start_date));
+        start.setHours(0, 0, 0, 0);
+        where.created_at[Op.gte] = start;
+      }
+      if (end_date) {
+        const end = new Date(String(end_date));
+        end.setHours(23, 59, 59, 999);
+        where.created_at[Op.lte] = end;
+      }
+    }
+
+    const records = await ScrapTracking.findAll({
+      where,
+      attributes: [
+        "id",
+        "order_no",
+        "karat",
+        "color",
+        "is_scrap",
+        "scrap_location",
+        "scrap_reason",
+        "created_at",
+      ],
+      order: [["created_at", "ASC"]],
+    });
+
+    const totalCount = records.length;
+    const scrapCount = records.filter((r) => r.is_scrap).length;
+    const pendingCount = totalCount - scrapCount;
+    const scrapRate = totalCount > 0 ? Number(((scrapCount / totalCount) * 100).toFixed(1)) : 0;
+
+    // İstasyon dağılımı
+    const locationMap: Record<string, { total: number; scrap: number; pending: number }> = {};
+    // Neden dağılımı
+    const reasonMap: Record<string, number> = {};
+    // Ayar dağılımı
+    const karatMap: Record<string, number> = {};
+    // Tarihsel trend (günlük)
+    const dailyMap: Record<string, { date: string; scrap: number; pending: number; total: number }> = {};
+
+    for (const r of records) {
+      const loc = r.scrap_location || "BELİRTİLMEDİ";
+      if (!locationMap[loc]) locationMap[loc] = { total: 0, scrap: 0, pending: 0 };
+      locationMap[loc].total++;
+      if (r.is_scrap) locationMap[loc].scrap++;
+      else locationMap[loc].pending++;
+
+      const reason = r.scrap_reason || "Belirtilmedi";
+      reasonMap[reason] = (reasonMap[reason] || 0) + 1;
+
+      const karat = r.karat ? `${r.karat}K` : "Belirtilmedi";
+      karatMap[karat] = (karatMap[karat] || 0) + 1;
+
+      const dayKey = new Date(r.created_at).toISOString().split("T")[0];
+      if (!dailyMap[dayKey]) dailyMap[dayKey] = { date: dayKey, scrap: 0, pending: 0, total: 0 };
+      dailyMap[dayKey].total++;
+      if (r.is_scrap) dailyMap[dayKey].scrap++;
+      else dailyMap[dayKey].pending++;
+    }
+
+    const byLocation = Object.entries(locationMap)
+      .map(([name, data]) => ({ name, ...data }))
+      .sort((a, b) => b.total - a.total);
+
+    const byReason = Object.entries(reasonMap)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count);
+
+    const byKarat = Object.entries(karatMap)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count);
+
+    const dailyTrend = Object.values(dailyMap);
+
+    const topLocation = byLocation[0] ? `${byLocation[0].name} (${byLocation[0].total} kayıt)` : "-";
+    const topReason = byReason[0] ? `${byReason[0].name} (${byReason[0].count} kayıt)` : "-";
+
+    return res.status(200).json({
+      summary: {
+        totalCount,
+        scrapCount,
+        pendingCount,
+        scrapRate,
+        topLocation,
+        topReason,
+      },
+      byLocation,
+      byReason,
+      byKarat,
+      dailyTrend,
+    });
+  } catch (error) {
+    console.error("getScrapReport Error:", error);
+    return res.status(500).json({ message: "Hurda raporu verileri alınırken hata oluştu." });
+  }
+};
