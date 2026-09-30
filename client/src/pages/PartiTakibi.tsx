@@ -8,18 +8,13 @@ import {
   Hash,
   Activity,
   Clock,
-  ListFilter,
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
-  Loader2,
   Scan,
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import apiClient from "@/lib/api";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import DataTable, { type DataTableColumn } from "@/components/common/DataTable";
 
 interface OperatorData {
   id_dec: string;
@@ -56,6 +51,16 @@ export const PARTI_ACTION_TYPES = {
   DURDUR: 3,
   IPTAL: 4,
 } as const;
+
+const PARTI_COLUMNS: DataTableColumn<PartiLogItem>[] = [
+  { header: "Tarih", width: "95px" },
+  { header: "Saat", width: "80px" },
+  { header: "Operatör" },
+  { header: "Parti No", width: "110px" },
+  { header: "Alt Parti", width: "95px" },
+  { header: "İşlem", width: "110px" },
+  { header: "Durum", align: "right", width: "120px" },
+];
 
 export default function PartiTakibi() {
   const queryClient = useQueryClient();
@@ -489,220 +494,94 @@ export default function PartiTakibi() {
       {/* ========================================================= */}
       {/* 2. GİRİLEN KAYITLAR TABLOSU (Tablette Altta, Desktopta Sağ 7 Kolon) */}
       {/* ========================================================= */}
-      <div className="xl:col-span-7 bg-card border border-border rounded-2xl p-4 sm:p-5 shadow-xs flex flex-col gap-3 min-h-[420px] xl:h-[calc(100vh-6.5rem)] xl:min-h-[550px] overflow-hidden">
-        
-        {/* TABLO BAŞLIĞI */}
-        <div className="flex items-center justify-between border-b border-border pb-3 shrink-0">
-          <div className="flex items-center gap-2.5">
-            <div className="p-1.5 bg-secondary text-foreground rounded-lg border border-border">
-              <Clock size={16} />
-            </div>
-            <div>
-              <h2 className="text-sm sm:text-base font-black uppercase tracking-tight text-foreground flex items-center gap-2">
-                Girilen Parti Hareketleri
-                <span className="text-xs font-mono px-2 py-0.5 rounded-md bg-secondary text-foreground font-bold border border-border">
-                  {totalCount} Kayıt
+      <DataTable
+        className="xl:col-span-7"
+        heightClassName="min-h-[420px] xl:h-[calc(100vh-6.5rem)] xl:min-h-[550px]"
+        title="Girilen Parti Hareketleri"
+        subtitle="Veritabanında kayıtlı parti işlemleri"
+        icon={<Clock size={16} />}
+        columns={PARTI_COLUMNS}
+        data={logs}
+        keyExtractor={(log) => log.id}
+        page={page}
+        totalPages={totalPages}
+        totalCount={totalCount}
+        limit={limit}
+        onPageChange={setPage}
+        onLimitChange={(l) => {
+          setLimit(l);
+          setPage(1);
+        }}
+        onRefresh={refetchLogs}
+        isRefreshing={isFetchingLogs}
+        isLoading={isLoadingLogs}
+        emptyTitle="Henüz Kayıt Bulunamadı"
+        emptyDescription="Sol taraftaki formu doldurup BAŞLA veya BİTİR butonuna bastığınızda işlemler burada listelenecektir."
+        renderRow={(log) => {
+          const recDate = new Date(log.record_date || log.createdAt);
+          const dateStr = recDate.toLocaleDateString("tr-TR", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+          });
+          const timeStr = recDate.toLocaleTimeString("tr-TR", {
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+          });
+
+          const actionTypeNum = Number(log.action_type);
+
+          return (
+            <tr
+              key={log.id}
+              className="hover:bg-muted/30 transition-colors font-medium text-foreground"
+            >
+              <td className="py-3.5 px-3 font-mono text-muted-foreground font-bold whitespace-nowrap">
+                {dateStr}
+              </td>
+              <td className="py-3.5 px-3 font-mono text-muted-foreground font-bold whitespace-nowrap">
+                {timeStr}
+              </td>
+              <td className="py-3.5 px-3 font-bold text-foreground whitespace-nowrap">
+                {log.operator_name || "Operatör"}
+              </td>
+              <td className="py-3.5 px-3 font-mono font-black text-foreground whitespace-nowrap">
+                #{log.parti_no}
+              </td>
+              <td className="py-3.5 px-3 font-mono font-bold text-foreground whitespace-nowrap">
+                {log.alt_parti}
+              </td>
+              <td className="py-3.5 px-3 font-bold text-foreground whitespace-nowrap">
+                <span className="px-2 py-0.5 rounded bg-secondary border border-border font-bold">
+                  {log.islem_label || `İşlem ${log.islem_id}`}
                 </span>
-              </h2>
-              <p className="text-[11px] text-muted-foreground font-medium">
-                Veritabanında kayıtlı parti işlemleri
-              </p>
-            </div>
-          </div>
-
-          <button
-            onClick={() => refetchLogs()}
-            disabled={isFetchingLogs}
-            className="px-3 py-1.5 bg-secondary hover:bg-muted text-muted-foreground hover:text-foreground rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-            title="Kayıtları Yenile"
-          >
-            <RotateCcw size={13} className={isFetchingLogs ? "animate-spin" : ""} />
-            <span>Yenile</span>
-          </button>
-        </div>
-
-        {/* TABLO İÇERİĞİ (Scrollable Area) */}
-        {isLoadingLogs ? (
-          <div className="flex-1 flex flex-col items-center justify-center text-center p-8">
-            <Loader2 size={32} className="animate-spin text-foreground mb-3" />
-            <div className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-              Kayıtlar Yükleniyor...
-            </div>
-          </div>
-        ) : logs.length === 0 ? (
-          <div className="flex-1 flex flex-col items-center justify-center text-center p-8 border border-dashed border-border rounded-xl my-auto">
-            <div className="w-12 h-12 rounded-xl bg-secondary flex items-center justify-center text-muted-foreground mb-3 border border-border">
-              <ListFilter size={24} />
-            </div>
-            <div className="text-sm font-bold text-foreground">
-              Henüz Kayıt Bulunamadı
-            </div>
-            <p className="text-xs text-muted-foreground mt-1 max-w-xs">
-              Sol taraftaki formu doldurup <strong>BAŞLA</strong> veya <strong>BİTİR</strong> butonuna bastığınızda işlemler burada listelenecektir.
-            </p>
-          </div>
-        ) : (
-          <div className="flex-1 overflow-x-auto overflow-y-auto custom-scrollbar border border-border rounded-xl">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead className="bg-secondary sticky top-0 z-10 border-b border-border shadow-xs">
-                <tr className="text-foreground uppercase font-black tracking-wider text-[11px]">
-                  <th className="py-3.5 px-3">Tarih</th>
-                  <th className="py-3.5 px-3">Saat</th>
-                  <th className="py-3.5 px-3">Operatör</th>
-                  <th className="py-3.5 px-3">Parti No</th>
-                  <th className="py-3.5 px-3">Alt Parti</th>
-                  <th className="py-3.5 px-3">İşlem</th>
-                  <th className="py-3.5 px-3 text-right">Durum</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {logs.map((log) => {
-                  const recDate = new Date(log.record_date || log.createdAt);
-                  const dateStr = recDate.toLocaleDateString("tr-TR", {
-                    day: "2-digit",
-                    month: "2-digit",
-                    year: "numeric",
-                  });
-                  const timeStr = recDate.toLocaleTimeString("tr-TR", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    second: "2-digit",
-                  });
-
-                  const actionTypeNum = Number(log.action_type);
-
-                  return (
-                    <tr
-                      key={log.id}
-                      className="hover:bg-muted/30 transition-colors font-medium"
-                    >
-                      <td className="py-3.5 px-3 font-mono text-muted-foreground font-bold whitespace-nowrap">
-                        {dateStr}
-                      </td>
-                      <td className="py-3.5 px-3 font-mono text-muted-foreground font-bold whitespace-nowrap">
-                        {timeStr}
-                      </td>
-                      <td className="py-3.5 px-3 font-bold text-foreground whitespace-nowrap">
-                        {log.operator_name || "Operatör"}
-                      </td>
-                      <td className="py-3.5 px-3 font-mono font-black text-foreground whitespace-nowrap">
-                        #{log.parti_no}
-                      </td>
-                      <td className="py-3.5 px-3 font-mono font-bold text-foreground whitespace-nowrap">
-                        {log.alt_parti}
-                      </td>
-                      <td className="py-3.5 px-3 font-bold text-foreground whitespace-nowrap">
-                        <span className="px-2 py-0.5 rounded bg-secondary border border-border font-bold">
-                          {log.islem_label || `İşlem ${log.islem_id}`}
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-3 text-right whitespace-nowrap">
-                        {actionTypeNum === PARTI_ACTION_TYPES.BASLA || String(log.action_type) === "BASLA" ? (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-black uppercase tracking-wider bg-emerald-600 text-white shadow-xs">
-                            <Play size={10} className="fill-current" />
-                            {log.action_label || "BAŞLADI"}
-                          </span>
-                        ) : actionTypeNum === PARTI_ACTION_TYPES.BITIR || String(log.action_type) === "BITIR" ? (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-black uppercase tracking-wider bg-red-600 text-white shadow-xs">
-                            <Square size={10} className="fill-current" />
-                            {log.action_label || "BİTTİ"}
-                          </span>
-                        ) : actionTypeNum === PARTI_ACTION_TYPES.DURDUR ? (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-black uppercase tracking-wider bg-amber-600 text-white shadow-xs">
-                            {log.action_label || "DURDURULDU"}
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-black uppercase tracking-wider bg-zinc-600 text-white shadow-xs">
-                            {log.action_label || `Durum ${log.action_type}`}
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {/* ========================================================= */}
-        {/* PAGINATION (SAYFALAMA ÇUBUĞU) */}
-        {/* ========================================================= */}
-        <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-border shrink-0 text-xs">
-          {/* Sol: Gösterilen Kayıt Bilgisi */}
-          <div className="text-muted-foreground font-medium">
-            Toplam <strong className="text-foreground">{totalCount}</strong> kayıttan{" "}
-            <strong className="text-foreground">
-              {totalCount === 0 ? 0 : (page - 1) * limit + 1} -{" "}
-              {Math.min(page * limit, totalCount)}
-            </strong>{" "}
-            arası
-          </div>
-
-          {/* Sağ: Sayfa Kontrolleri ve Limit Seçimi */}
-          <div className="flex items-center gap-3">
-            {/* Sayfa Başına Adet Seçimi */}
-            <div className="flex items-center gap-1.5">
-              <span className="text-muted-foreground text-[11px]">Satır:</span>
-              <select
-                value={limit}
-                onChange={(e) => {
-                  setLimit(Number(e.target.value));
-                  setPage(1);
-                }}
-                className="bg-secondary text-foreground font-bold text-xs px-2 py-1 rounded-lg border border-border focus:outline-none cursor-pointer"
-              >
-                <option value={10}>10</option>
-                <option value={20}>20</option>
-                <option value={50}>50</option>
-                <option value={100}>100</option>
-              </select>
-            </div>
-
-            {/* Sayfa Numarası */}
-            <div className="font-bold text-foreground px-2">
-              Sayfa {page} / {totalPages}
-            </div>
-
-            {/* Butonlar */}
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => setPage(1)}
-                disabled={page <= 1 || isFetchingLogs}
-                className="p-1.5 bg-secondary hover:bg-muted text-foreground rounded-lg border border-border disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
-                title="İlk Sayfa"
-              >
-                <ChevronsLeft size={16} />
-              </button>
-              <button
-                onClick={() => setPage((p) => Math.max(p - 1, 1))}
-                disabled={page <= 1 || isFetchingLogs}
-                className="p-1.5 bg-secondary hover:bg-muted text-foreground rounded-lg border border-border disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
-                title="Önceki Sayfa"
-              >
-                <ChevronLeft size={16} />
-              </button>
-              <button
-                onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
-                disabled={page >= totalPages || isFetchingLogs}
-                className="p-1.5 bg-secondary hover:bg-muted text-foreground rounded-lg border border-border disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
-                title="Sonraki Sayfa"
-              >
-                <ChevronRight size={16} />
-              </button>
-              <button
-                onClick={() => setPage(totalPages)}
-                disabled={page >= totalPages || isFetchingLogs}
-                className="p-1.5 bg-secondary hover:bg-muted text-foreground rounded-lg border border-border disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
-                title="Son Sayfa"
-              >
-                <ChevronsRight size={16} />
-              </button>
-            </div>
-          </div>
-        </div>
-
-      </div>
+              </td>
+              <td className="py-3.5 px-3 text-right whitespace-nowrap">
+                {actionTypeNum === PARTI_ACTION_TYPES.BASLA || String(log.action_type) === "BASLA" ? (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-black uppercase tracking-wider bg-emerald-600 text-white shadow-xs">
+                    <Play size={10} className="fill-current" />
+                    {log.action_label || "BAŞLADI"}
+                  </span>
+                ) : actionTypeNum === PARTI_ACTION_TYPES.BITIR || String(log.action_type) === "BITIR" ? (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-black uppercase tracking-wider bg-red-600 text-white shadow-xs">
+                    <Square size={10} className="fill-current" />
+                    {log.action_label || "BİTTİ"}
+                  </span>
+                ) : actionTypeNum === PARTI_ACTION_TYPES.DURDUR ? (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-black uppercase tracking-wider bg-amber-600 text-white shadow-xs">
+                    {log.action_label || "DURDURULDU"}
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-black uppercase tracking-wider bg-zinc-600 text-white shadow-xs">
+                    {log.action_label || `Durum ${log.action_type}`}
+                  </span>
+                )}
+              </td>
+            </tr>
+          );
+        }}
+      />
 
     </div>
   );

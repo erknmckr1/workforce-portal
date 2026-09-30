@@ -12,6 +12,7 @@ import {
   Monitor,
   Scale,
   Layers,
+  AlertTriangle,
 } from "lucide-react";
 
 interface ScreenCard {
@@ -115,6 +116,15 @@ const screens: ScreenCard[] = [
     color: "from-indigo-500 to-violet-600",
     description: "Üretim partilerini, lot aşamalarını ve süreç takibini inceleyin.",
   },
+  {
+    id: "hurda-takibi",
+    title: "Hurda Takibi",
+    area: "hurda-takibi",
+    section: "atolye",
+    icon: <AlertTriangle size={32} />,
+    color: "from-rose-500 to-red-600",
+    description: "Hatalı ve hurdaya ayrılan parçaların fotoğraflı ve nedenli takibini yapın.",
+  },
 ];
 
 const MesScreensNavigator = () => {
@@ -151,6 +161,8 @@ const MesScreensNavigator = () => {
                 navigate("/mes-measurements");
               } else if (screen.id === "parti-takibi") {
                 navigate("/parti-takibi");
+              } else if (screen.id === "hurda-takibi") {
+                navigate("/hurda-takibi");
               } else {
                 navigate(`/uretim/${screen.section}/${screen.area}`);
               }
@@ -173,7 +185,7 @@ const MesScreensNavigator = () => {
             </div>
 
             <div className="mt-6 flex items-center gap-2 text-xs font-black uppercase tracking-widest text-primary opacity-0 group-hover:opacity-100 transition-all transform -translate-x-2.5 group-hover:translate-x-0 duration-500">
-              {screen.id === "olcum-takip" || screen.id === "parti-takibi" ? "İncele" : "Giriş Yap"}{" "}
+              {screen.id === "olcum-takip" || screen.id === "parti-takibi" || screen.id === "hurda-takibi" ? "İncele" : "Giriş Yap"}{" "}
               <ChevronRight size={14} />
             </div>
 
@@ -183,6 +195,8 @@ const MesScreensNavigator = () => {
                 <Scale size={48} className="text-muted-foreground" />
               ) : screen.id === "parti-takibi" ? (
                 <Layers size={48} className="text-muted-foreground" />
+              ) : screen.id === "hurda-takibi" ? (
+                <AlertTriangle size={48} className="text-muted-foreground" />
               ) : (
                 <Monitor size={48} className="text-muted-foreground" />
               )}

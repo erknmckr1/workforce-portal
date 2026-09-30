@@ -7,6 +7,7 @@ import Dashboard from "./pages/Dashboard";
 import PersonnelManagement from "./pages/PersonnelManagement";
 import MainLayout from "./components/layout/MainLayout";
 import PartiTakibiLayout from "./components/layout/PartiTakibiLayout";
+import HurdaTakibiLayout from "./components/layout/HurdaTakibiLayout";
 import ProtectedRoute from "./components/layout/ProtectedRoute";
 import SettingsIndex from "./pages/settings/SettingsIndex";
 import Approvals from "./pages/settings/Approvals";
@@ -25,6 +26,7 @@ import UretimTerminal from "./pages/UretimTerminal";
 import MesScreensNavigator from "./pages/MesScreensNavigator";
 import MeasurementMonitoring from "./pages/MeasurementMonitoring";
 import PartiTakibi from "./pages/PartiTakibi";
+import HurdaTakibi from "./pages/HurdaTakibi";
 import Reports from "./pages/Reports";
 import PersonnelMovementReport from "./pages/PersonnelMovementReport";
 import PhoneDirectoryPage from "./pages/PhoneDirectoryPage";
@@ -125,6 +127,11 @@ function App() {
             {/* 2.6 Parti Takibi - Bağımsız Kiosk Terminal (Şifresiz / Doğrudan Erişim) */}
             <Route element={<PartiTakibiLayout />}>
               <Route path="/parti-takibi" element={<PartiTakibi />} />
+            </Route>
+
+            {/* 2.7 Hurda Takibi - Kendine Özgü Layout ile */}
+            <Route element={<HurdaTakibiLayout />}>
+              <Route path="/hurda-takibi" element={<HurdaTakibi />} />
             </Route>
 
             {/* 3. Korumalı Rotalar (Layout ile birlikte) */}

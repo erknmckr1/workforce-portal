@@ -18,6 +18,7 @@ import { WorkLogPause } from "./WorkLogPause";
 import { WorkLogRepair } from "./WorkLogRepair";
 import { OperatorBreak } from "./OperatorBreak";
 import ScrapMeasurement from "./ScrapMeasurement";
+import ScrapTracking from "./ScrapTracking";
 import { Status } from "./Status";
 import { MesMachine } from "./MesMachine";
 import { Measurement } from "./Measurement";
@@ -137,6 +138,10 @@ Operator.hasMany(ITRequestMessage, { foreignKey: "sender_id", sourceKey: "id_dec
 ITRequest.belongsTo(Operator, { as: "Assignee", foreignKey: "assigned_to", targetKey: "id_dec" });
 Operator.hasMany(ITRequest, { as: "AssignedRequests", foreignKey: "assigned_to", sourceKey: "id_dec" });
 
+// --- ScrapTracking Associations ---
+ScrapTracking.belongsTo(Operator, { as: "Operator", foreignKey: "operator_id", targetKey: "id_dec" });
+Operator.hasMany(ScrapTracking, { foreignKey: "operator_id", sourceKey: "id_dec" });
+
 export {
     sequelize,
     Section,
@@ -165,6 +170,7 @@ export {
     WorkLogRepair,
     OperatorBreak,
     ScrapMeasurement,
+    ScrapTracking,
     Status,
     MesMachine,
     Measurement,

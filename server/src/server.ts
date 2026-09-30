@@ -17,6 +17,7 @@ import documentRoutes from "./routes/documentRoutes";
 import exportRoutes from "./routes/exportRoutes";
 import { startLeaveBalanceSyncScheduler } from "./services/leaveBalanceSyncScheduler";
 import itRequestRoutes from "./routes/itRequestRoutes";
+import scrapTrackingRoutes from "./routes/scrapTrackingRoutes";
 import { ensureApplicationSchema } from "./services/schemaMigrationService";
 import path from "path";
 import fs from "fs";
@@ -64,6 +65,7 @@ app.use("/api/phone-directory", phoneDirectoryRoutes);
 app.use("/api/game", gameRoutes);
 app.use("/api/documents", documentRoutes);
 app.use("/api/it-requests", itRequestRoutes);
+app.use("/api/scrap-tracking", scrapTrackingRoutes);
 app.use("/api/export", exportRoutes);
 
 // Fotoğrafları frontend için /photos adresi ile dışarı aç
@@ -92,6 +94,15 @@ if (!fs.existsSync(documentPath)) {
   fs.mkdirSync(documentPath, { recursive: true });
 }
 app.use("/uploads/documents", express.static(documentPath));
+
+// Hurda görsellerini dışarı aç
+const scrapImagePath =
+  process.env.SCRAP_IMAGE_STORAGE_PATH ||
+  path.join(__dirname, "../uploads/scrap-images");
+if (!fs.existsSync(scrapImagePath)) {
+  fs.mkdirSync(scrapImagePath, { recursive: true });
+}
+app.use("/uploads/scrap-images", express.static(scrapImagePath));
 
 // DB bağlantısı ve sunucu başlatma
 const startServer = async () => {

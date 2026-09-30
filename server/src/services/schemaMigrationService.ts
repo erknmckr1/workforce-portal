@@ -157,5 +157,19 @@ export const ensureApplicationSchema = async () => {
   } catch (err) {
     console.error("system_audit_logs sync error:", err);
   }
+
+  // Migration for scrap_trackings table: add scrap_reason
+  try {
+    const scrapTrackCols = await queryInterface.describeTable("scrap_trackings");
+    if (!scrapTrackCols["scrap_reason"]) {
+      await queryInterface.addColumn("scrap_trackings", "scrap_reason", {
+        type: DataTypes.STRING(150),
+        allowNull: true,
+      });
+      console.log("Schema updated: scrap_trackings.scrap_reason");
+    }
+  } catch (err) {
+    console.log("scrap_trackings table check / addColumn:", err);
+  }
 };
 

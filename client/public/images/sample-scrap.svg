@@ -1,0 +1,153 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" width="100%" height="100%">
+  <defs>
+    <!-- Background Lens Gradients -->
+    <radialGradient id="lensBg" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#1e2430" />
+      <stop offset="65%" stop-color="#0f131a" />
+      <stop offset="85%" stop-color="#07090c" />
+      <stop offset="100%" stop-color="#000000" />
+    </radialGradient>
+
+    <!-- Metallic Gold Gradients -->
+    <linearGradient id="goldMesh1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#d4af37" />
+      <stop offset="25%" stop-color="#fff4b8" />
+      <stop offset="50%" stop-color="#aa7c11" />
+      <stop offset="75%" stop-color="#ffd700" />
+      <stop offset="100%" stop-color="#805b05" />
+    </linearGradient>
+
+    <linearGradient id="goldMesh2" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#eec558" />
+      <stop offset="30%" stop-color="#fff8d6" />
+      <stop offset="60%" stop-color="#996e0a" />
+      <stop offset="100%" stop-color="#f5d77f" />
+    </linearGradient>
+
+    <linearGradient id="goldDark" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#6e5008" />
+      <stop offset="50%" stop-color="#3d2b02" />
+      <stop offset="100%" stop-color="#1f1601" />
+    </linearGradient>
+
+    <!-- Defect Glow -->
+    <radialGradient id="defectGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ef4444" stop-opacity="0.8" />
+      <stop offset="40%" stop-color="#f97316" stop-opacity="0.4" />
+      <stop offset="100%" stop-color="#ef4444" stop-opacity="0" />
+    </radialGradient>
+
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <filter id="shadow" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="3" dy="5" stdDeviation="5" flood-color="#000000" flood-opacity="0.8"/>
+    </filter>
+  </defs>
+
+  <!-- Microscope Base / Eyepiece Aperture -->
+  <rect width="800" height="800" fill="#080b10" />
+  <circle cx="400" cy="400" r="375" fill="url(#lensBg)" stroke="#1e293b" stroke-width="6" />
+  <circle cx="400" cy="400" r="360" fill="none" stroke="#334155" stroke-width="1.5" stroke-dasharray="4,6" />
+
+  <!-- Grid / Reticle Lines (Subtle) -->
+  <g stroke="#38bdf8" stroke-opacity="0.18" stroke-width="1">
+    <line x1="120" y1="400" x2="680" y2="400" />
+    <line x1="400" y1="120" x2="400" y2="680" />
+    <circle cx="400" cy="400" r="100" fill="none" />
+    <circle cx="400" cy="400" r="220" fill="none" />
+    <circle cx="400" cy="400" r="320" fill="none" stroke-dasharray="2,8" />
+  </g>
+
+  <!-- Reticle Scale Ticks -->
+  <g stroke="#38bdf8" stroke-opacity="0.35" stroke-width="1.5">
+    <!-- Horizontal ticks -->
+    <line x1="200" y1="392" x2="200" y2="408" />
+    <line x1="250" y1="395" x2="250" y2="405" />
+    <line x1="300" y1="392" x2="300" y2="408" />
+    <line x1="350" y1="395" x2="350" y2="405" />
+    <line x1="450" y1="395" x2="450" y2="405" />
+    <line x1="500" y1="392" x2="500" y2="408" />
+    <line x1="550" y1="395" x2="550" y2="405" />
+    <line x1="600" y1="392" x2="600" y2="408" />
+    <!-- Vertical ticks -->
+    <line x1="392" y1="200" x2="408" y2="200" />
+    <line x1="395" y1="250" x2="405" y2="250" />
+    <line x1="392" y1="300" x2="408" y2="300" />
+    <line x1="395" y1="350" x2="405" y2="350" />
+    <line x1="395" y1="450" x2="405" y2="450" />
+    <line x1="392" y1="500" x2="408" y2="500" />
+    <line x1="395" y1="550" x2="405" y2="550" />
+    <line x1="392" y1="600" x2="408" y2="600" />
+  </g>
+
+  <!-- Specimen: Gold Chain Links (Microscopic Macro View) -->
+  <g filter="url(#shadow)" id="goldChainSpecimen">
+    <!-- Link 1 (Left Behind) -->
+    <path d="M 170 410 C 170 330, 260 320, 310 370 C 350 410, 330 490, 270 500 C 200 510, 170 470, 170 410 Z" 
+          fill="none" stroke="url(#goldDark)" stroke-width="52" stroke-linecap="round" />
+    <path d="M 170 410 C 170 330, 260 320, 310 370 C 350 410, 330 490, 270 500 C 200 510, 170 470, 170 410 Z" 
+          fill="none" stroke="url(#goldMesh1)" stroke-width="40" stroke-linecap="round" />
+    <path d="M 170 410 C 170 335, 255 325, 305 372 C 345 410, 325 485, 268 495 C 202 505, 172 468, 170 410 Z" 
+          fill="none" stroke="#fff8d6" stroke-width="5" stroke-opacity="0.6" stroke-linecap="round" />
+
+    <!-- Link 2 (Center Link - With Weld Defect / Rupture) -->
+    <path d="M 280 360 C 300 280, 420 270, 480 330 C 530 380, 520 470, 450 510 C 370 550, 270 480, 280 360 Z" 
+          fill="none" stroke="url(#goldDark)" stroke-width="56" stroke-linecap="round" />
+    <path d="M 280 360 C 300 280, 420 270, 480 330 C 530 380, 520 470, 450 510 C 370 550, 270 480, 280 360 Z" 
+          fill="none" stroke="url(#goldMesh2)" stroke-width="44" stroke-linecap="round" />
+    <!-- Metallic Specular Sheen -->
+    <path d="M 290 355 C 310 285, 415 275, 475 332 C 520 378, 510 465, 448 502" 
+          fill="none" stroke="#ffffff" stroke-width="6" stroke-opacity="0.75" stroke-linecap="round" />
+
+    <!-- Link 3 (Right Attached Link) -->
+    <path d="M 460 380 C 490 300, 590 310, 630 370 C 670 430, 640 510, 580 520 C 510 530, 460 470, 460 380 Z" 
+          fill="none" stroke="url(#goldDark)" stroke-width="52" stroke-linecap="round" />
+    <path d="M 460 380 C 490 300, 590 310, 630 370 C 670 430, 640 510, 580 520 C 510 530, 460 470, 460 380 Z" 
+          fill="none" stroke="url(#goldMesh1)" stroke-width="40" stroke-linecap="round" />
+    <path d="M 465 375 C 492 305, 585 315, 622 372 C 660 428, 632 505, 575 515" 
+          fill="none" stroke="#fff8d6" stroke-width="5" stroke-opacity="0.6" stroke-linecap="round" />
+  </g>
+
+  <!-- DEFECT HIGHLIGHT (Fracture / Güverse / Kaynak Hatası at x=415, y=300) -->
+  <g id="defectArea">
+    <!-- Pulsing Danger Glow -->
+    <circle cx="430" cy="300" r="65" fill="url(#defectGlow)" />
+    
+    <!-- Fracture Crack in Gold Structure -->
+    <path d="M 418 275 L 424 290 L 416 302 L 428 318 L 422 332" 
+          stroke="#110700" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" />
+    <path d="M 418 275 L 424 290 L 416 302 L 428 318 L 422 332" 
+          stroke="#ef4444" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)" />
+    
+    <!-- Micro Porosity / Güverse Dots -->
+    <circle cx="434" cy="285" r="3.5" fill="#2d1a00" stroke="#f97316" stroke-width="1.5" />
+    <circle cx="438" cy="312" r="4" fill="#2d1a00" stroke="#ef4444" stroke-width="1.5" />
+    <circle cx="410" cy="295" r="3" fill="#2d1a00" stroke="#f97316" stroke-width="1.5" />
+
+    <!-- Reticle Target Box around Defect -->
+    <circle cx="426" cy="302" r="42" fill="none" stroke="#ef4444" stroke-width="2" stroke-dasharray="6,4" filter="url(#glow)" />
+    <path d="M 426 250 L 426 262 M 426 342 L 426 354 M 374 302 L 386 302 M 466 302 L 478 302" 
+          stroke="#ef4444" stroke-width="2.5" />
+  </g>
+
+  <!-- HUD Text & Diagnostic Markers -->
+  <g font-family="system-ui, -apple-system, sans-serif" font-weight="900" font-size="11" fill="#38bdf8" letter-spacing="1.5">
+    <text x="60" y="70" opacity="0.8">MIDAS MES OPTICAL INSPECTION SYSTEM</text>
+    <text x="60" y="90" fill="#94a3b8" font-size="9" font-weight="700">MAGNIFICATION: 20X DIGITAL / CALIBRATED</text>
+    <text x="60" y="735" fill="#f87171" font-size="11" filter="url(#glow)">[!] DEFECT DETECTED: WELD FRACTURE / GÜVERSE</text>
+    <text x="60" y="755" fill="#64748b" font-size="9" font-weight="700">COORDINATES: X: 426.2 Y: 302.8 | SAMPLE #QC-01</text>
+  </g>
+
+  <g font-family="system-ui, -apple-system, sans-serif" font-weight="900" font-size="11" fill="#38bdf8" text-anchor="end" letter-spacing="1">
+    <text x="740" y="70" fill="#34d399">STATUS: ACQUIRED</text>
+    <text x="740" y="90" fill="#94a3b8" font-size="9" font-weight="700">SCALE: 1 DIV = 0.50 mm</text>
+    <text x="740" y="735" fill="#fbbf24">FIELD: ÖRME / TEL</text>
+    <text x="740" y="755" fill="#64748b" font-size="9" font-weight="700">STANDARD SAMPLE VIEW</text>
+  </g>
+</svg>
