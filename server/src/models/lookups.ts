@@ -5,7 +5,7 @@ export class Section extends Model {
     public id!: number;
     public name!: string;
     public is_active!: boolean;
-    public manager_id?: string;
+    public manager_id?: string | null;
 }
 Section.init(
     {
@@ -19,11 +19,11 @@ Section.init(
 
 export class Department extends Model {
     public id!: number;
-    public section_id?: number;
+    public section_id?: number | null;
     public name!: string;
     public is_active!: boolean;
-    public ustabasi_id?: string;
-    public supervisor_id?: string;
+    public ustabasi_id?: string | null;
+    public supervisor_id?: string | null;
 }
 Department.init(
     {

@@ -1,4 +1,4 @@
-import { ShieldCheck, Building2, GitMerge, Loader2, Search, UserRoundX, Plus, Edit2 } from "lucide-react";
+import { ShieldCheck, Building2, GitMerge, Loader2, Search, UserRoundX, Plus, Edit2, AlertTriangle, Users, Layers } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useState, useMemo, useEffect, memo, useCallback } from "react";
@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import apiClient from "@/lib/api";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { useConfirm } from "@/providers/ConfirmProvider";
 
 const CLEAR_APPROVER_VALUE = "__clear_approver__";
 
@@ -527,8 +528,184 @@ const EditDeptModal = memo(function EditDeptModal({ open, onOpenChange, onSubmit
   );
 });
 
+interface DeactivateDeptModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  data: {
+    id: number;
+    name: string;
+    section_id: number;
+    count: number;
+  } | null;
+  departments: LookupDepartment[];
+  sections: LookupSection[];
+  isPending: boolean;
+  onConfirm: (action: 'transfer' | 'pool', targetDepartmentId?: number) => void;
+}
+
+const DeactivateDeptModal = memo(function DeactivateDeptModal({
+  open,
+  onOpenChange,
+  data,
+  departments,
+  sections,
+  isPending,
+  onConfirm
+}: DeactivateDeptModalProps) {
+  const [action, setAction] = useState<'transfer' | 'pool'>('transfer');
+  const [targetDeptId, setTargetDeptId] = useState<string>('');
+
+  useEffect(() => {
+    if (open) {
+      setAction('transfer');
+      setTargetDeptId('');
+    }
+  }, [open]);
+
+  if (!data) return null;
+
+  const sectionMap = new Map(sections.map(s => [Number(s.id), s.name]));
+  const availableTargetDepts = departments.filter(d => Number(d.id) !== data.id && d.is_active !== false);
+
+  const handleConfirm = () => {
+    if (action === 'transfer') {
+      if (!targetDeptId) return;
+      onConfirm('transfer', Number(targetDeptId));
+    } else {
+      onConfirm('pool');
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg rounded-[2.5rem] p-8 border border-border/20 bg-card">
+        <DialogHeader>
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0">
+              <AlertTriangle size={24} />
+            </div>
+            <div>
+              <DialogTitle className="text-xl font-black">Birimi Pasife Alma ve Personel Yönetimi</DialogTitle>
+              <p className="text-xs text-muted-foreground mt-0.5 font-medium">
+                Bu birimde <span className="font-bold text-amber-600 dark:text-amber-400">{data.count} aktif çalışan</span> bulunmaktadır.
+              </p>
+            </div>
+          </div>
+        </DialogHeader>
+
+        <div className="space-y-4 pt-2">
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            <strong className="text-foreground">"{data.name}"</strong> birimi kapatılırken içerisindeki çalışanların ve bekleyen onay süreçlerinin durumu için bir yöntem seçiniz:
+          </p>
+
+          {/* 1. Seçenek: Aktar */}
+          <div 
+            onClick={() => setAction('transfer')}
+            className={cn(
+              "p-4 rounded-2xl border-2 transition-all cursor-pointer space-y-3",
+              action === 'transfer' 
+                ? "border-primary bg-primary/5 shadow-sm" 
+                : "border-border/50 hover:border-border hover:bg-muted/20"
+            )}
+          >
+            <div className="flex items-start gap-3">
+              <input 
+                type="radio" 
+                name="deactivateAction" 
+                checked={action === 'transfer'} 
+                onChange={() => setAction('transfer')} 
+                className="mt-1 accent-primary cursor-pointer" 
+              />
+              <div className="flex-1">
+                <div className="font-bold text-sm text-foreground flex items-center gap-2">
+                  <Users size={16} className="text-primary" />
+                  1. Personelleri Başka Birime Aktar
+                </div>
+                <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                  Personeller seçilen aktif birime taşınır ve 1. / 2. onaycıları yeni birimin hiyerarşisine bağlanır. Bekleyen izinleri de yeni onaycılara devredilir.
+                </p>
+              </div>
+            </div>
+
+            {action === 'transfer' && (
+              <div className="pt-2 pl-7 space-y-1.5" onClick={(e) => e.stopPropagation()}>
+                <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Hedef Birim Seçin</label>
+                <Select value={targetDeptId} onValueChange={setTargetDeptId}>
+                  <SelectTrigger className="w-full h-12 rounded-xl bg-background border border-border/60 text-xs font-bold shadow-none flex items-center px-4">
+                    <SelectValue placeholder="Personellerin taşınacağı birimi seçin..." />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl border shadow-xl max-h-56">
+                    {availableTargetDepts.map((d) => {
+                      const secName = d.section_id ? sectionMap.get(Number(d.section_id)) : "Bölümsüz";
+                      return (
+                        <SelectItem key={d.id} value={String(d.id)} className="font-bold text-xs py-2.5 cursor-pointer">
+                          {d.name} <span className="text-[10px] text-muted-foreground font-normal">({secName})</span>
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
+
+          {/* 2. Seçenek: Havuz (Şu An Birime Atama) */}
+          <div 
+            onClick={() => setAction('pool')}
+            className={cn(
+              "p-4 rounded-2xl border-2 transition-all cursor-pointer",
+              action === 'pool' 
+                ? "border-primary bg-primary/5 shadow-sm" 
+                : "border-border/50 hover:border-border hover:bg-muted/20"
+            )}
+          >
+            <div className="flex items-start gap-3">
+              <input 
+                type="radio" 
+                name="deactivateAction" 
+                checked={action === 'pool'} 
+                onChange={() => setAction('pool')} 
+                className="mt-1 accent-primary cursor-pointer" 
+              />
+              <div className="flex-1">
+                <div className="font-bold text-sm text-foreground flex items-center gap-2">
+                  <Layers size={16} className="text-primary" />
+                  2. Şu An Birime Atama (Havuzda Tut)
+                </div>
+                <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                  Personeller birimsiz bırakılır (<code className="text-[11px] font-mono bg-muted px-1 rounded">department: null</code>). İzin süreçlerinin aksamaması için 1. ve 2. onay yetkisi doğrudan bağlı oldukları <strong>Bölüm Müdürü</strong>ne devredilir.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <DialogFooter className="flex justify-end gap-2 pt-6 border-t border-border/40 mt-4">
+          <Button 
+            type="button" 
+            variant="outline" 
+            onClick={() => onOpenChange(false)} 
+            className="rounded-xl h-11 px-5"
+          >
+            Vazgeç
+          </Button>
+          <Button 
+            type="button" 
+            onClick={handleConfirm} 
+            disabled={isPending || (action === 'transfer' && !targetDeptId)} 
+            className="rounded-xl h-11 px-6 font-bold bg-amber-600 hover:bg-amber-700 text-white"
+          >
+            {isPending ? "İşleniyor..." : "Onayla ve Pasife Al"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+});
+
 
 export default function Approvals() {
+  const { confirm } = useConfirm();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedSectionId, setSelectedSectionId] = useState<number | null>(null);
   const debouncedSearchTerm = useDebounce(searchTerm, 500);
@@ -552,6 +729,7 @@ export default function Approvals() {
   const [isAddDeptOpen, setIsAddDeptOpen] = useState(false);
   const [isEditDeptOpen, setIsEditDeptOpen] = useState(false);
   const [editingDept, setEditingDept] = useState<LookupDepartment | null>(null);
+  const [deactivateDeptData, setDeactivateDeptData] = useState<{ id: number; name: string; section_id: number; count: number } | null>(null);
 
   const personnel = useMemo(() => personnelResponse?.data || [], [personnelResponse]);
 
@@ -654,18 +832,40 @@ export default function Approvals() {
   });
 
   const updateDepartmentMutation = useMutation({
-    mutationFn: async ({ id, name, section_id, is_active }: { id: number; name: string; section_id: number; is_active: boolean }) => {
-      return apiClient.put(`/personnel/departments/${id}`, { name, section_id, is_active });
+    mutationFn: async ({
+      id,
+      name,
+      section_id,
+      is_active,
+      deactivation_action,
+      target_department_id
+    }: {
+      id: number;
+      name: string;
+      section_id: number;
+      is_active: boolean;
+      deactivation_action?: 'transfer' | 'pool';
+      target_department_id?: number;
+    }) => {
+      return apiClient.put(`/personnel/departments/${id}`, {
+        name,
+        section_id,
+        is_active,
+        deactivation_action,
+        target_department_id
+      });
     },
     onSuccess: async () => {
       await refetchLookups();
       queryClient.invalidateQueries({ queryKey: ["lookups"] });
+      queryClient.invalidateQueries({ queryKey: ["personnel"] });
       toast.success("Birim güncellendi.");
       setIsEditDeptOpen(false);
       setEditingDept(null);
+      setDeactivateDeptData(null);
     },
-    onError: () => {
-      toast.error("Birim güncellenirken bir hata oluştu.");
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.message || "Birim güncellenirken bir hata oluştu.");
     }
   });
 
@@ -728,9 +928,67 @@ export default function Approvals() {
     createDepartmentMutation.mutate({ name, section_id });
   }, [createDepartmentMutation]);
 
-  const handleEditDeptSubmit = useCallback((id: number, name: string, section_id: number, is_active: boolean) => {
+  const handleEditDeptSubmit = useCallback(async (id: number, name: string, section_id: number, is_active: boolean) => {
+    // 1) Eğer birim AKTİF iken PASİFE alınıyorsa:
+    if (editingDept && editingDept.is_active !== false && is_active === false) {
+      try {
+        const res = await apiClient.get<{ count: number }>(`/personnel/departments/${id}/active-count`);
+        const activeCount = res.data?.count || 0;
+
+        if (activeCount > 0) {
+          // İçeride aktif çalışanlar var! DeactivateDeptModal aç:
+          setDeactivateDeptData({
+            id,
+            name,
+            section_id,
+            count: activeCount
+          });
+          return;
+        } else {
+          // İçeride hiç aktif çalışan yok, standart onay ile pasife alabilir
+          const isConfirmed = await confirm({
+            title: "Birimi Pasife Al",
+            description: `'${name}' biriminde kayıtlı aktif personel bulunmamaktadır. Birimi pasife almak istediğinizden emin misiniz?`,
+            confirmText: "Pasife Al",
+            cancelText: "Vazgeç",
+            variant: "destructive"
+          });
+          if (!isConfirmed) return;
+        }
+      } catch (err) {
+        console.error("Birim personel sayısı kontrolü hatası:", err);
+      }
+    }
+    // 2) Eğer bağlı olduğu bölüm değiştiriliyorsa (ve pasifleşmiyorsa):
+    else if (editingDept && editingDept.section_id && Number(editingDept.section_id) !== Number(section_id)) {
+      const oldSectionName = getSectionName(Number(editingDept.section_id));
+      const newSectionName = getSectionName(Number(section_id));
+
+      const isConfirmed = await confirm({
+        title: "Birimi Yeni Bölüme Taşı",
+        description: `'${editingDept.name}' birimini '${oldSectionName}' bölümünden '${newSectionName}' bölümüne taşımak üzeresiniz. Bu birimdeki tüm personellerin bölüm bilgisi ve 2. onaycıları (bölüm müdürü) otomatik olarak yeni bölüme aktarılacaktır. Devam etmek istiyor musunuz?`,
+        confirmText: "Bölümü Değiştir ve Taşı",
+        cancelText: "Vazgeç",
+        variant: "default"
+      });
+
+      if (!isConfirmed) return;
+    }
+
     updateDepartmentMutation.mutate({ id, name, section_id, is_active });
-  }, [updateDepartmentMutation]);
+  }, [editingDept, getSectionName, confirm, updateDepartmentMutation]);
+
+  const handleDeactivateDeptConfirm = useCallback((action: 'transfer' | 'pool', targetDepartmentId?: number) => {
+    if (!deactivateDeptData) return;
+    updateDepartmentMutation.mutate({
+      id: deactivateDeptData.id,
+      name: deactivateDeptData.name,
+      section_id: deactivateDeptData.section_id,
+      is_active: false,
+      deactivation_action: action,
+      target_department_id: targetDepartmentId
+    });
+  }, [deactivateDeptData, updateDepartmentMutation]);
 
 
   if ((lookupsLoading || personnelLoading) && (!lookups || !personnel.length)) {
@@ -901,6 +1159,16 @@ export default function Approvals() {
         isPending={updateDepartmentMutation.isPending}
         dept={editingDept}
         sections={sections}
+      />
+
+      <DeactivateDeptModal
+        open={!!deactivateDeptData}
+        onOpenChange={(open) => { if (!open) setDeactivateDeptData(null); }}
+        data={deactivateDeptData}
+        departments={departments}
+        sections={sections}
+        isPending={updateDepartmentMutation.isPending}
+        onConfirm={handleDeactivateDeptConfirm}
       />
     </div>
   );

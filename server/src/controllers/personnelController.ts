@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { Operator, Role, Section, Department, JobTitle } from "../models";
+import { Operator, Role, Section, Department, JobTitle, LeaveRecord, LeaveActivityLog, SystemAuditLog } from "../models";
 import bcrypt from "bcryptjs";
 import { Op } from "sequelize";
 import fs from "fs";
@@ -43,9 +43,14 @@ const resolveApprovalChain = (operator: Operator, dept?: Department | null, sect
     }
 
     if (roleId === ROLE_PERSONEL || roleId > 0) {
+        const firstApprover = departmentUstabasi || departmentSupervisor || sectionManager;
+        const secondApprover = (departmentUstabasi && departmentSupervisor)
+            ? departmentSupervisor
+            : (firstApprover !== sectionManager ? sectionManager : null);
+
         return {
-            auth1: departmentUstabasi || departmentSupervisor,
-            auth2: departmentUstabasi && departmentSupervisor ? departmentSupervisor : sectionManager
+            auth1: firstApprover || null,
+            auth2: secondApprover || null
         };
     }
 
@@ -97,6 +102,164 @@ const syncSectionApprovalChains = async (sectionId: string | number) => {
             ...(departmentIds.length ? [{ department: { [Op.in]: departmentIds } }] : [])
         ]
     });
+};
+
+/**
+ * Birim Sorumlusu veya Ustabaşı değiştiğinde o birimdeki personellerin
+ * sadece bekleyen (leave_status_id IN (1, 2)) izinlerini yeni onaycıya aktarır.
+ * Geçmişteki onaylı/reddedilmiş/iptal edilmiş izinlere KESİNLİKLE dokunmaz.
+ */
+const syncDepartmentPendingLeaves = async (
+    departmentId: string | number,
+    oldApproverId: string | null | undefined,
+    newApproverId: string | null | undefined,
+    level: 1 | 2,
+    performedBy?: string
+) => {
+    if (!oldApproverId || oldApproverId === newApproverId) return 0;
+
+    try {
+        const deptOperators = await Operator.findAll({
+            where: { department: departmentId },
+            attributes: ["id_dec"]
+        });
+        const opIds = deptOperators.map(o => o.id_dec);
+        if (!opIds.length) return 0;
+
+        const approverCol = level === 1 ? "auth1_user_id" : "auth2_user_id";
+        const pendingLeaves = await LeaveRecord.findAll({
+            where: {
+                user_id: { [Op.in]: opIds },
+                leave_status_id: level,
+                [approverCol]: oldApproverId
+            }
+        });
+
+        if (!pendingLeaves.length) return 0;
+
+        for (const leave of pendingLeaves) {
+            await leave.update({ [approverCol]: newApproverId || null });
+            await LeaveActivityLog.create({
+                leave_record_id: leave.id,
+                performed_by: performedBy || "SYSTEM",
+                action: "APPROVER_REASSIGNED",
+                new_status_id: level,
+                details: `Organizasyonel onaycı değişikliği nedeniyle ${level}. onaycı aktarıldı (${oldApproverId} -> ${newApproverId || "Atanmadı"}).`
+            }).catch(e => console.warn("Activity log hatası:", e));
+        }
+
+        return pendingLeaves.length;
+    } catch (err) {
+        console.error("syncDepartmentPendingLeaves Hatası:", err);
+        return 0;
+    }
+};
+
+/**
+ * Bölüm Müdürü değiştiğinde o bölümdeki (ve bağlı birimlerdeki) personellerin
+ * sadece bekleyen (leave_status_id IN (1, 2)) izinlerini yeni müdüre aktarır.
+ */
+const syncSectionPendingLeaves = async (
+    sectionId: string | number,
+    oldManagerId: string | null | undefined,
+    newManagerId: string | null | undefined,
+    performedBy?: string
+) => {
+    if (!oldManagerId || oldManagerId === newManagerId) return 0;
+
+    try {
+        const departments = await Department.findAll({ where: { section_id: sectionId }, attributes: ["id"] });
+        const deptIds = departments.map(d => d.id);
+
+        const secOperators = await Operator.findAll({
+            where: {
+                [Op.or]: [
+                    { section: sectionId },
+                    ...(deptIds.length ? [{ department: { [Op.in]: deptIds } }] : [])
+                ]
+            },
+            attributes: ["id_dec"]
+        });
+        const opIds = secOperators.map(o => o.id_dec);
+        if (!opIds.length) return 0;
+
+        // Hem 2. onay bekleyenler (status: 2) hem de 1. onaycının doğrudan müdür olduğu izinler (status: 1)
+        const pendingLeavesAuth2 = await LeaveRecord.findAll({
+            where: {
+                user_id: { [Op.in]: opIds },
+                leave_status_id: 2,
+                auth2_user_id: oldManagerId
+            }
+        });
+
+        const pendingLeavesAuth1 = await LeaveRecord.findAll({
+            where: {
+                user_id: { [Op.in]: opIds },
+                leave_status_id: 1,
+                auth1_user_id: oldManagerId
+            }
+        });
+
+        let updatedCount = 0;
+
+        for (const leave of pendingLeavesAuth2) {
+            await leave.update({ auth2_user_id: newManagerId || null });
+            await LeaveActivityLog.create({
+                leave_record_id: leave.id,
+                performed_by: performedBy || "SYSTEM",
+                action: "APPROVER_REASSIGNED",
+                new_status_id: 2,
+                details: `Bölüm müdürü değişikliği nedeniyle 2. onaycı aktarıldı (${oldManagerId} -> ${newManagerId || "Atanmadı"}).`
+            }).catch(e => console.warn("Activity log hatası:", e));
+            updatedCount++;
+        }
+
+        for (const leave of pendingLeavesAuth1) {
+            await leave.update({ auth1_user_id: newManagerId || null });
+            await LeaveActivityLog.create({
+                leave_record_id: leave.id,
+                performed_by: performedBy || "SYSTEM",
+                action: "APPROVER_REASSIGNED",
+                new_status_id: 1,
+                details: `Bölüm müdürü değişikliği nedeniyle 1. onaycı aktarıldı (${oldManagerId} -> ${newManagerId || "Atanmadı"}).`
+            }).catch(e => console.warn("Activity log hatası:", e));
+            updatedCount++;
+        }
+
+        return updatedCount;
+    } catch (err) {
+        console.error("syncSectionPendingLeaves Hatası:", err);
+        return 0;
+    }
+};
+
+/**
+ * Organizasyonel hiyerarşi ve birim/bölüm değişikliklerini system_audit_logs tablosuna kaydeder.
+ */
+const logHierarchyAudit = async (
+    req: Request,
+    actionType: string,
+    description: string,
+    details?: any
+) => {
+    try {
+        const user = (req as any).user;
+        const operatorId = user?.id_dec || "SYSTEM";
+        const operatorName = user ? `${user.name || ""} ${user.surname || ""}`.trim() || user.id_dec : "Sistem";
+        const clientIp = (req.headers["x-forwarded-for"] as string)?.split(",")[0] || req.socket.remoteAddress || null;
+
+        await SystemAuditLog.create({
+            operator_id: operatorId,
+            operator_name: operatorName,
+            module: "ORGANIZATION_HIERARCHY",
+            action_type: actionType,
+            description,
+            details: details ? JSON.stringify(details) : null,
+            ip_address: clientIp
+        });
+    } catch (err) {
+        console.warn("SystemAuditLog kaydı oluşturulamadı:", err);
+    }
 };
 
 // Gelen base64 resmi masaüstü klasörüne kaydeder ve dosya adını döner
@@ -249,6 +412,22 @@ export const createPersonnel = async (req: Request, res: Response): Promise<Resp
             external_id: external_id || null
         });
 
+        // Eğer auth1 ve auth2 belirtilmemişse, birim/bölümden onaycıları otomatik ata
+        if (!auth1 && !auth2 && (department || section)) {
+            try {
+                const deptId = department ? Number(department) : null;
+                const dept = deptId ? await Department.findByPk(deptId) : null;
+                const sectionId = dept?.section_id || (section ? Number(section) : null);
+                const sectionModel = sectionId ? await Section.findByPk(sectionId) : null;
+                const autoApproval = resolveApprovalChain(newOperator, dept, sectionModel);
+                if (autoApproval.auth1 || autoApproval.auth2) {
+                    await newOperator.update(autoApproval);
+                }
+            } catch (autoErr) {
+                console.warn("CreatePersonnel onay zinciri otomatik tamamlama atlandı:", autoErr);
+            }
+        }
+
         return res.status(201).json({ message: "Personel başarıyla oluşturuldu.", id: newOperator.id_dec });
     } catch (error) {
         console.error("CreatePersonnel Hatası:", error);
@@ -295,7 +474,58 @@ export const updatePersonnel = async (req: Request, res: Response): Promise<Resp
             }
         }
 
+        const oldDepartment = operator.department;
+        const oldSection = operator.section;
+
         await operator.update(updateData);
+
+        // Eğer birim, bölüm veya rol değiştiyse onay hiyerarşisini otomatik yeniden hesapla
+        if (
+            updateData.department !== undefined ||
+            updateData.section !== undefined ||
+            updateData.role_id !== undefined
+        ) {
+            try {
+                // 1. Personelin kendi onaycılarını güncelle
+                const deptId = operator.department ? Number(operator.department) : null;
+                const dept = deptId ? await Department.findByPk(deptId) : null;
+                const sectionId = dept?.section_id || (operator.section ? Number(operator.section) : null);
+                const sectionModel = sectionId ? await Section.findByPk(sectionId) : null;
+                const nextApproval = resolveApprovalChain(operator, dept, sectionModel);
+
+                if (
+                    (operator.auth1 || null) !== nextApproval.auth1 ||
+                    (operator.auth2 || null) !== nextApproval.auth2
+                ) {
+                    await operator.update(nextApproval);
+                }
+
+                // 2. Eğer personel eski biriminden başka birime taşındıysa ve eski birimde yönetici idiyse, eski birimi güncelle
+                if (oldDepartment && String(oldDepartment) !== String(operator.department)) {
+                    const oldDept = await Department.findByPk(Number(oldDepartment));
+                    if (oldDept) {
+                        const deptUpdates: any = {};
+                        if (oldDept.supervisor_id === id_dec) deptUpdates.supervisor_id = null;
+                        if (oldDept.ustabasi_id === id_dec) deptUpdates.ustabasi_id = null;
+                        if (Object.keys(deptUpdates).length > 0) {
+                            await oldDept.update(deptUpdates);
+                            await syncDepartmentApprovalChains(Number(oldDepartment));
+                        }
+                    }
+                }
+
+                // 3. Eğer personel eski bölümünden başka bölüme taşındıysa ve eski bölümde müdür idiyse, eski bölümü güncelle
+                if (oldSection && String(oldSection) !== String(operator.section)) {
+                    const oldSec = await Section.findByPk(Number(oldSection));
+                    if (oldSec && oldSec.manager_id === id_dec) {
+                        await oldSec.update({ manager_id: null });
+                        await syncSectionApprovalChains(Number(oldSection));
+                    }
+                }
+            } catch (syncErr) {
+                console.warn("UpdatePersonnel sırasında onay zinciri senkronizasyonu atlandı:", syncErr);
+            }
+        }
 
         return res.status(200).json({ message: "Personel bilgileri güncellendi." });
     } catch (error) {
@@ -307,16 +537,110 @@ export const updatePersonnel = async (req: Request, res: Response): Promise<Resp
 // Soft delete (is_active = 2)
 export const deletePersonnel = async (req: Request, res: Response): Promise<Response> => {
     try {
-        const { id_dec } = req.params;
+        const rawId = req.params.id_dec;
+        const id_dec = String(Array.isArray(rawId) ? rawId[0] : rawId);
 
-        const operator = await Operator.findByPk(id_dec as string);
+        const operator = await Operator.findByPk(id_dec);
         if (!operator) {
             return res.status(404).json({ message: "Personel bulunamadı." });
         }
 
+        // 1. Personeli pasif duruma getir
         await operator.update({ is_active: 0 });
 
-        return res.status(200).json({ message: "Personel pasif duruma getirildi (Soft-Delete)." });
+        // 2. Bu personelin kendi bekleyen (status: 1 veya 2) izinleri varsa iptal et
+        try {
+            const selfPendingLeaves = await LeaveRecord.findAll({
+                where: {
+                    user_id: id_dec,
+                    leave_status_id: { [Op.in]: [1, 2] }
+                }
+            });
+            for (const leave of selfPendingLeaves) {
+                await leave.update({ leave_status_id: 5 }); // 5: İptal Edildi
+                await LeaveActivityLog.create({
+                    leave_record_id: leave.id,
+                    performed_by: (req as any).user?.id_dec || "SYSTEM",
+                    action: "CANCELLED",
+                    new_status_id: 5,
+                    details: "Personel işten ayrıldığı / pasife alındığı için bekleyen izin talebi otomatik iptal edildi."
+                }).catch(e => console.warn("Activity log hatası:", e));
+            }
+        } catch (selfLeaveErr) {
+            console.warn("Ayrılan personelin bekleyen izinleri iptal edilirken hata:", selfLeaveErr);
+        }
+
+        // 3. Bu personel Birim Sorumlusu veya Ustabaşı mıydı?
+        try {
+            const supervisedDepts = await Department.findAll({
+                where: {
+                    [Op.or]: [
+                        { supervisor_id: id_dec },
+                        { ustabasi_id: id_dec }
+                    ]
+                }
+            });
+
+            for (const dept of supervisedDepts) {
+                const wasSupervisor = dept.supervisor_id === id_dec;
+                const wasUstabasi = dept.ustabasi_id === id_dec;
+
+                await dept.update({
+                    supervisor_id: wasSupervisor ? null : dept.supervisor_id,
+                    ustabasi_id: wasUstabasi ? null : dept.ustabasi_id
+                });
+
+                // Birimdeki personellerin hiyerarşisini yeniden senkronize et
+                await syncDepartmentApprovalChains(dept.id);
+
+                // Bu birimde ayrılan yöneticinin onayını bekleyen izinleri üst amire aktar
+                const section = dept.section_id ? await Section.findByPk(dept.section_id) : null;
+                const fallbackApprover = wasUstabasi ? dept.supervisor_id : section?.manager_id;
+
+                if (fallbackApprover) {
+                    await syncDepartmentPendingLeaves(dept.id, id_dec, fallbackApprover, 1, (req as any).user?.id_dec);
+                    await syncDepartmentPendingLeaves(dept.id, id_dec, fallbackApprover, 2, (req as any).user?.id_dec);
+                }
+            }
+        } catch (deptErr) {
+            console.warn("Ayrılan personelin birim yöneticilikleri temizlenirken hata:", deptErr);
+        }
+
+        // 4. Bu personel Bölüm Müdürü müydü?
+        try {
+            const managedSections = await Section.findAll({ where: { manager_id: id_dec } });
+            for (const sec of managedSections) {
+                await sec.update({ manager_id: null });
+                await syncSectionApprovalChains(sec.id);
+            }
+        } catch (secErr) {
+            console.warn("Ayrılan personelin bölüm müdürlükleri temizlenirken hata:", secErr);
+        }
+
+        // 5. Hala bu kişiyi auth1 veya auth2 olarak gösteren aktif personel kaldıysa güvenle temizle
+        try {
+            const remainingReferencing = await Operator.findAll({
+                where: {
+                    is_active: 1,
+                    [Op.or]: [{ auth1: id_dec }, { auth2: id_dec }]
+                }
+            });
+
+            if (remainingReferencing.length > 0) {
+                for (const refOp of remainingReferencing) {
+                    const deptId = refOp.department ? Number(refOp.department) : null;
+                    const dept = deptId ? await Department.findByPk(deptId) : null;
+                    const secId = dept?.section_id || (refOp.section ? Number(refOp.section) : null);
+                    const sec = secId ? await Section.findByPk(secId) : null;
+                    const resolved = resolveApprovalChain(refOp, dept, sec);
+                    await refOp.update(resolved);
+                }
+            }
+        } catch (refErr) {
+            console.warn("Kalan onaycı referansları temizlenirken hata:", refErr);
+        }
+
+        return res.status(200).json({ message: "Personel pasif duruma getirildi ve hiyerarşi güvenle güncellendi." });
     } catch (error) {
         console.error("DeletePersonnel Hatası:", error);
         return res.status(500).json({ message: "Silme işlemi sırasında hata oluştu." });
@@ -352,11 +676,40 @@ export const updateSectionManager = async (req: Request, res: Response): Promise
         const section = await Section.findByPk(id as string);
         if (!section) return res.status(404).json({ message: "Bölüm (Section) bulunamadı." });
         
+        const oldManagerId = section.manager_id;
         await section.update({ manager_id: manager_id || null });
         
         const updateCount = await syncSectionApprovalChains(String(id));
         
-        return res.status(200).json({ message: `Bölüm yöneticisi atandı ve ${updateCount} personelin onay zinciri güncellendi.` });
+        // Bekleyen izinleri yeni müdüre aktar
+        let reassignedCount = 0;
+        if (oldManagerId && oldManagerId !== (manager_id || null)) {
+            reassignedCount = await syncSectionPendingLeaves(
+                String(id),
+                oldManagerId,
+                manager_id || null,
+                (req as any).user?.id_dec
+            );
+        }
+
+        // SystemAuditLog
+        let managerName = null;
+        if (manager_id) {
+            const op = await Operator.findByPk(manager_id);
+            managerName = op ? `${op.name} ${op.surname}` : manager_id;
+        }
+        await logHierarchyAudit(
+            req,
+            manager_id ? "SECTION_MANAGER_ASSIGNED" : "SECTION_MANAGER_REMOVED",
+            manager_id
+                ? `'${section.name}' bölümüne '${managerName}' Bölüm Müdürü olarak atandı.`
+                : `'${section.name}' bölümünün Bölüm Müdürü kaldırıldı.`,
+            { sectionId: id, sectionName: section.name, manager_id, oldManagerId, updateCount, reassignedLeavesCount: reassignedCount }
+        );
+        
+        return res.status(200).json({
+            message: `Bölüm yöneticisi atandı, ${updateCount} personelin onay zinciri ve ${reassignedCount} bekleyen izin aktarıldı.`
+        });
     } catch(err) {
         console.error("UpdateSectionManager Hatası:", err);
         return res.status(500).json({ message: "Bölüm yöneticisi atanırken hata oluştu" });
@@ -372,11 +725,49 @@ export const updateDepartmentSupervisor = async (req: Request, res: Response): P
         const dept = await Department.findByPk(id as string);
         if (!dept) return res.status(404).json({ message: "Birim (Department) bulunamadı." });
         
+        const oldSupervisorId = dept.supervisor_id;
         await dept.update({ supervisor_id: supervisor_id || null });
         
         const updateCount = await syncDepartmentApprovalChains(String(id));
         
-        return res.status(200).json({ message: `Birim sorumlusu atandı ve ${updateCount} personelin onay zinciri güncellendi.` });
+        // Bekleyen izinleri yeni birim sorumlusuna aktar
+        let reassignedCount = 0;
+        if (oldSupervisorId && oldSupervisorId !== (supervisor_id || null)) {
+            const r1 = await syncDepartmentPendingLeaves(
+                String(id),
+                oldSupervisorId,
+                supervisor_id || null,
+                1,
+                (req as any).user?.id_dec
+            );
+            const r2 = await syncDepartmentPendingLeaves(
+                String(id),
+                oldSupervisorId,
+                supervisor_id || null,
+                2,
+                (req as any).user?.id_dec
+            );
+            reassignedCount = r1 + r2;
+        }
+
+        // SystemAuditLog
+        let supervisorName = null;
+        if (supervisor_id) {
+            const op = await Operator.findByPk(supervisor_id);
+            supervisorName = op ? `${op.name} ${op.surname}` : supervisor_id;
+        }
+        await logHierarchyAudit(
+            req,
+            supervisor_id ? "DEPARTMENT_SUPERVISOR_ASSIGNED" : "DEPARTMENT_SUPERVISOR_REMOVED",
+            supervisor_id
+                ? `'${dept.name}' birimine '${supervisorName}' Birim Yöneticisi olarak atandı.`
+                : `'${dept.name}' biriminin Birim Yöneticisi kaldırıldı.`,
+            { departmentId: id, departmentName: dept.name, supervisor_id, oldSupervisorId, updateCount, reassignedLeavesCount: reassignedCount }
+        );
+        
+        return res.status(200).json({
+            message: `Birim sorumlusu atandı, ${updateCount} personelin onay zinciri ve ${reassignedCount} bekleyen izin aktarıldı.`
+        });
     } catch(err) {
         console.error("UpdateDepartmentSupervisor Hatası:", err);
         return res.status(500).json({ message: "Birim sorumlusu atanırken hata oluştu" });
@@ -392,11 +783,41 @@ export const updateDepartmentUstabasi = async (req: Request, res: Response): Pro
         const dept = await Department.findByPk(id as string);
         if (!dept) return res.status(404).json({ message: "Birim (Department) bulunamadı." });
 
+        const oldUstabasiId = dept.ustabasi_id;
         await dept.update({ ustabasi_id: ustabasi_id || null });
 
         const updateCount = await syncDepartmentApprovalChains(String(id));
 
-        return res.status(200).json({ message: `Birim ustabaşısı atandı ve ${updateCount} personelin onay zinciri güncellendi.` });
+        // Bekleyen izinleri yeni ustabaşına aktar
+        let reassignedCount = 0;
+        if (oldUstabasiId && oldUstabasiId !== (ustabasi_id || null)) {
+            reassignedCount = await syncDepartmentPendingLeaves(
+                String(id),
+                oldUstabasiId,
+                ustabasi_id || null,
+                1,
+                (req as any).user?.id_dec
+            );
+        }
+
+        // SystemAuditLog
+        let ustabasiName = null;
+        if (ustabasi_id) {
+            const op = await Operator.findByPk(ustabasi_id);
+            ustabasiName = op ? `${op.name} ${op.surname}` : ustabasi_id;
+        }
+        await logHierarchyAudit(
+            req,
+            ustabasi_id ? "DEPARTMENT_USTABASI_ASSIGNED" : "DEPARTMENT_USTABASI_REMOVED",
+            ustabasi_id
+                ? `'${dept.name}' birimine '${ustabasiName}' Ustabaşı olarak atandı.`
+                : `'${dept.name}' biriminin Ustabaşısı kaldırıldı.`,
+            { departmentId: id, departmentName: dept.name, ustabasi_id, oldUstabasiId, updateCount, reassignedLeavesCount: reassignedCount }
+        );
+
+        return res.status(200).json({
+            message: `Birim ustabaşısı atandı, ${updateCount} personelin onay zinciri ve ${reassignedCount} bekleyen izin aktarıldı.`
+        });
     } catch(err) {
         console.error("UpdateDepartmentUstabasi Hatası:", err);
         return res.status(500).json({ message: "Birim ustabaşısı atanırken hata oluştu" });
@@ -407,6 +828,13 @@ export const syncAllApprovals = async (req: Request, res: Response): Promise<Res
     try {
         const updateCount = await syncOperatorApprovalChains();
         
+        await logHierarchyAudit(
+            req,
+            "ALL_APPROVALS_SYNCED",
+            `Tüm sistem yetki hiyerarşisi başarıyla senkronize edildi (${updateCount} personel güncellendi).`,
+            { updatedPersonnelCount: updateCount }
+        );
+
         return res.status(200).json({ message: `Tüm sistem yetki hiyerarşisi başarıyla senkronize edildi. Güncellenen personel: ${updateCount}` });
     } catch(err) {
         console.error("SyncAllApprovals Hatası:", err);
@@ -548,6 +976,13 @@ export const createSection = async (req: Request, res: Response): Promise<Respon
             is_active: true
         });
 
+        await logHierarchyAudit(
+            req,
+            "SECTION_CREATED",
+            `'${name}' isimli yeni bölüm oluşturuldu.`,
+            { sectionId: section.id, name, manager_id }
+        );
+
         return res.status(201).json({ message: "Bölüm başarıyla oluşturuldu.", data: section });
     } catch (error) {
         console.error("CreateSection Hatası:", error);
@@ -567,6 +1002,10 @@ export const updateSection = async (req: Request, res: Response): Promise<Respon
             return res.status(404).json({ message: "Bölüm bulunamadı." });
         }
 
+        const oldManagerId = section.manager_id;
+        const isDeactivating = is_active !== undefined && is_active === false && section.is_active !== false;
+        const isActivating = is_active !== undefined && is_active === true && section.is_active === false;
+
         await section.update({
             name: name !== undefined ? name : section.name,
             manager_id: manager_id !== undefined ? (manager_id || null) : section.manager_id,
@@ -576,7 +1015,28 @@ export const updateSection = async (req: Request, res: Response): Promise<Respon
         // Eğer onaycı değiştiyse ilgili kişilerin onay zincirlerini tetikle
         if (manager_id !== undefined) {
             await syncSectionApprovalChains(sectionId);
+            if (oldManagerId && oldManagerId !== (manager_id || null)) {
+                await syncSectionPendingLeaves(sectionId, oldManagerId, manager_id || null, (req as any).user?.id_dec);
+            }
         }
+
+        // SystemAuditLog
+        let auditAction = "SECTION_UPDATED";
+        let auditDesc = `'${section.name}' bölüm bilgileri güncellendi.`;
+        if (isDeactivating) {
+            auditAction = "SECTION_DEACTIVATED";
+            auditDesc = `'${section.name}' bölümü pasife alındı.`;
+        } else if (isActivating) {
+            auditAction = "SECTION_ACTIVATED";
+            auditDesc = `'${section.name}' bölümü yeniden aktif hale getirildi.`;
+        }
+
+        await logHierarchyAudit(req, auditAction, auditDesc, {
+            sectionId,
+            name: section.name,
+            manager_id,
+            is_active
+        });
 
         return res.status(200).json({ message: "Bölüm başarıyla güncellendi.", data: section });
     } catch (error) {
@@ -603,6 +1063,13 @@ export const createDepartment = async (req: Request, res: Response): Promise<Res
             is_active: true
         });
 
+        await logHierarchyAudit(
+            req,
+            "DEPARTMENT_CREATED",
+            `'${name}' isimli yeni birim oluşturuldu.`,
+            { departmentId: department.id, name, section_id, supervisor_id, ustabasi_id }
+        );
+
         return res.status(201).json({ message: "Birim başarıyla oluşturuldu.", data: department });
     } catch (error) {
         console.error("CreateDepartment Hatası:", error);
@@ -610,16 +1077,198 @@ export const createDepartment = async (req: Request, res: Response): Promise<Res
     }
 };
 
+// Birimdeki Aktif Personel Sayısını Getir
+export const getDepartmentActivePersonnelCount = async (req: Request, res: Response): Promise<Response> => {
+    try {
+        const { id } = req.params;
+        const count = await Operator.count({
+            where: { department: id, is_active: 1 }
+        });
+        return res.status(200).json({ count });
+    } catch (error) {
+        console.error("GetDepartmentActivePersonnelCount Hatası:", error);
+        return res.status(500).json({ message: "Personel sayısı alınırken hata oluştu." });
+    }
+};
+
 // Birim Güncelle
 export const updateDepartment = async (req: Request, res: Response): Promise<Response> => {
     try {
         const { id } = req.params;
-        const { name, section_id, supervisor_id, ustabasi_id, is_active } = req.body;
+        const { name, section_id, supervisor_id, ustabasi_id, is_active, deactivation_action, target_department_id } = req.body;
 
         const departmentId = parseInt(id as string, 10);
         const department = await Department.findByPk(departmentId);
         if (!department) {
             return res.status(404).json({ message: "Birim bulunamadı." });
+        }
+
+        const oldSupervisorId = department.supervisor_id;
+        const oldUstabasiId = department.ustabasi_id;
+        const oldSectionId = department.section_id;
+
+        // Pasife alma kontrolü (Aktif birim pasife alınıyorsa)
+        const isDeactivating = is_active !== undefined && is_active === false && department.is_active !== false;
+        if (isDeactivating) {
+            const activeOperators = await Operator.findAll({
+                where: { department: departmentId, is_active: 1 }
+            });
+
+            if (activeOperators.length > 0) {
+                if (!deactivation_action) {
+                    return res.status(400).json({
+                        message: `Bu birimde ${activeOperators.length} adet aktif personel bulunmaktadır. Lütfen bir aksiyon seçiniz.`,
+                        requires_action: true,
+                        active_count: activeOperators.length
+                    });
+                }
+
+                if (deactivation_action === "transfer") {
+                    if (!target_department_id) {
+                        return res.status(400).json({ message: "Personellerin aktarılacağı hedef birim seçilmelidir." });
+                    }
+                    const targetDept = await Department.findByPk(Number(target_department_id));
+                    if (!targetDept || !targetDept.is_active) {
+                        return res.status(400).json({ message: "Seçilen hedef birim bulunamadı veya pasif durumda." });
+                    }
+
+                    const targetDeptId = Number(target_department_id);
+                    const targetSectionId = targetDept.section_id || null;
+
+                    // A) Personelleri hedef birime ve o birimin bölümüne taşı
+                    await Operator.update(
+                        { department: targetDeptId, section: targetSectionId },
+                        { where: { department: departmentId, is_active: 1 } }
+                    );
+
+                    // B) Hedef birimdeki personellerin onay zincirlerini güncelle
+                    await syncDepartmentApprovalChains(targetDeptId);
+
+                    // C) Bekleyen izinleri yeni onaycılara aktar
+                    const newSupervisorId = targetDept.supervisor_id;
+                    const newUstabasiId = targetDept.ustabasi_id;
+
+                    if (oldSupervisorId && oldSupervisorId !== newSupervisorId) {
+                        await syncDepartmentPendingLeaves(targetDeptId, oldSupervisorId, newSupervisorId || null, 1, (req as any).user?.id_dec);
+                    }
+                    if (oldUstabasiId && oldUstabasiId !== newUstabasiId) {
+                        await syncDepartmentPendingLeaves(targetDeptId, oldUstabasiId, newUstabasiId || null, 1, (req as any).user?.id_dec);
+                    }
+                    if (department.section_id && targetDept.section_id && Number(department.section_id) !== Number(targetDept.section_id)) {
+                        const oldSec = await Section.findByPk(Number(department.section_id));
+                        const newSec = await Section.findByPk(Number(targetDept.section_id));
+                        if (oldSec?.manager_id && oldSec.manager_id !== newSec?.manager_id) {
+                            await syncDepartmentPendingLeaves(targetDeptId, oldSec.manager_id, newSec?.manager_id || null, 2, (req as any).user?.id_dec);
+                        }
+                    }
+
+                    // SystemAuditLog: Birim pasife alındı ve personeller başka birime aktarıldı
+                    await logHierarchyAudit(
+                        req,
+                        "DEPARTMENT_DEACTIVATED_TRANSFER",
+                        `'${department.name}' birimi pasife alındı ve içerisindeki ${activeOperators.length} personel '${targetDept.name}' birimine aktarıldı.`,
+                        {
+                            departmentId,
+                            departmentName: department.name,
+                            targetDepartmentId: targetDeptId,
+                            targetDepartmentName: targetDept.name,
+                            affectedPersonnelCount: activeOperators.length,
+                            affectedPersonnelIds: activeOperators.map(o => o.id_dec)
+                        }
+                    );
+                } else if (deactivation_action === "pool") {
+                    // Personelleri birimsiz havuzda tut (department: null, section korunur)
+                    const currentSectionId = department.section_id;
+                    const sec = currentSectionId ? await Section.findByPk(Number(currentSectionId)) : null;
+                    const managerId = sec?.manager_id || null;
+
+                    // Operatörlerin birimini null yap
+                    await Operator.update(
+                        { department: null },
+                        { where: { department: departmentId, is_active: 1 } }
+                    );
+
+                    // Bölüm içi onay zincirlerini senkronize et (birimsiz oldukları için auth1/auth2 bölüm müdürüne bağlanır)
+                    if (currentSectionId) {
+                        await syncSectionApprovalChains(currentSectionId);
+                    }
+
+                    // Bekleyen izinleri Bölüm Müdürüne aktar
+                    if (managerId) {
+                        const opIds = activeOperators.map(o => o.id_dec);
+                        if (department.supervisor_id && department.supervisor_id !== managerId) {
+                            const pendingLeaves = await LeaveRecord.findAll({
+                                where: {
+                                    user_id: { [Op.in]: opIds },
+                                    leave_status_id: 1,
+                                    auth1_user_id: department.supervisor_id
+                                }
+                            });
+                            for (const leave of pendingLeaves) {
+                                await leave.update({ auth1_user_id: managerId });
+                                await LeaveActivityLog.create({
+                                    leave_record_id: leave.id,
+                                    performed_by: (req as any).user?.id_dec || "SYSTEM",
+                                    action: "APPROVER_REASSIGNED",
+                                    new_status_id: 1,
+                                    details: `Birim pasife alınıp personeller havuzlandı: 1. Onaycı ${department.supervisor_id} -> Bölüm Müdürü ${managerId} olarak güncellendi.`
+                                }).catch(e => console.warn("Activity log hatası:", e));
+                            }
+                        }
+                        if (department.ustabasi_id && department.ustabasi_id !== managerId) {
+                            const pendingLeaves = await LeaveRecord.findAll({
+                                where: {
+                                    user_id: { [Op.in]: opIds },
+                                    leave_status_id: 1,
+                                    auth1_user_id: department.ustabasi_id
+                                }
+                            });
+                            for (const leave of pendingLeaves) {
+                                await leave.update({ auth1_user_id: managerId });
+                                await LeaveActivityLog.create({
+                                    leave_record_id: leave.id,
+                                    performed_by: (req as any).user?.id_dec || "SYSTEM",
+                                    action: "APPROVER_REASSIGNED",
+                                    new_status_id: 1,
+                                    details: `Birim pasife alınıp personeller havuzlandı: 1. Onaycı (Ustabaşı) ${department.ustabasi_id} -> Bölüm Müdürü ${managerId} olarak güncellendi.`
+                                }).catch(e => console.warn("Activity log hatası:", e));
+                            }
+                        }
+                    }
+
+                    // SystemAuditLog: Birim pasife alındı ve personeller havuza alındı
+                    await logHierarchyAudit(
+                        req,
+                        "DEPARTMENT_DEACTIVATED_POOL",
+                        `'${department.name}' birimi pasife alındı ve içerisindeki ${activeOperators.length} personel bölümsel havuza alındı (Onaylar Bölüm Müdürüne devredildi).`,
+                        {
+                            departmentId,
+                            departmentName: department.name,
+                            sectionId: currentSectionId,
+                            affectedPersonnelCount: activeOperators.length,
+                            affectedPersonnelIds: activeOperators.map(o => o.id_dec)
+                        }
+                    );
+                }
+            } else {
+                // İçeride aktif çalışan olmayan birim pasife alındı
+                await logHierarchyAudit(
+                    req,
+                    "DEPARTMENT_DEACTIVATED",
+                    `'${department.name}' birimi pasife alındı (Birimde kayıtlı aktif personel bulunmuyor).`,
+                    { departmentId, departmentName: department.name }
+                );
+            }
+        }
+
+        const isActivating = is_active !== undefined && is_active === true && department.is_active === false;
+        if (isActivating) {
+            await logHierarchyAudit(
+                req,
+                "DEPARTMENT_ACTIVATED",
+                `'${department.name}' birimi yeniden aktif hale getirildi.`,
+                { departmentId, departmentName: department.name }
+            );
         }
 
         await department.update({
@@ -630,9 +1279,59 @@ export const updateDepartment = async (req: Request, res: Response): Promise<Res
             is_active: is_active !== undefined ? is_active : department.is_active
         });
 
-        // Onay zincirini senkronize et
-        if (supervisor_id !== undefined || ustabasi_id !== undefined) {
+        // 1. Senaryo: Birim başka bir bölüme taşındıysa (section_id değiştiyse ve pasifleşmediyse)
+        const isSectionChanged = !isDeactivating && section_id !== undefined && oldSectionId !== null && Number(section_id) !== Number(oldSectionId);
+        if (isSectionChanged) {
+            const newSectionId = Number(section_id);
+
+            // A) Bu birime kayıtlı tüm personellerin bölüm (section) bilgisini otomatik yeni bölüme taşı
+            await Operator.update(
+                { section: newSectionId },
+                { where: { department: departmentId } }
+            );
+
+            // B) Birimdeki personellerin onay zincirini (özellikle 2. onaycı / yeni bölüm müdürü) senkronize et
             await syncDepartmentApprovalChains(departmentId);
+
+            // C) Eğer eski bölüm müdürü ile yeni bölüm müdürü farklıysa, bekleyen izinleri yeni müdüre aktar
+            const oldSec = oldSectionId ? await Section.findByPk(Number(oldSectionId)) : null;
+            const newSec = await Section.findByPk(newSectionId);
+            const oldManagerId = oldSec?.manager_id;
+            const newManagerId = newSec?.manager_id;
+
+            if (oldManagerId && oldManagerId !== newManagerId) {
+                await syncDepartmentPendingLeaves(departmentId, oldManagerId, newManagerId, 2, (req as any).user?.id_dec);
+                await syncDepartmentPendingLeaves(departmentId, oldManagerId, newManagerId, 1, (req as any).user?.id_dec);
+            }
+
+            // SystemAuditLog: Birim başka bölüme taşındı
+            const oldSecName = oldSec?.name || "Bölümsüz";
+            const newSecName = newSec?.name || "Yeni Bölüm";
+            await logHierarchyAudit(
+                req,
+                "DEPARTMENT_SECTION_TRANSFERRED",
+                `'${department.name}' birimi '${oldSecName}' bölümünden '${newSecName}' bölümüne taşındı.`,
+                {
+                    departmentId,
+                    departmentName: department.name,
+                    oldSectionId,
+                    oldSectionName: oldSecName,
+                    newSectionId,
+                    newSectionName: newSecName
+                }
+            );
+        }
+
+        // Onay zincirini senkronize et (supervisor veya ustabasi değiştiyse)
+        if (!isDeactivating && (supervisor_id !== undefined || ustabasi_id !== undefined)) {
+            await syncDepartmentApprovalChains(departmentId);
+            if (supervisor_id !== undefined && oldSupervisorId && oldSupervisorId !== (supervisor_id || null)) {
+                await syncDepartmentPendingLeaves(departmentId, oldSupervisorId, supervisor_id || null, 1, (req as any).user?.id_dec);
+                await syncDepartmentPendingLeaves(departmentId, oldSupervisorId, supervisor_id || null, 2, (req as any).user?.id_dec);
+            }
+            if (ustabasi_id !== undefined && oldUstabasiId && oldUstabasiId !== (ustabasi_id || null)) {
+                await syncDepartmentPendingLeaves(departmentId, oldUstabasiId, ustabasi_id || null, 1, (req as any).user?.id_dec);
+            }
         }
 
         return res.status(200).json({ message: "Birim başarıyla güncellendi.", data: department });

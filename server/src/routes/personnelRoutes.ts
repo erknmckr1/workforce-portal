@@ -15,10 +15,13 @@ import {
     createSection,
     updateSection,
     createDepartment,
-    updateDepartment
+    updateDepartment,
+    getDepartmentActivePersonnelCount
 } from "../controllers/personnelController";
+import { extractUser } from "../middlewares/authMiddleware";
 
 const router = Router();
+router.use(extractUser);
 const upload = multer({ storage: multer.memoryStorage() });
 
 // Yardımcı verileri (roles, sections vs) getir
@@ -44,6 +47,7 @@ router.put("/department-ustabasi/:id", updateDepartmentUstabasi);
 router.post("/sections", createSection);
 router.put("/sections/:id", updateSection);
 router.post("/departments", createDepartment);
+router.get("/departments/:id/active-count", getDepartmentActivePersonnelCount);
 router.put("/departments/:id", updateDepartment);
 
 // Personel bilgilerini güncelle

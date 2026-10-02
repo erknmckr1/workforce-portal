@@ -13,7 +13,7 @@ declare global {
 }
 
 export const requireAuth = (req: Request, res: Response, next: NextFunction): any => {
-    const token = req.cookies.auth_token;
+    const token = req.cookies?.auth_token || (req.headers.authorization?.startsWith("Bearer ") ? req.headers.authorization.split(" ")[1] : undefined);
     
     if (!token) {
         return res.status(401).json({ message: "Erişim reddedildi. Geçerli bir oturumunuz yok." });
@@ -26,6 +26,19 @@ export const requireAuth = (req: Request, res: Response, next: NextFunction): an
     } catch {
         return res.status(401).json({ message: "Oturum süresi dolmuş veya geçersiz bir yetki." });
     }
+};
+
+export const extractUser = (req: Request, res: Response, next: NextFunction): any => {
+    const token = req.cookies?.auth_token || (req.headers.authorization?.startsWith("Bearer ") ? req.headers.authorization.split(" ")[1] : undefined);
+    if (token) {
+        try {
+            const decoded = jwt.verify(token, JWT_SECRET);
+            req.user = decoded;
+        } catch {
+            // Geçersiz token durumunda oturumsuz devam et
+        }
+    }
+    next();
 };
 
 
