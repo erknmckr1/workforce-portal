@@ -1960,12 +1960,12 @@ export const printThermalLabel = async (req: Request, res: Response) => {
       // 1. Satır: Malzeme No (Uzun kodlar için dinamik genişlik) & Ayar (Sağa barkod tarafına yaklaştırıldı X=180)
       `^FO1,16^A0N,28,${mat.length > 8 ? 24 : 26}^FD${mat}^FS`,
       `^FO180,16^A0N,28,26^FD${ay}^FS`,
-      // 2. Satır: Brüt gram & Değer (X=180)
-      `^FO1,68^A0N,26,26^FDBrüt gram^FS`,
-      `^FO180,68^A0N,28,26^FD${brut}^FS`,
-      // 3. Satır: Net gram & Değer (X=180)
-      `^FO1,120^A0N,26,26^FDNet gram^FS`,
-      `^FO180,120^A0N,28,26^FD${net}^FS`,
+      // 2. Satır: Brüt g. & Değer (Sola yaklaştırıldı X=115, barkodla çakışmaz)
+      `^FO1,68^A0N,24,20^FDBrüt g.^FS`,
+      `^FO115,68^A0N,28,${brut.length > 6 ? 20 : 24}^FD${brut}^FS`,
+      // 3. Satır: Net g. & Değer (Sola yaklaştırıldı X=115, barkodla çakışmaz)
+      `^FO1,120^A0N,24,20^FDNet g.^FS`,
+      `^FO115,120^A0N,28,${net.length > 6 ? 20 : 24}^FD${net}^FS`,
       // Sağ Bölüm: Orantılı Karekod (Dikey Y=16, X=250)
       `^FO250,16^BQN,2,5^FDQA,${qr}^FS`,
       `^PQ${Math.max(1, Number(copies) || 1)}`,

@@ -286,12 +286,12 @@ export default function MesQrGeneratorPage() {
       // 1. Satır: Malzeme No & Ayar (X=180)
       `^FO1,16^A0N,28,${mat.length > 8 ? 24 : 26}^FD${mat}^FS`,
       `^FO180,16^A0N,28,26^FD${ay}^FS`,
-      // 2. Satır: Brüt gram & Değer (X=180)
-      `^FO1,68^A0N,26,26^FDBrüt gram^FS`,
-      `^FO180,68^A0N,28,26^FD${brut}^FS`,
-      // 3. Satır: Net gram & Değer (X=180)
-      `^FO1,120^A0N,26,26^FDNet gram^FS`,
-      `^FO180,120^A0N,28,26^FD${net}^FS`,
+      // 2. Satır: Brüt g. & Değer (Sola yaklaştırıldı X=115, barkodla çakışmaz)
+      `^FO1,68^A0N,24,20^FDBrüt g.^FS`,
+      `^FO115,68^A0N,28,${brut.length > 6 ? 20 : 24}^FD${brut}^FS`,
+      // 3. Satır: Net g. & Değer (Sola yaklaştırıldı X=115, barkodla çakışmaz)
+      `^FO1,120^A0N,24,20^FDNet g.^FS`,
+      `^FO115,120^A0N,28,${net.length > 6 ? 20 : 24}^FD${net}^FS`,
       // Sağ Bölüm: Karekod (Dikey Y=16, X=250)
       `^FO250,16^BQN,2,5^FDQA,${qr}^FS`,
       "^PQ1",
@@ -511,7 +511,8 @@ export default function MesQrGeneratorPage() {
           #printable-thermal-label .print-row-gram {
             display: flex !important;
             flex-direction: row !important;
-            justify-content: space-between !important;
+            justify-content: flex-start !important;
+            gap: 2.5mm !important;
             align-items: center !important;
             font-size: 7.5pt !important;
             line-height: 1.1 !important;
@@ -521,6 +522,7 @@ export default function MesQrGeneratorPage() {
             padding-top: 0.6mm !important;
           }
           #printable-thermal-label .print-gram-label {
+            min-width: 9.5mm !important;
             font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif !important;
             font-weight: 500 !important;
             color: #000000 !important;
@@ -1131,22 +1133,22 @@ export default function MesQrGeneratorPage() {
                   </span>
                 </div>
 
-                {/* Row 2: Brüt Gram */}
-                <div className="print-row-gram flex items-center justify-between text-black border-t border-neutral-200/60 pt-1">
-                  <span className="print-gram-label text-xs sm:text-sm font-medium text-neutral-800">
-                    Brüt gram
+                {/* Row 2: Brüt g. */}
+                <div className="print-row-gram flex items-center justify-start gap-3 text-black border-t border-neutral-200/60 pt-1">
+                  <span className="print-gram-label text-xs sm:text-sm font-medium text-neutral-800 min-w-[46px] shrink-0">
+                    Brüt g.
                   </span>
-                  <span className="print-gram-val font-mono font-black text-black text-xs sm:text-sm">
+                  <span className="print-gram-val font-mono font-black text-black text-xs sm:text-sm truncate">
                     {inputWeight.trim() || "5.06"}
                   </span>
                 </div>
 
-                {/* Row 3: Net Gram */}
-                <div className="print-row-gram flex items-center justify-between text-black border-t border-neutral-200/60 pt-1">
-                  <span className="print-gram-label text-xs sm:text-sm font-medium text-neutral-800">
-                    Net gram
+                {/* Row 3: Net g. */}
+                <div className="print-row-gram flex items-center justify-start gap-3 text-black border-t border-neutral-200/60 pt-1">
+                  <span className="print-gram-label text-xs sm:text-sm font-medium text-neutral-800 min-w-[46px] shrink-0">
+                    Net g.
                   </span>
-                  <span className="print-gram-val font-mono font-black text-black text-xs sm:text-sm">
+                  <span className="print-gram-val font-mono font-black text-black text-xs sm:text-sm truncate">
                     {netWeight.trim() || "3.27"}
                   </span>
                 </div>
