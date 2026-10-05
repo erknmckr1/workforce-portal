@@ -134,6 +134,29 @@ export default function MesQrGeneratorPage() {
     return localStorage.getItem("mes_qr_printer_name") || "MIDAS_BARKOD";
   });
   const [isPrinting, setIsPrinting] = useState<boolean>(false);
+  const [isAgentConnected, setIsAgentConnected] = useState<boolean | null>(null);
+
+  // Yerel ajan (localhost:9199) durumunu kontrol et
+  useEffect(() => {
+    let isMounted = true;
+    const checkAgent = async () => {
+      try {
+        const res = await fetch("http://127.0.0.1:9199/health", {
+          signal: AbortSignal.timeout(1500),
+        });
+        if (isMounted) setIsAgentConnected(res.ok);
+      } catch {
+        if (isMounted) setIsAgentConnected(false);
+      }
+    };
+
+    checkAgent();
+    const interval = setInterval(checkAgent, 8000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, []);
 
   // Sync to localStorage
   useEffect(() => {
@@ -241,6 +264,41 @@ export default function MesQrGeneratorPage() {
     return parts.length > 0 ? parts.join(" ") : "M7000001 14 5.06 3.27";
   }, [materialNo, ayar, inputWeight, netWeight, qrMode]);
 
+  // ZPL oluşturucu fonksiyon (Merkezi sunucu veya yerel ajan için birebir aynı kalibre edilmiş ZPL)
+  const getZplCode = () => {
+    const heightDots = Math.round(heightMm * 8);
+    const leftDots = Math.round(leftOffsetMm * 8);
+    const topDots = Math.round(topOffsetMm * 8);
+    const mat = materialNo.trim();
+    const ay = ayar.trim();
+    const brut = inputWeight.trim();
+    const net = netWeight.trim();
+    const qr = qrValue;
+
+    return [
+      "^XA",
+      "^MMT",
+      "^MNY",
+      "^CI28",
+      "^PW550",
+      `^LL${heightDots}`,
+      `^LH${leftDots},${topDots}`,
+      // 1. Satır: Malzeme No & Ayar (X=180)
+      `^FO1,16^A0N,28,${mat.length > 8 ? 24 : 26}^FD${mat}^FS`,
+      `^FO180,16^A0N,28,26^FD${ay}^FS`,
+      // 2. Satır: Brüt gram & Değer (X=180)
+      `^FO1,68^A0N,26,26^FDBrüt gram^FS`,
+      `^FO180,68^A0N,28,26^FD${brut}^FS`,
+      // 3. Satır: Net gram & Değer (X=180)
+      `^FO1,120^A0N,26,26^FDNet gram^FS`,
+      `^FO180,120^A0N,28,26^FD${net}^FS`,
+      // Sağ Bölüm: Karekod (Dikey Y=16, X=250)
+      `^FO250,16^BQN,2,5^FDQA,${qr}^FS`,
+      "^PQ1",
+      "^XZ",
+    ].join("\n");
+  };
+
   // Handle Print: Tek tıkla doğrudan Zebra ZD421'e yazdırır (Penceresiz)
   const handlePrint = async () => {
     if (!materialNo.trim() && !ayar.trim() && !netWeight.trim() && !inputWeight.trim()) {
@@ -250,6 +308,55 @@ export default function MesQrGeneratorPage() {
 
     try {
       setIsPrinting(true);
+      const zplContent = getZplCode();
+      let printedViaAgent = false;
+
+      // 1. Önce İstemcinin Yerel Yazdırma Ajanını dene (http://127.0.0.1:9199)
+      try {
+        const agentRes = await fetch("http://127.0.0.1:9199/print", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            printerName: printerName || "MIDAS_BARKOD",
+            zpl: zplContent,
+          }),
+          signal: AbortSignal.timeout(2500),
+        });
+        if (agentRes.ok) {
+          const agentData = await agentRes.json();
+          if (agentData?.success) {
+            printedViaAgent = true;
+            setIsAgentConnected(true);
+          }
+        }
+      } catch {
+        // Yerel ajan yanıt vermedi
+      }
+
+      if (printedViaAgent) {
+        toast.success("Etiket yerel Zebra yazıcıdan yazdırıldı! ⚡");
+        // Merkezi sunucuya audit log kaydını arka planda kaydet
+        apiClient
+          .post("/mes/record-label-print", {
+            materialNo: materialNo.trim(),
+            ayar: ayar.trim(),
+            inputWeight: inputWeight.trim(),
+            netWeight: netWeight.trim(),
+            qrValue: qrValue,
+            copies: 1,
+            status: "SUCCESS",
+            operatorId: user?.id_dec,
+            operatorName: user ? `${user.name} ${user.surname}`.trim() : undefined,
+          })
+          .catch(console.warn);
+
+        if (autoClearAfterPrint) {
+          handleReset();
+        }
+        return;
+      }
+
+      // 2. Yerel ajan yanıt vermediyse doğrudan merkezi sunucu üzerinden dene
       const res = await apiClient.post("/mes/print-thermal-label", {
         materialNo: materialNo.trim(),
         ayar: ayar.trim(),
@@ -275,16 +382,31 @@ export default function MesQrGeneratorPage() {
       }
     } catch (err: unknown) {
       console.error("Zebra direct print error:", err);
-      let errorMsg = "Yazıcıya ulaşılamadı";
-      if (err && typeof err === "object") {
-        const axErr = err as { response?: { data?: { message?: string } }; message?: string };
-        errorMsg = axErr.response?.data?.message || axErr.message || errorMsg;
-      }
-      toast.error(`Yazdırma başarısız oldu: ${errorMsg}`);
+      toast.error(
+        "Yazıcıya ulaşılamadı. Sunucuda çalışırken doğrudan yerel yazıcıya basmak için lütfen 'print-agent/start-agent.bat' servisini başlatın."
+      );
     } finally {
       setIsPrinting(false);
     }
   };
+
+  // Reference to always have latest handlePrint callback in global keydown listener
+  const handlePrintRef = useRef(handlePrint);
+  useEffect(() => {
+    handlePrintRef.current = handlePrint;
+  });
+
+  // Global Ctrl+P ve Enter kısayollarını yakala (Tarayıcı penceresi açılmaz, doğrudan yazdırır)
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && (e.key === "p" || e.key === "P")) {
+        e.preventDefault();
+        handlePrintRef.current();
+      }
+    };
+    window.addEventListener("keydown", handleGlobalKeyDown);
+    return () => window.removeEventListener("keydown", handleGlobalKeyDown);
+  }, []);
 
   // Reset Form
   const handleReset = () => {
@@ -1042,9 +1164,28 @@ export default function MesQrGeneratorPage() {
             </div>
 
             {/* Quick status badge below */}
-            <div className="flex items-center gap-2 mt-4 text-[11px] font-bold text-muted-foreground bg-muted/60 px-3.5 py-1.5 rounded-xl border border-border/60">
-              <Printer size={13} className="text-emerald-500" />
-              <span>Zebra ZD421: {widthMm}x{heightMm} mm (Sol Ofset: +{leftOffsetMm}mm)</span>
+            <div className="flex flex-wrap items-center justify-center gap-2 mt-4 text-[11px] font-bold">
+              <div className="flex items-center gap-1.5 text-muted-foreground bg-muted/60 px-3 py-1.5 rounded-xl border border-border/60">
+                <Printer size={13} className="text-emerald-500" />
+                <span>Zebra ZD421: {widthMm}x{heightMm} mm (Sol Ofset: +{leftOffsetMm}mm)</span>
+              </div>
+              {isAgentConnected === true ? (
+                <div
+                  className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-3 py-1.5 rounded-xl border border-emerald-500/20"
+                  title="Yerel Yazdırma Ajanı aktif. Sıfır pencere ile doğrudan USB yazıcıya basılır."
+                >
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span>Yerel Ajan: Aktif (9199)</span>
+                </div>
+              ) : isAgentConnected === false ? (
+                <div
+                  className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400 bg-amber-500/10 px-3 py-1.5 rounded-xl border border-amber-500/20"
+                  title="192.168.3.5'te penceresiz doğrudan yazdırmak için print-agent/start-agent.bat dosyasını çalıştırın."
+                >
+                  <span className="w-2 h-2 rounded-full bg-amber-500" />
+                  <span>Yerel Ajan: Kapalı (start-agent.bat)</span>
+                </div>
+              ) : null}
             </div>
 
             {/* Live QR string preview below */}

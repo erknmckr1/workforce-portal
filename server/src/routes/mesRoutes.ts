@@ -75,6 +75,7 @@ router.delete("/parti-logs/:id", MesPartiController.deletePartiLog);
 
 // Termal Etiket Doğrudan Yazdırma & Kayıtları (Zebra ZPL)
 router.post("/print-thermal-label", MesController.printThermalLabel);
+router.post("/record-label-print", MesController.recordLabelPrintLog);
 router.get("/label-print-logs", MesController.getRecentLabelPrintLogs);
 
 export default router;

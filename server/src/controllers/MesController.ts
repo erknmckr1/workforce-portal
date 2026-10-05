@@ -2075,3 +2075,45 @@ export const getRecentLabelPrintLogs = async (req: Request, res: Response) => {
     return res.status(500).json({ success: false, message: "Kayıtlar alınamadı." });
   }
 };
+
+export const recordLabelPrintLog = async (req: Request, res: Response) => {
+  try {
+    const {
+      materialNo = "",
+      ayar = "",
+      inputWeight = "",
+      netWeight = "",
+      qrValue = "",
+      copies = 1,
+      status = "SUCCESS",
+      errorMessage = null,
+      operatorId,
+      operatorName,
+    } = req.body;
+
+    const currentOperatorId = String(operatorId || req.user?.id_dec || "").trim() || null;
+    const currentOperatorName = String(
+      operatorName ||
+      (req.user ? `${req.user.name || ""} ${req.user.surname || ""}`.trim() : "")
+    ).trim() || null;
+
+    const log = await MesLabelPrintLog.create({
+      operator_id: currentOperatorId,
+      operator_name: currentOperatorName,
+      material_no: String(materialNo || "").trim(),
+      ayar: String(ayar || "").trim() || null,
+      brut_weight: String(inputWeight || "").trim() || null,
+      net_weight: String(netWeight || "").trim() || null,
+      qr_value: String(qrValue || "").trim() || null,
+      copies: Math.max(1, Number(copies) || 1),
+      status: String(status || "SUCCESS"),
+      error_message: errorMessage ? String(errorMessage).slice(0, 1000) : null,
+    });
+
+    return res.status(200).json({ success: true, log });
+  } catch (err: unknown) {
+    console.error("recordLabelPrintLog error:", err);
+    return res.status(500).json({ success: false, message: "Log kaydedilemedi." });
+  }
+};
+
