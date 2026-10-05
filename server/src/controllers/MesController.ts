@@ -7,7 +7,8 @@ import {
   Status,
   Operator,
   Department,
-  SectionParticipationLog
+  SectionParticipationLog,
+  MesLabelPrintLog
 } from "../models";
 import { WorkLog } from "../models/WorkLog";
 import { WorkLogPause } from "../models/WorkLogPause";
@@ -24,6 +25,8 @@ import ExternalMovement from "../models/ExternalMovement";
 import { sendScrapWeightWarningEmail } from "../services/emailService";
 import fs from "fs";
 import path from "path";
+import os from "os";
+import { execFile } from "child_process";
 
 // Dosya listesi için basit bir cache yapısı
 let fileCache: { files: string[]; lastUpdate: number } = {
@@ -1890,5 +1893,185 @@ export const startProcessFromSetup = async (req: Request, res: Response) => {
   } catch (error) {
     console.error("startProcessFromSetup Hatası:", error);
     return res.status(500).json({ message: "Sunucu hatası." });
+  }
+};
+
+export const printThermalLabel = async (req: Request, res: Response) => {
+  try {
+    const {
+      materialNo = "",
+      ayar = "",
+      inputWeight = "",
+      netWeight = "",
+      qrValue = "",
+      printerName = "MIDAS_BARKOD",
+      leftOffsetMm = 27,
+      topOffsetMm = 1.5,
+      heightMm = 20,
+      widthMm = 50,
+      copies = 1,
+      operatorId,
+      operatorName,
+    } = req.body;
+
+    const currentOperatorId = String(operatorId || req.user?.id_dec || "").trim() || null;
+    const currentOperatorName = String(
+      operatorName ||
+      (req.user ? `${req.user.name || ""} ${req.user.surname || ""}`.trim() : "")
+    ).trim() || null;
+    const copyCount = Math.max(1, Number(copies) || 1);
+
+    // Sol ofset kalibrasyonu: Rulonun 50x20mm fiziksel yerleşimi için 13.0mm (104 dot)
+    const rawLeft = Number(leftOffsetMm ?? 13.0);
+    const calibratedLeftMm = rawLeft >= 24 ? 13.0 : rawLeft;
+    const leftDots = Math.round(calibratedLeftMm * 8);
+    const topDots = Math.round(Number(topOffsetMm ?? 1.5) * 8);
+    const heightDots = Math.round(Number(heightMm ?? 20) * 8);
+
+    const mat = String(materialNo || "").trim();
+    const ay = String(ayar || "").trim();
+    const brut = String(inputWeight || "").trim();
+    const net = String(netWeight || "").trim();
+    let qr = String(qrValue || "").trim();
+    if (!qr) {
+      if (mat && ay) {
+        qr = `${mat} ${ay}`;
+      } else if (mat) {
+        qr = mat;
+      } else if (ay) {
+        qr = ay;
+      } else {
+        qr = "MZ332421 14Y";
+      }
+    }
+
+    // Zebra ZD421 (203 DPI, 50x20mm rulo etiket) ZPL şablonu
+    // ^MMT: Tear-off modu
+    // ^MNY: Boşluklu (Gap) sensörü - etiketler arası boşluğu algılar, asla etiketi ikiye bölmez
+    // ^CI28: UTF-8 Türkçe karakter desteği
+    const zplLines = [
+      "^XA",
+      "^MMT",
+      "^MNY",
+      "^CI28",
+      "^PW550",
+      `^LL${heightDots}`,
+      `^LH${leftDots},${topDots}`,
+      // 1. Satır: Malzeme No (Uzun kodlar için dinamik genişlik) & Ayar (Sağa barkod tarafına yaklaştırıldı X=180)
+      `^FO1,16^A0N,28,${mat.length > 8 ? 24 : 26}^FD${mat}^FS`,
+      `^FO180,16^A0N,28,26^FD${ay}^FS`,
+      // 2. Satır: Brüt gram & Değer (X=180)
+      `^FO1,68^A0N,26,26^FDBrüt gram^FS`,
+      `^FO180,68^A0N,28,26^FD${brut}^FS`,
+      // 3. Satır: Net gram & Değer (X=180)
+      `^FO1,120^A0N,26,26^FDNet gram^FS`,
+      `^FO180,120^A0N,28,26^FD${net}^FS`,
+      // Sağ Bölüm: Orantılı Karekod (Dikey Y=16, X=250)
+      `^FO250,16^BQN,2,5^FDQA,${qr}^FS`,
+      `^PQ${Math.max(1, Number(copies) || 1)}`,
+      "^XZ",
+    ];
+
+    const zplContent = zplLines.join("\n");
+
+    const tempFilePath = path.join(
+      os.tmpdir(),
+      `zebra_label_${Date.now()}_${Math.random().toString(36).substring(7)}.zpl`
+    );
+
+    fs.writeFileSync(tempFilePath, zplContent, "utf8");
+
+    const fallbackScriptPath = path.resolve(__dirname, "../scripts/sendZplToPrinter.ps1");
+    const srcScriptPath = path.resolve(__dirname, "../../src/scripts/sendZplToPrinter.ps1");
+    const scriptPath = fs.existsSync(fallbackScriptPath) ? fallbackScriptPath : srcScriptPath;
+
+    execFile(
+      "powershell",
+      [
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        scriptPath,
+        "-PrinterName",
+        String(printerName || "MIDAS_BARKOD"),
+        "-ZplFile",
+        tempFilePath,
+      ],
+      (error, stdout, stderr) => {
+        // Clean up temp file
+        try {
+          if (fs.existsSync(tempFilePath)) {
+            fs.unlinkSync(tempFilePath);
+          }
+        } catch (cleanupErr) {
+          console.warn("Geçici ZPL dosyası silinemedi:", cleanupErr);
+        }
+
+        if (error) {
+          console.error("ZPL Yazdırma hatası:", error, stderr);
+          // Hata kaydını sessizce mes_label_print_logs'a kaydet
+          MesLabelPrintLog.create({
+            operator_id: currentOperatorId,
+            operator_name: currentOperatorName,
+            material_no: mat,
+            ayar: ay || null,
+            brut_weight: brut || null,
+            net_weight: net || null,
+            qr_value: qr,
+            copies: copyCount,
+            status: "FAILED",
+            error_message: String(stderr || error.message || "").slice(0, 1000),
+          }).catch((logErr) => {
+            console.warn("MesLabelPrintLog error save failed:", logErr);
+          });
+
+          return res.status(500).json({
+            success: false,
+            message: `Yazıcıya gönderilemedi: ${stderr || error.message}`,
+          });
+        }
+
+        // Başarılı yazdırma kaydını mes_label_print_logs tablosuna kaydet
+        MesLabelPrintLog.create({
+          operator_id: currentOperatorId,
+          operator_name: currentOperatorName,
+          material_no: mat,
+          ayar: ay || null,
+          brut_weight: brut || null,
+          net_weight: net || null,
+          qr_value: qr,
+          copies: copyCount,
+          status: "SUCCESS",
+        }).catch((logErr) => {
+          console.warn("MesLabelPrintLog create error:", logErr);
+        });
+
+        return res.status(200).json({
+          success: true,
+          message: "Etiket başarıyla Zebra ZD421 yazıcıya gönderildi.",
+          output: stdout.trim(),
+        });
+      }
+    );
+  } catch (err: unknown) {
+    console.error("printThermalLabel error:", err);
+    return res.status(500).json({
+      success: false,
+      message: err instanceof Error ? err.message : "Sunucu hatası",
+    });
+  }
+};
+
+export const getRecentLabelPrintLogs = async (req: Request, res: Response) => {
+  try {
+    const limit = Math.min(50, Math.max(1, Number(req.query.limit) || 10));
+    const logs = await MesLabelPrintLog.findAll({
+      order: [["createdAt", "DESC"]],
+      limit,
+    });
+    return res.status(200).json({ success: true, logs });
+  } catch (err: unknown) {
+    console.error("getRecentLabelPrintLogs error:", err);
+    return res.status(500).json({ success: false, message: "Kayıtlar alınamadı." });
   }
 };

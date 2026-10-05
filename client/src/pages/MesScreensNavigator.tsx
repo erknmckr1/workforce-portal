@@ -13,6 +13,7 @@ import {
   Scale,
   Layers,
   AlertTriangle,
+  QrCode,
 } from "lucide-react";
 
 interface ScreenCard {
@@ -125,6 +126,15 @@ const screens: ScreenCard[] = [
     color: "from-rose-500 to-red-600",
     description: "Hatalı ve hurdaya ayrılan parçaların fotoğraflı ve nedenli takibini yapın.",
   },
+  {
+    id: "qr-olusturucu",
+    title: "Ücretsiz QR Oluşturucu",
+    area: "qr-olusturucu",
+    section: "atolye",
+    icon: <QrCode size={32} />,
+    color: "from-teal-500 to-emerald-600",
+    description: "Malzeme numarası ve gramaj bilgileriyle hızlı QR kodlu etiket oluşturup yazdırın.",
+  },
 ];
 
 const MesScreensNavigator = () => {
@@ -163,6 +173,8 @@ const MesScreensNavigator = () => {
                 navigate("/parti-takibi");
               } else if (screen.id === "hurda-takibi") {
                 navigate("/hurda-takibi");
+              } else if (screen.id === "qr-olusturucu") {
+                navigate("/mes-qr-generator");
               } else {
                 navigate(`/uretim/${screen.section}/${screen.area}`);
               }
@@ -185,7 +197,7 @@ const MesScreensNavigator = () => {
             </div>
 
             <div className="mt-6 flex items-center gap-2 text-xs font-black uppercase tracking-widest text-primary opacity-0 group-hover:opacity-100 transition-all transform -translate-x-2.5 group-hover:translate-x-0 duration-500">
-              {screen.id === "olcum-takip" || screen.id === "parti-takibi" || screen.id === "hurda-takibi" ? "İncele" : "Giriş Yap"}{" "}
+              {screen.id === "olcum-takip" || screen.id === "parti-takibi" || screen.id === "hurda-takibi" || screen.id === "qr-olusturucu" ? "İncele" : "Giriş Yap"}{" "}
               <ChevronRight size={14} />
             </div>
 
@@ -197,6 +209,8 @@ const MesScreensNavigator = () => {
                 <Layers size={48} className="text-muted-foreground" />
               ) : screen.id === "hurda-takibi" ? (
                 <AlertTriangle size={48} className="text-muted-foreground" />
+              ) : screen.id === "qr-olusturucu" ? (
+                <QrCode size={48} className="text-muted-foreground" />
               ) : (
                 <Monitor size={48} className="text-muted-foreground" />
               )}

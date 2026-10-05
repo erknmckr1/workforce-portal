@@ -8,6 +8,7 @@ import PersonnelManagement from "./pages/PersonnelManagement";
 import MainLayout from "./components/layout/MainLayout";
 import PartiTakibiLayout from "./components/layout/PartiTakibiLayout";
 import HurdaTakibiLayout from "./components/layout/HurdaTakibiLayout";
+import QrGeneratorLayout from "./components/layout/QrGeneratorLayout";
 import ProtectedRoute from "./components/layout/ProtectedRoute";
 import SettingsIndex from "./pages/settings/SettingsIndex";
 import Approvals from "./pages/settings/Approvals";
@@ -24,6 +25,7 @@ import FoodMenuManager from "./pages/settings/FoodMenuManager";
 import Home from "./pages/Home";
 import UretimTerminal from "./pages/UretimTerminal";
 import MesScreensNavigator from "./pages/MesScreensNavigator";
+import MesQrGeneratorPage from "./pages/MesQrGeneratorPage";
 import MeasurementMonitoring from "./pages/MeasurementMonitoring";
 import PartiTakibi from "./pages/PartiTakibi";
 import HurdaTakibi from "./pages/HurdaTakibi";
@@ -136,6 +138,11 @@ function App() {
               <Route path="/hurda-raporu" element={<HurdaRaporuPage />} />
             </Route>
 
+            {/* 2.8 QR Etiket Oluşturucu - Bağımsız Terminal Layout ile */}
+            <Route element={<QrGeneratorLayout />}>
+              <Route path="/mes-qr-generator" element={<MesQrGeneratorPage />} />
+            </Route>
+
             {/* 3. Korumalı Rotalar (Layout ile birlikte) */}
             <Route
               element={
@@ -215,7 +222,7 @@ function App() {
               </Route>
 
               {/* Üretim Ekranları Gezgini */}
-              <Route element={<ProtectedRoute allowedRoles={["Admin", "Yönetici", "Mühendis"]} />}>
+              <Route element={<ProtectedRoute allowedRoles={["Admin", "Yönetici", "Mühendis", "Ustabasi", "Personel"]} />}>
                 <Route path="mes-screens" element={<MesScreensNavigator />} />
                 <Route path="mes-measurements" element={<MeasurementMonitoring />} />
               </Route>

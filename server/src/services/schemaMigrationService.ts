@@ -158,6 +158,14 @@ export const ensureApplicationSchema = async () => {
     console.error("system_audit_logs sync error:", err);
   }
 
+  try {
+    const { MesLabelPrintLog } = await import("../models");
+    await MesLabelPrintLog.sync();
+    console.log("Schema verified: mes_label_print_logs table ready.");
+  } catch (err) {
+    console.error("mes_label_print_logs sync error:", err);
+  }
+
   // Migration for scrap_trackings table: add scrap_reason
   try {
     const scrapTrackCols = await queryInterface.describeTable("scrap_trackings");
