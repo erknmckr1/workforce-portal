@@ -1,6 +1,12 @@
 import { Request, Response } from "express";
 import { Operator, Role, Section, Department, JobTitle, SystemAuditLog } from "../models";
-import { logApprovalHierarchyChange, fetchApproverName } from "../services/approvalAuditService";
+import {
+    logApprovalHierarchyChange,
+    fetchApproverName,
+    logPersonnelCreate,
+    logPersonnelUpdate,
+    logPersonnelDelete
+} from "../services/auditService";
 import bcrypt from "bcryptjs";
 import { Op } from "sequelize";
 import fs from "fs";
@@ -250,6 +256,9 @@ export const createPersonnel = async (req: Request, res: Response): Promise<Resp
             external_id: external_id || null
         });
 
+        // Denetim loguna kaydet
+        await logPersonnelCreate(req, newOperator);
+
         return res.status(201).json({ message: "Personel başarıyla oluşturuldu.", id: newOperator.id_dec });
     } catch (error) {
         console.error("CreatePersonnel Hatası:", error);
@@ -301,9 +310,12 @@ export const updatePersonnel = async (req: Request, res: Response): Promise<Resp
         const isAuth1Changed = updateData.auth1 !== undefined && (updateData.auth1 || null) !== (oldAuth1 || null);
         const isAuth2Changed = updateData.auth2 !== undefined && (updateData.auth2 || null) !== (oldAuth2 || null);
 
+        // Değişiklikleri karşılaştırmak için mevcut durumun anlık görüntüsü
+        const oldSnapshot = { ...operator.get() };
+
         await operator.update(updateData);
 
-        // Eğer onaycılar doğrudan değiştirildiyse denetim loguna kaydet
+        // Eğer onaycılar doğrudan değiştirildiyse onay hiyerarşisi loguna kaydet
         if (isAuth1Changed || isAuth2Changed) {
             const [oldAuth1Name, newAuth1Name, oldAuth2Name, newAuth2Name] = await Promise.all([
                 fetchApproverName(oldAuth1),
@@ -331,6 +343,15 @@ export const updatePersonnel = async (req: Request, res: Response): Promise<Resp
             });
         }
 
+        // Personel profil alanı değişikliklerini denetim loguna kaydet
+        await logPersonnelUpdate(
+            req,
+            operator.id_dec,
+            oldSnapshot,
+            updateData,
+            `${operator.name} ${operator.surname}`
+        );
+
         return res.status(200).json({ message: "Personel bilgileri güncellendi." });
     } catch (error) {
         console.error("UpdatePersonnel Hatası:", error);
@@ -349,6 +370,9 @@ export const deletePersonnel = async (req: Request, res: Response): Promise<Resp
         }
 
         await operator.update({ is_active: 0 });
+
+        // Denetim loguna kaydet
+        await logPersonnelDelete(req, operator);
 
         return res.status(200).json({ message: "Personel pasif duruma getirildi (Soft-Delete)." });
     } catch (error) {
@@ -822,5 +846,27 @@ export const getApprovalAuditLogs = async (req: Request, res: Response): Promise
     } catch (error) {
         console.error("getApprovalAuditLogs Hatası:", error);
         return res.status(500).json({ success: false, message: "Onay hiyerarşisi logları alınamadı." });
+    }
+};
+
+// Genel / Modüle Göre Denetim Loglarını Getir
+export const getSystemAuditLogs = async (req: Request, res: Response): Promise<Response> => {
+    try {
+        const limit = Math.min(200, Math.max(1, Number(req.query.limit) || 50));
+        const moduleName = req.query.module ? String(req.query.module) : undefined;
+        const whereCondition: any = {};
+        if (moduleName) {
+            whereCondition.module = moduleName;
+        }
+
+        const logs = await SystemAuditLog.findAll({
+            where: whereCondition,
+            order: [["createdAt", "DESC"]],
+            limit
+        });
+        return res.status(200).json({ success: true, count: logs.length, logs });
+    } catch (error) {
+        console.error("getSystemAuditLogs Hatası:", error);
+        return res.status(500).json({ success: false, message: "Denetim logları alınamadı." });
     }
 };

@@ -16,7 +16,8 @@ import {
     updateSection,
     createDepartment,
     updateDepartment,
-    getApprovalAuditLogs
+    getApprovalAuditLogs,
+    getSystemAuditLogs
 } from "../controllers/personnelController";
 
 const router = Router();
@@ -25,8 +26,9 @@ const upload = multer({ storage: multer.memoryStorage() });
 // Yardımcı verileri (roles, sections vs) getir
 router.get("/lookups", getPersonnelLookups);
 
-// Onay hiyerarşisi denetim (audit) loglarını listele
+// Denetim (audit) loglarını listele
 router.get("/approval-audit-logs", getApprovalAuditLogs);
+router.get("/audit-logs", getSystemAuditLogs);
 
 // Tüm personelleri listele
 router.get("/", getAllPersonnel);
