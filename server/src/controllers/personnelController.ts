@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
-import { Operator, Role, Section, Department, JobTitle } from "../models";
+import { Operator, Role, Section, Department, JobTitle, SystemAuditLog } from "../models";
+import { logApprovalHierarchyChange, fetchApproverName } from "../services/approvalAuditService";
 import bcrypt from "bcryptjs";
 import { Op } from "sequelize";
 import fs from "fs";
@@ -295,7 +296,40 @@ export const updatePersonnel = async (req: Request, res: Response): Promise<Resp
             }
         }
 
+        const oldAuth1 = operator.auth1;
+        const oldAuth2 = operator.auth2;
+        const isAuth1Changed = updateData.auth1 !== undefined && (updateData.auth1 || null) !== (oldAuth1 || null);
+        const isAuth2Changed = updateData.auth2 !== undefined && (updateData.auth2 || null) !== (oldAuth2 || null);
+
         await operator.update(updateData);
+
+        // Eğer onaycılar doğrudan değiştirildiyse denetim loguna kaydet
+        if (isAuth1Changed || isAuth2Changed) {
+            const [oldAuth1Name, newAuth1Name, oldAuth2Name, newAuth2Name] = await Promise.all([
+                fetchApproverName(oldAuth1),
+                fetchApproverName(updateData.auth1),
+                fetchApproverName(oldAuth2),
+                fetchApproverName(updateData.auth2),
+            ]);
+
+            const notesArr: string[] = [];
+            if (isAuth1Changed) {
+                notesArr.push(`1. Onaycı: ${oldAuth1Name || oldAuth1 || "Yok"} ➔ ${newAuth1Name || updateData.auth1 || "Yok"}`);
+            }
+            if (isAuth2Changed) {
+                notesArr.push(`2. Onaycı: ${oldAuth2Name || oldAuth2 || "Yok"} ➔ ${newAuth2Name || updateData.auth2 || "Yok"}`);
+            }
+
+            await logApprovalHierarchyChange({
+                req,
+                actionType: "UPDATE_OPERATOR_AUTH",
+                targetType: "OPERATOR",
+                targetId: operator.id_dec,
+                targetName: `${operator.name} ${operator.surname}`,
+                notes: notesArr.join(", "),
+                affectedCount: 1,
+            });
+        }
 
         return res.status(200).json({ message: "Personel bilgileri güncellendi." });
     } catch (error) {
@@ -351,10 +385,30 @@ export const updateSectionManager = async (req: Request, res: Response): Promise
         
         const section = await Section.findByPk(id as string);
         if (!section) return res.status(404).json({ message: "Bölüm (Section) bulunamadı." });
+
+        const oldManagerId = section.manager_id;
+        const [oldManagerName, newManagerName] = await Promise.all([
+            fetchApproverName(oldManagerId),
+            fetchApproverName(manager_id)
+        ]);
         
         await section.update({ manager_id: manager_id || null });
         
         const updateCount = await syncSectionApprovalChains(String(id));
+
+        // Denetim loguna kaydet
+        await logApprovalHierarchyChange({
+            req,
+            actionType: "UPDATE_MANAGER",
+            targetType: "SECTION",
+            targetId: section.id,
+            targetName: section.name,
+            oldApproverId: oldManagerId,
+            oldApproverName: oldManagerName,
+            newApproverId: manager_id || null,
+            newApproverName: newManagerName,
+            affectedCount: updateCount
+        });
         
         return res.status(200).json({ message: `Bölüm yöneticisi atandı ve ${updateCount} personelin onay zinciri güncellendi.` });
     } catch(err) {
@@ -371,10 +425,30 @@ export const updateDepartmentSupervisor = async (req: Request, res: Response): P
         
         const dept = await Department.findByPk(id as string);
         if (!dept) return res.status(404).json({ message: "Birim (Department) bulunamadı." });
+
+        const oldSupervisorId = dept.supervisor_id;
+        const [oldSupervisorName, newSupervisorName] = await Promise.all([
+            fetchApproverName(oldSupervisorId),
+            fetchApproverName(supervisor_id)
+        ]);
         
         await dept.update({ supervisor_id: supervisor_id || null });
         
         const updateCount = await syncDepartmentApprovalChains(String(id));
+
+        // Denetim loguna kaydet
+        await logApprovalHierarchyChange({
+            req,
+            actionType: "UPDATE_SUPERVISOR",
+            targetType: "DEPARTMENT",
+            targetId: dept.id,
+            targetName: dept.name,
+            oldApproverId: oldSupervisorId,
+            oldApproverName: oldSupervisorName,
+            newApproverId: supervisor_id || null,
+            newApproverName: newSupervisorName,
+            affectedCount: updateCount
+        });
         
         return res.status(200).json({ message: `Birim sorumlusu atandı ve ${updateCount} personelin onay zinciri güncellendi.` });
     } catch(err) {
@@ -383,7 +457,7 @@ export const updateDepartmentSupervisor = async (req: Request, res: Response): P
     }
 };
 
-// Tüm Onaycı Yetkilerini Yeniden Senkronize Et
+// Birim Ustabaşısını Güncelle
 export const updateDepartmentUstabasi = async (req: Request, res: Response): Promise<Response> => {
     try {
         const { id } = req.params;
@@ -392,9 +466,29 @@ export const updateDepartmentUstabasi = async (req: Request, res: Response): Pro
         const dept = await Department.findByPk(id as string);
         if (!dept) return res.status(404).json({ message: "Birim (Department) bulunamadı." });
 
+        const oldUstabasiId = dept.ustabasi_id;
+        const [oldUstabasiName, newUstabasiName] = await Promise.all([
+            fetchApproverName(oldUstabasiId),
+            fetchApproverName(ustabasi_id)
+        ]);
+
         await dept.update({ ustabasi_id: ustabasi_id || null });
 
         const updateCount = await syncDepartmentApprovalChains(String(id));
+
+        // Denetim loguna kaydet
+        await logApprovalHierarchyChange({
+            req,
+            actionType: "UPDATE_USTABASI",
+            targetType: "DEPARTMENT",
+            targetId: dept.id,
+            targetName: dept.name,
+            oldApproverId: oldUstabasiId,
+            oldApproverName: oldUstabasiName,
+            newApproverId: ustabasi_id || null,
+            newApproverName: newUstabasiName,
+            affectedCount: updateCount
+        });
 
         return res.status(200).json({ message: `Birim ustabaşısı atandı ve ${updateCount} personelin onay zinciri güncellendi.` });
     } catch(err) {
@@ -406,6 +500,16 @@ export const updateDepartmentUstabasi = async (req: Request, res: Response): Pro
 export const syncAllApprovals = async (req: Request, res: Response): Promise<Response> => {
     try {
         const updateCount = await syncOperatorApprovalChains();
+
+        // Denetim loguna kaydet
+        await logApprovalHierarchyChange({
+            req,
+            actionType: "SYNC_APPROVALS",
+            targetType: "GLOBAL",
+            targetId: 0,
+            targetName: "Tüm Organizasyon",
+            affectedCount: updateCount
+        });
         
         return res.status(200).json({ message: `Tüm sistem yetki hiyerarşisi başarıyla senkronize edildi. Güncellenen personel: ${updateCount}` });
     } catch(err) {
@@ -567,15 +671,35 @@ export const updateSection = async (req: Request, res: Response): Promise<Respon
             return res.status(404).json({ message: "Bölüm bulunamadı." });
         }
 
+        const oldManagerId = section.manager_id;
+        const isManagerChanged = manager_id !== undefined && (manager_id || null) !== (oldManagerId || null);
+
         await section.update({
             name: name !== undefined ? name : section.name,
             manager_id: manager_id !== undefined ? (manager_id || null) : section.manager_id,
             is_active: is_active !== undefined ? is_active : section.is_active
         });
 
-        // Eğer onaycı değiştiyse ilgili kişilerin onay zincirlerini tetikle
-        if (manager_id !== undefined) {
-            await syncSectionApprovalChains(sectionId);
+        // Eğer onaycı değiştiyse ilgili kişilerin onay zincirlerini tetikle ve logla
+        if (isManagerChanged) {
+            const updateCount = await syncSectionApprovalChains(sectionId);
+            const [oldManagerName, newManagerName] = await Promise.all([
+                fetchApproverName(oldManagerId),
+                fetchApproverName(manager_id)
+            ]);
+
+            await logApprovalHierarchyChange({
+                req,
+                actionType: "UPDATE_MANAGER",
+                targetType: "SECTION",
+                targetId: section.id,
+                targetName: section.name,
+                oldApproverId: oldManagerId,
+                oldApproverName: oldManagerName,
+                newApproverId: manager_id || null,
+                newApproverName: newManagerName,
+                affectedCount: updateCount
+            });
         }
 
         return res.status(200).json({ message: "Bölüm başarıyla güncellendi.", data: section });
@@ -622,6 +746,11 @@ export const updateDepartment = async (req: Request, res: Response): Promise<Res
             return res.status(404).json({ message: "Birim bulunamadı." });
         }
 
+        const oldSupervisorId = department.supervisor_id;
+        const oldUstabasiId = department.ustabasi_id;
+        const isSupervisorChanged = supervisor_id !== undefined && (supervisor_id || null) !== (oldSupervisorId || null);
+        const isUstabasiChanged = ustabasi_id !== undefined && (ustabasi_id || null) !== (oldUstabasiId || null);
+
         await department.update({
             name: name !== undefined ? name : department.name,
             section_id: section_id !== undefined ? Number(section_id) : department.section_id,
@@ -630,14 +759,68 @@ export const updateDepartment = async (req: Request, res: Response): Promise<Res
             is_active: is_active !== undefined ? is_active : department.is_active
         });
 
-        // Onay zincirini senkronize et
-        if (supervisor_id !== undefined || ustabasi_id !== undefined) {
-            await syncDepartmentApprovalChains(departmentId);
+        // Onay zincirini senkronize et ve logla
+        if (isSupervisorChanged || isUstabasiChanged) {
+            const updateCount = await syncDepartmentApprovalChains(departmentId);
+
+            if (isSupervisorChanged) {
+                const [oldSupervisorName, newSupervisorName] = await Promise.all([
+                    fetchApproverName(oldSupervisorId),
+                    fetchApproverName(supervisor_id)
+                ]);
+                await logApprovalHierarchyChange({
+                    req,
+                    actionType: "UPDATE_SUPERVISOR",
+                    targetType: "DEPARTMENT",
+                    targetId: department.id,
+                    targetName: department.name,
+                    oldApproverId: oldSupervisorId,
+                    oldApproverName: oldSupervisorName,
+                    newApproverId: supervisor_id || null,
+                    newApproverName: newSupervisorName,
+                    affectedCount: updateCount
+                });
+            }
+
+            if (isUstabasiChanged) {
+                const [oldUstabasiName, newUstabasiName] = await Promise.all([
+                    fetchApproverName(oldUstabasiId),
+                    fetchApproverName(ustabasi_id)
+                ]);
+                await logApprovalHierarchyChange({
+                    req,
+                    actionType: "UPDATE_USTABASI",
+                    targetType: "DEPARTMENT",
+                    targetId: department.id,
+                    targetName: department.name,
+                    oldApproverId: oldUstabasiId,
+                    oldApproverName: oldUstabasiName,
+                    newApproverId: ustabasi_id || null,
+                    newApproverName: newUstabasiName,
+                    affectedCount: updateCount
+                });
+            }
         }
 
         return res.status(200).json({ message: "Birim başarıyla güncellendi.", data: department });
     } catch (error) {
         console.error("UpdateDepartment Hatası:", error);
         return res.status(500).json({ message: "Birim güncellenirken hata oluştu." });
+    }
+};
+
+// Onay Hiyerarşisi Denetim Loglarını Getir
+export const getApprovalAuditLogs = async (req: Request, res: Response): Promise<Response> => {
+    try {
+        const limit = Math.min(200, Math.max(1, Number(req.query.limit) || 50));
+        const logs = await SystemAuditLog.findAll({
+            where: { module: "APPROVAL_HIERARCHY" },
+            order: [["createdAt", "DESC"]],
+            limit
+        });
+        return res.status(200).json({ success: true, count: logs.length, logs });
+    } catch (error) {
+        console.error("getApprovalAuditLogs Hatası:", error);
+        return res.status(500).json({ success: false, message: "Onay hiyerarşisi logları alınamadı." });
     }
 };
