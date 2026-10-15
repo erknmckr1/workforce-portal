@@ -97,17 +97,17 @@ const menuItems = [
   {
     title: "Güvenlik Paneli",
     icon: ShieldCheck,
-    roles: ["Admin", "Güvenlik"],
+    roles: ["Admin", "Güvenlik", "Yönetici", "Müdür"],
     children: [
       {
         title: "Personel Çıkışları",
         path: "/security",
-        roles: ["Admin", "Güvenlik"],
+        roles: ["Admin", "Güvenlik", "Yönetici", "Müdür"],
       },
       {
         title: "Ziyaretçi Takibi",
         path: "/visitors",
-        roles: ["Admin", "Güvenlik"],
+        roles: ["Admin", "Güvenlik", "Yönetici", "Müdür"],
       },
     ],
   },
@@ -270,6 +270,11 @@ const menuItems = [
         title: "Döküman Yönetimi",
         path: "/settings/documents",
         roles: ["Admin", "İK"],
+      },
+      {
+        title: "Ziyaretçi Görüşme Ayarları",
+        path: "/settings/visitor-contacts",
+        roles: ["Admin", "Güvenlik", "İK", "Yönetici", "Müdür"],
       },
     ],
   },

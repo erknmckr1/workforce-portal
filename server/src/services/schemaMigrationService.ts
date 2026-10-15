@@ -182,11 +182,37 @@ export const ensureApplicationSchema = async () => {
 
   // Visitors table sync & migration
   try {
+    const visitorCols = await queryInterface.describeTable("visitors");
+    if (!visitorCols["group_id"]) {
+      await queryInterface.addColumn("visitors", "group_id", {
+        type: DataTypes.STRING(50),
+        allowNull: true,
+      });
+      console.log("Schema updated: visitors.group_id");
+    }
+    if (!visitorCols["is_group_primary"]) {
+      await queryInterface.addColumn("visitors", "is_group_primary", {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: true,
+      });
+      console.log("Schema updated: visitors.is_group_primary");
+    }
+
     const { Visitor } = await import("../models");
     await Visitor.sync();
     console.log("Schema verified: visitors table ready.");
   } catch (err) {
     console.error("visitors sync error:", err);
+  }
+
+  // Visitor Contacts table sync
+  try {
+    const { VisitorContact } = await import("../models");
+    await VisitorContact.sync();
+    console.log("Schema verified: visitor_contacts table ready.");
+  } catch (err) {
+    console.error("visitor_contacts sync error:", err);
   }
 };
 

@@ -12,9 +12,22 @@ import {
   QrCode,
   Shield,
   Calendar,
-  X
+  X,
+  Users,
+  Settings,
+  Copy,
+  Printer,
+  ExternalLink
 } from "lucide-react";
+import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { QRCodeSVG } from "qrcode.react";
 import DataTable, { type DataTableColumn } from "@/components/common/DataTable";
 import NewVisitorDialog from "@/components/visitors/NewVisitorDialog";
 import VisitorExitDialog from "@/components/visitors/VisitorExitDialog";
@@ -43,6 +56,8 @@ interface VisitorDbRecord {
   isInside: boolean;
   source: string;
   notes?: string | null;
+  groupId?: string | null;
+  isGroupPrimary?: boolean;
   createdAt?: string;
 }
 
@@ -90,6 +105,7 @@ export default function VisitorTrackingPage() {
   const [isNewVisitorOpen, setIsNewVisitorOpen] = useState(false);
   const [isExitDialogOpen, setIsExitDialogOpen] = useState(false);
   const [selectedVisitorForExit, setSelectedVisitorForExit] = useState<IVisitor | null>(null);
+  const [isQrDialogOpen, setIsQrDialogOpen] = useState(false);
 
   // MSSQL Gerçek Veritabanı Sorgusu (Her 5 saniyede bir otomatik yenilenir)
   const { data: rawVisitors = [], isFetching, isLoading } = useQuery({
@@ -125,6 +141,8 @@ export default function VisitorTrackingPage() {
         notes: v.notes || undefined,
         source: (v.source || "Güvenlik – Manuel Kayıt") as IVisitor["source"],
         status: v.isInside ? "inside" : "exited",
+        groupId: v.groupId || undefined,
+        isGroupPrimary: v.isGroupPrimary !== undefined ? v.isGroupPrimary : true,
         createdAt: v.createdAt,
       };
     });
@@ -136,9 +154,14 @@ export default function VisitorTrackingPage() {
       const res = await apiClient.post("/visitors", dto);
       return res.data;
     },
-    onSuccess: (data: VisitorDbRecord) => {
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["visitors"] });
-      toast.success(`${data.fullName || "Ziyaretçi"} girişi başarıyla kaydedildi.`);
+      const count = data?.totalCreated || 1;
+      toast.success(
+        count > 1
+          ? `${count} kişilik ziyaretçi grubu girişi başarıyla kaydedildi.`
+          : `${data?.fullName || data?.primaryVisitor?.fullName || "Ziyaretçi"} girişi başarıyla kaydedildi.`
+      );
     },
     onError: (err: unknown) => {
       const errorObj = err as { response?: { data?: { message?: string } } };
@@ -152,20 +175,28 @@ export default function VisitorTrackingPage() {
       visitorId,
       exitDate,
       exitTime,
+      companionIds,
     }: {
       visitorId: string | number;
       exitDate: string;
       exitTime: string;
+      companionIds?: (string | number)[];
     }) => {
       const fullExitTime = new Date(`${exitDate}T${exitTime}:00`);
       const res = await apiClient.put(`/visitors/${visitorId}/exit`, {
         exitTime: fullExitTime.toISOString(),
+        companionIds,
       });
       return res.data;
     },
-    onSuccess: (data: VisitorDbRecord) => {
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["visitors"] });
-      toast.success(`${data.fullName || "Ziyaretçi"} çıkışı kaydedildi ve geçmişe aktarıldı.`);
+      const count = data?.exitedCount || 1;
+      toast.success(
+        count > 1
+          ? `${count} kişilik araç grubunun çıkışı kaydedildi ve geçmişe aktarıldı.`
+          : "Ziyaretçi çıkışı kaydedildi ve geçmişe aktarıldı."
+      );
     },
     onError: (err: unknown) => {
       const errorObj = err as { response?: { data?: { message?: string } } };
@@ -179,8 +210,13 @@ export default function VisitorTrackingPage() {
   };
 
   // Çıkış İşlemi
-  const handleConfirmExit = (visitorId: string | number, exitDate: string, exitTime: string) => {
-    exitMutation.mutate({ visitorId, exitDate, exitTime });
+  const handleConfirmExit = (
+    visitorId: string | number,
+    exitDate: string,
+    exitTime: string,
+    companionIds?: (string | number)[]
+  ) => {
+    exitMutation.mutate({ visitorId, exitDate, exitTime, companionIds });
   };
 
   // Açılan Çıkış Modalı
@@ -188,6 +224,17 @@ export default function VisitorTrackingPage() {
     setSelectedVisitorForExit(visitor);
     setIsExitDialogOpen(true);
   };
+
+  // Seçilen ziyaretçinin varsa aynı araçtaki içerideki diğer yolcuları
+  const selectedVisitorCompanions = useMemo(() => {
+    if (!selectedVisitorForExit?.groupId) return [];
+    return visitors.filter(
+      (v) =>
+        v.groupId === selectedVisitorForExit.groupId &&
+        v.id !== selectedVisitorForExit.id &&
+        v.status === "inside"
+    );
+  }, [selectedVisitorForExit, visitors]);
 
   // İstatistikler
   const todayStr = useMemo(() => format(new Date(), "yyyy-MM-dd"), []);
@@ -505,6 +552,26 @@ export default function VisitorTrackingPage() {
               )}
             </div>
 
+            {/* Giriş QR Kodu Butonu (Ziyaretçilere Okutmak veya Afiş Yazdırmak İçin) */}
+            <button
+              onClick={() => setIsQrDialogOpen(true)}
+              className="flex items-center gap-1.5 px-2.5 h-8 bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 rounded-lg font-bold text-xs uppercase tracking-wider transition-all cursor-pointer active:scale-95 shadow-xs"
+              title="Mobil Ziyaretçi Giriş Formu QR Kodunu Görüntüle / Yazdır"
+            >
+              <QrCode size={13} />
+              <span className="hidden md:inline">Giriş QR Kodu</span>
+            </button>
+
+            {/* Ziyaretçi Görüşme Ayarları Butonu */}
+            <Link
+              to="/settings/visitor-contacts"
+              className="flex items-center gap-1.5 px-2.5 h-8 bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground border border-border/80 rounded-lg font-bold text-xs uppercase tracking-wider transition-all cursor-pointer active:scale-95 shadow-xs"
+              title="Ziyarete açık departman ve görüşülecek personelleri yönet"
+            >
+              <Settings size={13} />
+              <span className="hidden md:inline">Görüşme Ayarları</span>
+            </Link>
+
             {/* Excel Dışa Aktar Butonu */}
             <button
               onClick={handleExportExcel}
@@ -565,9 +632,29 @@ export default function VisitorTrackingPage() {
                 {/* Ad Soyad & Telefon */}
                 <td className="py-2.5 px-3">
                   <div className="flex flex-col">
-                    <span className="font-bold text-xs text-foreground">
-                      {visitor.fullName}
-                    </span>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="font-bold text-xs text-foreground">
+                        {visitor.fullName}
+                      </span>
+                      {visitor.groupId && (
+                        <span
+                          className={cn(
+                            "inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.2 rounded border",
+                            visitor.isGroupPrimary
+                              ? "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20"
+                              : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20"
+                          )}
+                          title={
+                            visitor.isGroupPrimary
+                              ? "Araç sürücüsü / grup lideri"
+                              : "Araç yolcusu"
+                          }
+                        >
+                          <Users size={10} />
+                          {visitor.isGroupPrimary ? "Sürücü" : "Yolcu"}
+                        </span>
+                      )}
+                    </div>
                     {visitor.phone && (
                       <span className="text-[10px] text-muted-foreground font-semibold">
                         {visitor.phone}
@@ -703,9 +790,29 @@ export default function VisitorTrackingPage() {
               {/* Ad Soyad */}
               <td className="py-2.5 px-3">
                 <div className="flex flex-col">
-                  <span className="font-bold text-xs text-foreground">
-                    {visitor.fullName}
-                  </span>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="font-bold text-xs text-foreground">
+                      {visitor.fullName}
+                    </span>
+                    {visitor.groupId && (
+                      <span
+                        className={cn(
+                          "inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.2 rounded border",
+                          visitor.isGroupPrimary
+                            ? "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20"
+                            : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20"
+                        )}
+                        title={
+                          visitor.isGroupPrimary
+                            ? "Araç sürücüsü / grup lideri"
+                            : "Araç yolcusu"
+                        }
+                      >
+                        <Users size={10} />
+                        {visitor.isGroupPrimary ? "Sürücü" : "Yolcu"}
+                      </span>
+                    )}
+                  </div>
                   {visitor.phone && (
                     <span className="text-[10px] text-muted-foreground font-semibold">
                       {visitor.phone}
@@ -818,8 +925,121 @@ export default function VisitorTrackingPage() {
         open={isExitDialogOpen}
         onOpenChange={setIsExitDialogOpen}
         visitor={selectedVisitorForExit}
+        groupCompanions={selectedVisitorCompanions}
         onConfirmExit={handleConfirmExit}
       />
+
+      {/* MODAL: ZİYARETÇİ GİRİŞİ QR KODU (MOBİL KAYIT VE AFİŞ YAZDIRMA) */}
+      <Dialog open={isQrDialogOpen} onOpenChange={setIsQrDialogOpen}>
+        <DialogContent className="w-[92vw] sm:max-w-md p-0 gap-0 rounded-2xl border border-border bg-card shadow-2xl overflow-hidden">
+          <DialogHeader className="p-6 pb-4 border-b border-border/70 bg-muted/20">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 border border-indigo-500/20">
+                <QrCode size={20} />
+              </div>
+              <div className="space-y-0.5">
+                <DialogTitle className="text-lg font-black text-foreground">
+                  Ziyaretçi Giriş QR Kodu
+                </DialogTitle>
+                <p className="text-xs font-semibold text-muted-foreground">
+                  Giriş noktasında ziyaretçilerin telefonlarıyla okutacağı form
+                </p>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <div className="p-6 flex flex-col items-center text-center space-y-4">
+            {/* Beyaz zeminli QR Kartı */}
+            <div className="p-4 bg-white rounded-2xl border border-border shadow-inner flex flex-col items-center">
+              <QRCodeSVG
+                value={`${typeof window !== "undefined" ? window.location.origin : ""}/ziyaretci-kayit`}
+                size={200}
+                level="H"
+                includeMargin={false}
+              />
+            </div>
+
+            <div className="space-y-1">
+              <div className="text-xs font-black uppercase tracking-wider text-foreground">
+                Midas Hediyelik Eşya Ziyaretçi Kaydı
+              </div>
+              <p className="text-[11px] text-muted-foreground font-medium">
+                Ziyaretçiler akıllı telefonlarının kamerasıyla bu kodu okutarak hızlı kayıt oluşturabilir.
+              </p>
+            </div>
+
+            {/* Butonlar: Bağlantıyı Kopyala, Sekmede Aç */}
+            <div className="grid grid-cols-2 gap-2 w-full pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  const url = `${window.location.origin}/ziyaretci-kayit`;
+                  navigator.clipboard.writeText(url);
+                  toast.success("Kayıt formu bağlantısı panoya kopyalandı.");
+                }}
+                className="h-10 px-3 rounded-xl bg-muted/50 hover:bg-muted text-foreground border border-border/80 font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-95"
+              >
+                <Copy size={13} />
+                <span>Linki Kopyala</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  window.open("/ziyaretci-kayit", "_blank");
+                }}
+                className="h-10 px-3 rounded-xl bg-muted/50 hover:bg-muted text-foreground border border-border/80 font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-95"
+              >
+                <ExternalLink size={13} />
+                <span>Sekmede Aç</span>
+              </button>
+            </div>
+
+            {/* Yazdırma Butonu */}
+            <button
+              type="button"
+              onClick={() => {
+                const printWindow = window.open("", "_blank");
+                if (printWindow) {
+                  const url = `${window.location.origin}/ziyaretci-kayit`;
+                  printWindow.document.write(`
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                      <title>Midas Ziyaretçi Giriş Formu QR Kodu</title>
+                      <style>
+                        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 90vh; text-align: center; margin: 0; padding: 20px; }
+                        .card { border: 2px solid #000; border-radius: 20px; padding: 40px; max-width: 400px; display: flex; flex-direction: column; align-items: center; }
+                        h1 { font-size: 22px; margin: 0 0 8px 0; text-transform: uppercase; letter-spacing: 1px; }
+                        p { font-size: 13px; color: #555; margin: 0 0 24px 0; font-weight: 500; }
+                        .qr-box { padding: 15px; border: 1px solid #ddd; border-radius: 12px; margin-bottom: 20px; }
+                        .note { font-size: 12px; font-weight: bold; color: #111; }
+                      </style>
+                    </head>
+                    <body>
+                      <div class="card">
+                        <h1>Midas Hediyelik Eşya</h1>
+                        <p>Ziyaretçi Giriş ve Güvenlik Sistemi</p>
+                        <div class="qr-box">
+                          <img src="https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(url)}" width="240" height="240" />
+                        </div>
+                        <div class="note">Lütfen kameranızla QR kodu okutarak kayıt formunu doldurunuz.</div>
+                      </div>
+                      <script>window.onload = function() { window.print(); window.close(); }<\/script>
+                    </body>
+                    </html>
+                  `);
+                  printWindow.document.close();
+                }
+              }}
+              className="w-full h-10 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-95 shadow-sm shadow-indigo-600/20"
+            >
+              <Printer size={14} />
+              <span>Giriş Afişi Olarak Yazdır</span>
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

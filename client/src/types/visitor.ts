@@ -20,7 +20,6 @@ export const TRANSPORT_MODES: TransportMode[] = [
 // Bu ulaşım modlarında Araç Plakası ve Araçtaki Kişi Sayısı zorunludur
 export const VEHICLE_TRANSPORT_MODES: TransportMode[] = [
   "Otomobil",
-  "Taksi",
   "Motosiklet",
   "Servis",
 ];
@@ -46,7 +45,14 @@ export interface IVisitor {
   notes?: string;
   source: RegistrationSource;
   status: "inside" | "exited";
+  groupId?: string | null;
+  isGroupPrimary?: boolean;
   createdAt?: string;
+}
+
+export interface CompanionDTO {
+  fullName: string;
+  phone?: string;
 }
 
 export interface CreateVisitorDTO {
@@ -62,4 +68,5 @@ export interface CreateVisitorDTO {
   licensePlate?: string;
   notes?: string;
   source?: RegistrationSource;
+  companions?: CompanionDTO[];
 }

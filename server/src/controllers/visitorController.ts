@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { Request, Response } from "express";
 import { Op } from "sequelize";
 import Visitor from "../models/Visitor";
@@ -65,6 +66,7 @@ export const createVisitor = async (req: Request, res: Response) => {
       notes,
       source,
       kvkkApproved,
+      companions, // Araçla birlikte gelen ek ziyaretçiler: Array<{ fullName: string; phone?: string }>
     } = req.body;
 
     if (!fullName || !visitedPersonOrDept || !originProvince || !originDistrict || !transportMode) {
@@ -73,7 +75,11 @@ export const createVisitor = async (req: Request, res: Response) => {
       });
     }
 
-    const newVisitor = await Visitor.create({
+    const hasCompanions = Array.isArray(companions) && companions.length > 0;
+    const groupId = hasCompanions ? crypto.randomUUID() : null;
+
+    // Ana Ziyaretçi (Sürücü veya tekil ziyaretçi)
+    const primaryVisitor = await Visitor.create({
       fullName: fullName.trim(),
       company: company?.trim() || null,
       phone: phone?.trim() || null,
@@ -89,16 +95,51 @@ export const createVisitor = async (req: Request, res: Response) => {
       source: source || "Güvenlik – Manuel Kayıt",
       notes: notes?.trim() || null,
       kvkkApproved: kvkkApproved !== undefined ? Boolean(kvkkApproved) : true,
+      groupId: groupId,
+      isGroupPrimary: true,
     });
 
-    res.status(201).json(newVisitor);
+    // Araçla gelen beraberindeki ziyaretçiler
+    const createdCompanions = [];
+    if (hasCompanions) {
+      for (const comp of companions) {
+        if (comp.fullName && comp.fullName.trim()) {
+          const compRecord = await Visitor.create({
+            fullName: comp.fullName.trim(),
+            company: company?.trim() || null,
+            phone: comp.phone?.trim() || null,
+            visitedPersonOrDept: visitedPersonOrDept.trim(),
+            visitPurpose: visitPurpose?.trim() || null,
+            originProvince: originProvince.trim(),
+            originDistrict: originDistrict.trim(),
+            transportMode: transportMode.trim(),
+            vehiclePassengerCount: vehiclePassengerCount ? Number(vehiclePassengerCount) : null,
+            licensePlate: licensePlate ? licensePlate.trim().toUpperCase() : null,
+            entryTime: primaryVisitor.entryTime,
+            isInside: true,
+            source: source || "Güvenlik – Manuel Kayıt",
+            notes: notes ? `${notes.trim()} (Araç: ${primaryVisitor.fullName} ile)` : `Araç: ${primaryVisitor.fullName} ile`,
+            kvkkApproved: true,
+            groupId: groupId,
+            isGroupPrimary: false,
+          });
+          createdCompanions.push(compRecord);
+        }
+      }
+    }
+
+    res.status(201).json({
+      primaryVisitor,
+      companions: createdCompanions,
+      totalCreated: 1 + createdCompanions.length,
+    });
   } catch (error) {
     console.error("Ziyaretçi kaydı oluşturulurken hata:", error);
     res.status(500).json({ message: "Ziyaretçi kaydı oluşturulamadı." });
   }
 };
 
-// 3. Ziyaretçi Çıkış İşlemi (Ekran 5)
+// 3. Ziyaretçi Çıkış İşlemi
 export const exitVisitor = async (req: Request, res: Response) => {
   try {
     const visitorId = Number(req.params.id);
@@ -111,15 +152,51 @@ export const exitVisitor = async (req: Request, res: Response) => {
       return res.status(404).json({ message: "Ziyaretçi kaydı bulunamadı." });
     }
 
-    const { exitTime } = req.body;
+    const { exitTime, companionIds, exitAllInGroup } = req.body;
     const finalExitTime = exitTime ? new Date(exitTime) : new Date();
 
-    await visitor.update({
-      exitTime: finalExitTime,
-      isInside: false,
-    });
+    const targetIds: number[] = [visitorId];
 
-    res.status(200).json(visitor);
+    if (exitAllInGroup && visitor.groupId) {
+      const groupVisitors = await Visitor.findAll({
+        where: {
+          groupId: visitor.groupId,
+          isInside: true,
+        },
+        attributes: ["id"],
+      });
+      groupVisitors.forEach((gv) => {
+        if (!targetIds.includes(gv.id)) {
+          targetIds.push(gv.id);
+        }
+      });
+    } else if (Array.isArray(companionIds) && companionIds.length > 0) {
+      companionIds.forEach((cid: number | string) => {
+        const num = Number(cid);
+        if (!isNaN(num) && !targetIds.includes(num)) {
+          targetIds.push(num);
+        }
+      });
+    }
+
+    await Visitor.update(
+      {
+        exitTime: finalExitTime,
+        isInside: false,
+      },
+      {
+        where: {
+          id: { [Op.in]: targetIds },
+        },
+      }
+    );
+
+    const updatedVisitor = await Visitor.findByPk(visitorId);
+    res.status(200).json({
+      visitor: updatedVisitor,
+      exitedCount: targetIds.length,
+      exitedIds: targetIds,
+    });
   } catch (error) {
     console.error("Ziyaretçi çıkış işlemi hatası:", error);
     res.status(500).json({ message: "Çıkış işlemi gerçekleştirilemedi." });

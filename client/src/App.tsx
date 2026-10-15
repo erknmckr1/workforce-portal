@@ -39,6 +39,7 @@ import PersonnelMovementReport from "./pages/PersonnelMovementReport";
 import PhoneDirectoryPage from "./pages/PhoneDirectoryPage";
 import PhoneDirectoryManager from "./pages/settings/PhoneDirectoryManager";
 import DocumentManager from "./pages/settings/DocumentManager";
+import VisitorContactsSettings from "./pages/settings/VisitorContactsSettings";
 import ITRequests from "./pages/ITRequests";
 import ITSupportDashboard from "./pages/settings/ITSupportDashboard";
 import DataExport from "./pages/DataExport";
@@ -156,7 +157,7 @@ function App() {
             <Route
               element={
                 <AuthLayoutWrapper>
-                  <ProtectedRoute allowedRoles={["Admin", "Güvenlik"]} />
+                  <ProtectedRoute allowedRoles={["Admin", "Güvenlik", "Yönetici", "Müdür"]} />
                 </AuthLayoutWrapper>
               }
             >
@@ -200,7 +201,7 @@ function App() {
               </Route>
 
               {/* Güvenlik Paneli */}
-              <Route element={<ProtectedRoute allowedRoles={["Admin", "Güvenlik"]} />}>
+              <Route element={<ProtectedRoute allowedRoles={["Admin", "Güvenlik", "Yönetici", "Müdür"]} />}>
                 <Route path="security" element={<SecurityScreen />} />
               </Route>
 
@@ -222,11 +223,12 @@ function App() {
                 <Route path="settings/approvals" element={<Approvals />} />
               </Route>
               
-              {/* Yemek Menüsü Yönetimi - Admin ve İK */}
-              <Route element={<ProtectedRoute allowedRoles={["Admin", "İK"]} />}>
+              {/* Ayarlar ve Yönetim Ekranları */}
+              <Route element={<ProtectedRoute allowedRoles={["Admin", "İK", "Güvenlik", "Yönetici", "Müdür"]} />}>
                 <Route path="settings/food-menu" element={<FoodMenuManager />} />
                 <Route path="settings/phone-directory" element={<PhoneDirectoryManager />} />
                 <Route path="settings/documents" element={<DocumentManager />} />
+                <Route path="settings/visitor-contacts" element={<VisitorContactsSettings />} />
               </Route>
               {/* Takvim Yönetimi - Sadece Admin & İK */}
               <Route element={<ProtectedRoute allowedRoles={["Admin", "İK"]} />}>

@@ -19,6 +19,7 @@ import { startLeaveBalanceSyncScheduler } from "./services/leaveBalanceSyncSched
 import itRequestRoutes from "./routes/itRequestRoutes";
 import scrapTrackingRoutes from "./routes/scrapTrackingRoutes";
 import visitorRoutes from "./routes/visitorRoutes";
+import visitorContactRoutes from "./routes/visitorContactRoutes";
 import { ensureApplicationSchema } from "./services/schemaMigrationService";
 import path from "path";
 import fs from "fs";
@@ -68,6 +69,7 @@ app.use("/api/documents", documentRoutes);
 app.use("/api/it-requests", itRequestRoutes);
 app.use("/api/scrap-tracking", scrapTrackingRoutes);
 app.use("/api/visitors", visitorRoutes);
+app.use("/api/visitor-contacts", visitorContactRoutes);
 app.use("/api/export", exportRoutes);
 
 // Fotoğrafları frontend için /photos adresi ile dışarı aç
@@ -110,8 +112,8 @@ app.use("/uploads/scrap-images", express.static(scrapImagePath));
 const startServer = async () => {
   try {
     await sequelize.authenticate();
-    await sequelize.sync();
     await ensureApplicationSchema();
+    await sequelize.sync();
 
     // Statik İş Durumlarını Veritabanına Ekle (Seed) - MSSQL Uyumlu Yöntem
     const statuses = [

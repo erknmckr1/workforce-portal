@@ -9,45 +9,58 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { LogOut, Clock, Calendar, AlertCircle } from "lucide-react";
+import { LogOut, Clock, Calendar, AlertCircle, Users } from "lucide-react";
 import type { IVisitor } from "@/types/visitor";
 import { format } from "date-fns";
 
 interface VisitorExitDialogProps {
   open: boolean;
   visitor: IVisitor | null;
+  groupCompanions?: IVisitor[];
   onOpenChange: (open: boolean) => void;
-  onConfirmExit: (visitorId: string | number, exitDate: string, exitTime: string) => void;
+  onConfirmExit: (
+    visitorId: string | number,
+    exitDate: string,
+    exitTime: string,
+    companionIds?: (string | number)[]
+  ) => void;
 }
 
 export default function VisitorExitDialog({
   open,
   visitor,
+  groupCompanions = [],
   onOpenChange,
   onConfirmExit,
 }: VisitorExitDialogProps) {
   const [exitDate, setExitDate] = useState("");
   const [exitTime, setExitTime] = useState("");
+  const [selectedCompanionIds, setSelectedCompanionIds] = useState<(string | number)[]>([]);
 
   useEffect(() => {
     if (open && visitor) {
       const now = new Date();
       setExitDate(format(now, "yyyy-MM-dd"));
       setExitTime(format(now, "HH:mm"));
+      if (groupCompanions && groupCompanions.length > 0) {
+        setSelectedCompanionIds(groupCompanions.map((c) => c.id));
+      } else {
+        setSelectedCompanionIds([]);
+      }
     }
-  }, [open, visitor]);
+  }, [open, visitor, groupCompanions]);
 
   if (!visitor) return null;
 
   const handleConfirm = () => {
-    onConfirmExit(visitor.id, exitDate, exitTime);
+    onConfirmExit(visitor.id, exitDate, exitTime, selectedCompanionIds);
     onOpenChange(false);
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[92vw] sm:max-w-lg p-0 gap-0 rounded-2xl border border-border bg-card shadow-xl overflow-hidden">
-        <DialogHeader className="p-6 pb-4 border-b border-border/70 bg-muted/20">
+      <DialogContent className="w-[92vw] sm:max-w-lg max-h-[90vh] overflow-y-auto p-0 gap-0 rounded-2xl border border-border bg-card shadow-xl">
+        <DialogHeader className="sticky top-0 z-20 p-6 pb-4 border-b border-border/70 bg-card/95 backdrop-blur-md">
           <div className="flex items-center gap-3">
             <div className="w-11 h-11 rounded-xl bg-destructive/10 text-destructive flex items-center justify-center shrink-0">
               <LogOut size={22} />
@@ -123,9 +136,67 @@ export default function VisitorExitDialog({
               </div>
             </div>
           </div>
+
+          {/* BİRLİKTE GİRİŞ YAPAN ARAÇ GRUBU (YOLCULAR) */}
+          {groupCompanions && groupCompanions.length > 0 && (
+            <div className="p-3.5 rounded-xl bg-indigo-500/5 border border-indigo-500/20 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Users size={14} className="text-indigo-600 dark:text-indigo-400" />
+                  <span className="text-xs font-black text-foreground">
+                    Birlikte Giriş Yapan Ziyaretçiler ({groupCompanions.length} Kişi)
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (selectedCompanionIds.length === groupCompanions.length) {
+                      setSelectedCompanionIds([]);
+                    } else {
+                      setSelectedCompanionIds(groupCompanions.map((c) => c.id));
+                    }
+                  }}
+                  className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+                >
+                  {selectedCompanionIds.length === groupCompanions.length ? "Tümünü Kaldır" : "Tümünü Seç"}
+                </button>
+              </div>
+
+              <div className="space-y-1.5 max-h-36 overflow-y-auto custom-scrollbar">
+                {groupCompanions.map((comp) => {
+                  const isChecked = selectedCompanionIds.includes(comp.id);
+                  return (
+                    <label
+                      key={comp.id}
+                      className="flex items-center justify-between p-2 rounded-lg bg-background border border-border/70 text-xs cursor-pointer hover:bg-muted/30 transition-colors"
+                    >
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedCompanionIds((prev) => [...prev, comp.id]);
+                            } else {
+                              setSelectedCompanionIds((prev) => prev.filter((id) => id !== comp.id));
+                            }
+                          }}
+                          className="w-4 h-4 rounded text-indigo-600 cursor-pointer"
+                        />
+                        <span className="font-bold text-foreground">{comp.fullName}</span>
+                      </div>
+                      {comp.phone && (
+                        <span className="text-[11px] text-muted-foreground">{comp.phone}</span>
+                      )}
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
 
-        <div className="p-4 sm:p-6 border-t border-border/70 bg-muted/20 flex flex-row items-center justify-end gap-3">
+        <div className="sticky bottom-0 z-20 p-4 sm:p-6 border-t border-border/70 bg-card/95 backdrop-blur-md flex flex-row items-center justify-end gap-3">
           <Button
             type="button"
             variant="outline"
@@ -140,7 +211,9 @@ export default function VisitorExitDialog({
             className="h-11 px-6 rounded-xl bg-destructive hover:bg-destructive/90 text-destructive-foreground font-black text-xs uppercase tracking-wider shadow-md shadow-destructive/20"
           >
             <LogOut size={16} className="mr-2" />
-            Çıkış Yap
+            {selectedCompanionIds.length > 0
+              ? `Tümünü Çıkış Yap (${selectedCompanionIds.length + 1} Kişi)`
+              : "Çıkış Yap"}
           </Button>
         </div>
       </DialogContent>

@@ -19,6 +19,8 @@ export interface VisitorAttributes {
   source: string;
   notes?: string | null;
   kvkkApproved: boolean;
+  groupId?: string | null;
+  isGroupPrimary?: boolean;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -37,6 +39,8 @@ export type VisitorCreationAttributes = Optional<
   | "source"
   | "notes"
   | "kvkkApproved"
+  | "groupId"
+  | "isGroupPrimary"
   | "createdAt"
   | "updatedAt"
 >;
@@ -62,6 +66,8 @@ export class Visitor
   public source!: string;
   public notes!: string | null;
   public kvkkApproved!: boolean;
+  public groupId!: string | null;
+  public isGroupPrimary!: boolean;
 
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
@@ -157,6 +163,17 @@ Visitor.init(
       allowNull: false,
       defaultValue: true,
       field: "kvkk_approved",
+    },
+    groupId: {
+      type: DataTypes.STRING(50),
+      allowNull: true,
+      field: "group_id",
+    },
+    isGroupPrimary: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: true,
+      field: "is_group_primary",
     },
   },
   {
