@@ -155,13 +155,15 @@ export default function TerminalHeader({
 
           <div className="flex items-center gap-1.5 sm:gap-2">
             <span className="font-black text-xs sm:text-sm tracking-tight text-foreground uppercase">
-              Midas
+              {title || "Midas"}
             </span>
-            <span
-              className={`text-[9px] sm:text-[10px] font-black uppercase tracking-wider px-1.5 sm:px-2 py-0.5 rounded-md ${styles.badgeBg} ${styles.badgeText} border ${styles.badgeBorder}`}
-            >
-              {badgeText || title}
-            </span>
+            {badgeText ? (
+              <span
+                className={`text-[9px] sm:text-[10px] font-black uppercase tracking-wider px-1.5 sm:px-2 py-0.5 rounded-md ${styles.badgeBg} ${styles.badgeText} border ${styles.badgeBorder}`}
+              >
+                {badgeText}
+              </span>
+            ) : null}
           </div>
         </div>
 

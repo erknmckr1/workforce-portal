@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation, Link } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -97,8 +97,19 @@ const menuItems = [
   {
     title: "Güvenlik Paneli",
     icon: ShieldCheck,
-    path: "/security",
     roles: ["Admin", "Güvenlik"],
+    children: [
+      {
+        title: "Personel Çıkışları",
+        path: "/security",
+        roles: ["Admin", "Güvenlik"],
+      },
+      {
+        title: "Ziyaretçi Takibi",
+        path: "/visitors",
+        roles: ["Admin", "Güvenlik"],
+      },
+    ],
   },
   {
     title: "Üretim Ekranları",
@@ -297,8 +308,45 @@ export default function Sidebar({
             location.pathname.startsWith("/all-leaves") ||
             location.pathname.startsWith("/infirmary")
             ? "İzin İşlemleri"
-            : null,
+            : location.pathname.startsWith("/security") ||
+              location.pathname.startsWith("/visitors")
+              ? "Güvenlik Paneli"
+              : null,
   );
+
+  useEffect(() => {
+    if (
+      location.pathname.startsWith("/security") ||
+      location.pathname.startsWith("/visitors")
+    ) {
+      setExpandedMenu("Güvenlik Paneli");
+    } else if (
+      location.pathname.startsWith("/it-requests") ||
+      location.pathname.startsWith("/settings/it-support")
+    ) {
+      setExpandedMenu("IT Desteği");
+    } else if (
+      location.pathname.startsWith("/settings") ||
+      location.pathname.startsWith("/calendar-manager") ||
+      location.pathname.startsWith("/password-resets")
+    ) {
+      setExpandedMenu("Ayarlar");
+    } else if (
+      location.pathname.startsWith("/yearly-plan") ||
+      location.pathname.startsWith("/food-menu") ||
+      location.pathname.startsWith("/phone-directory") ||
+      location.pathname.startsWith("/reports")
+    ) {
+      setExpandedMenu("Araçlar");
+    } else if (
+      location.pathname.startsWith("/leaves") ||
+      location.pathname.startsWith("/leave-approvals") ||
+      location.pathname.startsWith("/all-leaves") ||
+      location.pathname.startsWith("/infirmary")
+    ) {
+      setExpandedMenu("İzin İşlemleri");
+    }
+  }, [location.pathname]);
 
   const handleLogout = async () => {
     try {

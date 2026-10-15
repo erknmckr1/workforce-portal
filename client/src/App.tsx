@@ -9,6 +9,10 @@ import MainLayout from "./components/layout/MainLayout";
 import PartiTakibiLayout from "./components/layout/PartiTakibiLayout";
 import HurdaTakibiLayout from "./components/layout/HurdaTakibiLayout";
 import QrGeneratorLayout from "./components/layout/QrGeneratorLayout";
+import VisitorTrackingLayout from "./components/layout/VisitorTrackingLayout";
+import VisitorPublicLayout from "./components/layout/VisitorPublicLayout";
+import VisitorTrackingPage from "./pages/VisitorTrackingPage";
+import VisitorRegisterPage from "./pages/VisitorRegisterPage";
 import ProtectedRoute from "./components/layout/ProtectedRoute";
 import SettingsIndex from "./pages/settings/SettingsIndex";
 import Approvals from "./pages/settings/Approvals";
@@ -141,6 +145,25 @@ function App() {
             {/* 2.8 QR Etiket Oluşturucu - Bağımsız Terminal Layout ile */}
             <Route element={<QrGeneratorLayout />}>
               <Route path="/mes-qr-generator" element={<MesQrGeneratorPage />} />
+            </Route>
+
+            {/* 2.9 Dış Ziyaretçi QR Kayıt - Bağımsız Public Mobil Layout (Şifresiz) */}
+            <Route element={<VisitorPublicLayout />}>
+              <Route path="/ziyaretci-kayit" element={<VisitorRegisterPage />} />
+            </Route>
+
+            {/* 2.10 Ziyaretçi Takip Sistemi - Bağımsız Güvenlik Terminal Layout */}
+            <Route
+              element={
+                <AuthLayoutWrapper>
+                  <ProtectedRoute allowedRoles={["Admin", "Güvenlik"]} />
+                </AuthLayoutWrapper>
+              }
+            >
+              <Route element={<VisitorTrackingLayout />}>
+                <Route path="/visitors" element={<VisitorTrackingPage />} />
+                <Route path="/security/visitors" element={<Navigate to="/visitors" replace />} />
+              </Route>
             </Route>
 
             {/* 3. Korumalı Rotalar (Layout ile birlikte) */}

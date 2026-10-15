@@ -33,6 +33,7 @@ import { ITRequestMessage } from "./ITRequestMessage";
 import { MesPartiLog, PartiActionType, PARTI_ACTION_LABELS } from "./MesPartiLog";
 import SystemAuditLog from "./SystemAuditLog";
 import MesLabelPrintLog from "./MesLabelPrintLog";
+import Visitor from "./Visitor";
 
 // --- Lookups & Operator Associations ---
 Section.hasMany(Department, { foreignKey: "section_id" });
@@ -187,5 +188,6 @@ export {
     PartiActionType,
     PARTI_ACTION_LABELS,
     SystemAuditLog,
-    MesLabelPrintLog
+    MesLabelPrintLog,
+    Visitor
 };

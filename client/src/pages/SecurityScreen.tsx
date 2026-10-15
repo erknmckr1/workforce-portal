@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { Link } from "react-router-dom";
 import { 
   ShieldCheck, 
   Search, 
@@ -6,7 +7,9 @@ import {
   Building2,
   CalendarDays,
   CheckCircle2,
-  Loader2
+  Loader2,
+  UserCheck,
+  ArrowRight
 } from "lucide-react";
 import { useLeaves, type ILeave } from "@/hooks/useLeaves";
 import { useAuthStore } from "@/store/authStore";
@@ -58,18 +61,30 @@ export default function SecurityScreen() {
       {/* ÜST BÖLÜM: Sabit Kalacak Kısım (Başlık ve İstatistikler) */}
       <div className="flex flex-col gap-6 shrink-0 pb-4 border-b border-border/50">
         <PageHeader 
-          title="Güvenlik Paneli"
-          description={format(new Date(), "d MMMM yyyy, EEEE", { locale: tr })}
+          title="Personel Çıkışları"
+          description={`Güvenlik Paneli • ${format(new Date(), "d MMMM yyyy, EEEE", { locale: tr })}`}
           icon={ShieldCheck}
           action={
-            <div className="relative w-full sm:w-80">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
-              <Input
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Personel adı veya ID..."
-                className="h-11 pl-11 rounded-xl bg-muted/40 border-none font-bold text-sm placeholder:text-muted-foreground/60 outline-none focus-visible:ring-primary/20 transition-all text-foreground"
-              />
+            <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+              <Link to="/visitors">
+                <Button 
+                  variant="outline" 
+                  className="h-11 gap-2 rounded-xl border-indigo-500/30 text-indigo-600 dark:text-indigo-400 font-bold text-xs uppercase tracking-wider hover:bg-indigo-500/10 shadow-sm"
+                >
+                  <UserCheck size={16} />
+                  <span>Ziyaretçi Takibi Terminali</span>
+                  <ArrowRight size={14} />
+                </Button>
+              </Link>
+              <div className="relative w-full sm:w-72">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
+                <Input
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Personel adı veya ID..."
+                  className="h-11 pl-11 rounded-xl bg-muted/40 border-none font-bold text-sm placeholder:text-muted-foreground/60 outline-none focus-visible:ring-primary/20 transition-all text-foreground"
+                />
+              </div>
             </div>
           }
         />

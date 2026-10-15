@@ -179,5 +179,14 @@ export const ensureApplicationSchema = async () => {
   } catch (err) {
     console.log("scrap_trackings table check / addColumn:", err);
   }
+
+  // Visitors table sync & migration
+  try {
+    const { Visitor } = await import("../models");
+    await Visitor.sync();
+    console.log("Schema verified: visitors table ready.");
+  } catch (err) {
+    console.error("visitors sync error:", err);
+  }
 };
 

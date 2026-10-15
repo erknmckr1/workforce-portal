@@ -18,6 +18,7 @@ import exportRoutes from "./routes/exportRoutes";
 import { startLeaveBalanceSyncScheduler } from "./services/leaveBalanceSyncScheduler";
 import itRequestRoutes from "./routes/itRequestRoutes";
 import scrapTrackingRoutes from "./routes/scrapTrackingRoutes";
+import visitorRoutes from "./routes/visitorRoutes";
 import { ensureApplicationSchema } from "./services/schemaMigrationService";
 import path from "path";
 import fs from "fs";
@@ -66,6 +67,7 @@ app.use("/api/game", gameRoutes);
 app.use("/api/documents", documentRoutes);
 app.use("/api/it-requests", itRequestRoutes);
 app.use("/api/scrap-tracking", scrapTrackingRoutes);
+app.use("/api/visitors", visitorRoutes);
 app.use("/api/export", exportRoutes);
 
 // Fotoğrafları frontend için /photos adresi ile dışarı aç
