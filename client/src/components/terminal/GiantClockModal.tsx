@@ -123,16 +123,9 @@ const GiantClockModal: React.FC<GiantClockModalProps> = ({ isOpen, onClose }) =>
 
   if (!isOpen) return null;
 
-  const hours = time.toLocaleTimeString("tr-TR", {
-    hour: "2-digit",
-    hour12: false,
-  });
-  const minutes = time.toLocaleTimeString("tr-TR", {
-    minute: "2-digit",
-  });
-  const seconds = time.toLocaleTimeString("tr-TR", {
-    second: "2-digit",
-  });
+  const hours = String(time.getHours()).padStart(2, "0");
+  const minutes = String(time.getMinutes()).padStart(2, "0");
+  const seconds = String(time.getSeconds()).padStart(2, "0");
 
   const dayName = time.toLocaleDateString("tr-TR", { weekday: "long" });
   const fullDate = time.toLocaleDateString("tr-TR", {

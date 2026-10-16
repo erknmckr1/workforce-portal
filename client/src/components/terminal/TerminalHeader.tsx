@@ -101,11 +101,7 @@ const TerminalHeader: React.FC<TerminalHeaderProps> = ({
               title="Dev Dijital Saati Aç"
             >
               <div className="text-[50px] leading-none font-mono font-black tracking-tighter text-amber-500 tabular-nums drop-shadow-[0_0_15px_rgba(245,158,11,0.3)] group-hover:drop-shadow-[0_0_25px_rgba(245,158,11,0.6)] transition-all">
-                {currentTime.toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                  second: "2-digit",
-                })}
+                {`${String(currentTime.getHours()).padStart(2, "0")}:${String(currentTime.getMinutes()).padStart(2, "0")}:${String(currentTime.getSeconds()).padStart(2, "0")}`}
               </div>
               <div className="text-[10px] font-bold text-muted-foreground group-hover:text-amber-500/80 uppercase tracking-widest whitespace-nowrap transition-colors">
                 {currentTime.toLocaleDateString("tr-TR", {
