@@ -22,15 +22,10 @@ import {
   User, 
   Building2, 
   Phone, 
-  Car, 
   ShieldCheck, 
   Star, 
   CheckCircle2, 
-  AlertCircle,
   Users,
-  Flame,
-  Camera,
-  HardHat,
   ArrowRight
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -266,7 +261,7 @@ export default function VisitorRegisterPage() {
     }
 
     if (!kvkkAccepted) {
-      toast.error("Lütfen Ziyaretçi Aydınlatma Metni ve İSG kurallarını onaylayınız.");
+      toast.error("Lütfen KVKK Aydınlatma Metnini onaylayınız.");
       return;
     }
 
@@ -357,32 +352,6 @@ export default function VisitorRegisterPage() {
           <div className="flex justify-between items-center py-1">
             <span className="text-muted-foreground font-semibold">Giriş Saati:</span>
             <span className="font-mono font-bold text-foreground">{submittedVisitor.entryTime}</span>
-          </div>
-        </div>
-
-        {/* Tesis Kuralları Hatırlatma */}
-        <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 text-left space-y-2.5">
-          <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 font-black text-xs uppercase tracking-wider">
-            <AlertCircle size={15} />
-            <span>Fabrika Ziyaret Kuralları</span>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] text-muted-foreground font-semibold">
-            <div className="flex items-center gap-1.5">
-              <HardHat size={14} className="text-amber-500 shrink-0" />
-              <span>Üretim alanlarında baret ve yelek takınız.</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <Camera size={14} className="text-amber-500 shrink-0" />
-              <span>İzinsiz fotoğraf ve video çekimi yasaktır.</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <Flame size={14} className="text-amber-500 shrink-0" />
-              <span>Sadece belirlenmiş sigara alanlarını kullanınız.</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <Car size={14} className="text-amber-500 shrink-0" />
-              <span>Fabrika sahasında azami hız 20 km/s'dir.</span>
-            </div>
           </div>
         </div>
 
@@ -788,7 +757,7 @@ export default function VisitorRegisterPage() {
         </div>
       )}
 
-      {/* 8. KVKK & İSG Onay Kutusu */}
+      {/* 8. KVKK Onay Kutusu */}
       <div className="pt-1">
         <label className="flex items-start gap-2.5 cursor-pointer text-xs text-muted-foreground select-none">
           <input
@@ -799,7 +768,7 @@ export default function VisitorRegisterPage() {
             required
           />
           <span className="leading-tight">
-            Fabrika sahası içerisinde geçerli <strong>İş Sağlığı ve Güvenliği</strong> kurallarına uyacağımı ve <strong>KVKK Aydınlatma Metni</strong>'ni okuyup kabul ettiğimi onaylıyorum.
+            <strong>KVKK Aydınlatma Metni</strong>'ni okudum, anladım ve kabul ediyorum.
           </span>
         </label>
       </div>

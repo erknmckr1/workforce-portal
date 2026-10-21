@@ -33,26 +33,22 @@ const port = process.env.PORT || 3003;
 app.use(express.json());
 app.use(cookieParser());
 
-const corsOptions = {
-  origin: [
-    "http://localhost:5173",
-    "http://localhost:3000",
-    "http://localhost:3001",
-    "http://localhost:3005",
-    "http://127.0.0.1:5173",
-    "http://192.168.0.77:5173",
-    "http://192.168.0.77:3000",
-    "http://192.168.0.77:3001",
-    "http://192.168.0.77:3005",
-    "http://192.168.3.5:3000", // Eski sistemin IP'si
-    "https://navigational-runtgenographically-joline.ngrok-free.dev",
-    "https://two-kings-find.loca.lt",
-  ],
+const corsOptions: cors.CorsOptions = {
+  origin: true,
   credentials: true,
-  methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Kiosk-Key"],
 };
 
 app.use(cors(corsOptions));
+
+// Standalone Ziyaretci Formu
+const standaloneDir = fs.existsSync(path.join(process.cwd(), "visitor-form-standalone"))
+  ? path.join(process.cwd(), "visitor-form-standalone")
+  : path.join(__dirname, "../../visitor-form-standalone");
+app.use("/qr", express.static(standaloneDir));
+
+
 
 // Routes
 app.use("/api/auth", authRoutes);

@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Midas Ziyaretçi Girişi QR Kod Afişi</title>
+  <style>
+    :root {
+      --primary: #4f46e5;
+      --slate-900: #0f172a;
+      --slate-600: #475569;
+      --slate-200: #e2e8f0;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: #f1f5f9;
+      color: var(--slate-900);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 30px 16px;
+    }
+
+    /* Üst Aksiyon Çubuğu */
+    .top-bar {
+      width: 100%;
+      max-width: 600px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 20px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 700;
+      text-decoration: none;
+      cursor: pointer;
+      border: none;
+      transition: all 0.15s ease;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: #ffffff;
+      box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);
+    }
+
+    .btn-primary:hover {
+      background: #4338ca;
+    }
+
+    .btn-secondary {
+      background: #ffffff;
+      color: var(--slate-900);
+      border: 1px solid var(--slate-200);
+    }
+
+    .btn-secondary:hover {
+      background: #f8fafc;
+    }
+
+    /* Yazdırılabilir Afiş Kartı (A4 / Masaüstü Stand Formatı) */
+    .poster-card {
+      width: 100%;
+      max-width: 580px;
+      background: #ffffff;
+      border: 2px solid #cbd5e1;
+      border-radius: 24px;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
+      padding: 48px 36px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .logo-container {
+      width: 72px;
+      height: 72px;
+      background: #eef2ff;
+      border: 1.5px solid #c7d2fe;
+      color: var(--primary);
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 16px;
+    }
+
+    .company-title {
+      font-size: 26px;
+      font-weight: 900;
+      letter-spacing: -0.02em;
+      color: var(--slate-900);
+      margin-bottom: 4px;
+    }
+
+    .badge-bar {
+      display: inline-block;
+      background: #f1f5f9;
+      color: var(--primary);
+      padding: 6px 14px;
+      border-radius: 9999px;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      margin-bottom: 28px;
+    }
+
+    /* QR Çerçevesi */
+    .qr-frame {
+      padding: 18px;
+      background: #ffffff;
+      border: 3px solid var(--slate-900);
+      border-radius: 24px;
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .qr-frame img {
+      display: block;
+      width: 260px;
+      height: 260px;
+    }
+
+    .instruction-title {
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--slate-900);
+      margin-bottom: 8px;
+    }
+
+    .instruction-desc {
+      font-size: 13px;
+      color: var(--slate-600);
+      font-weight: 500;
+      max-width: 420px;
+      line-height: 1.6;
+      margin-bottom: 24px;
+    }
+
+    /* Adımlar */
+    .steps-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      width: 100%;
+      margin-bottom: 24px;
+      text-align: left;
+    }
+
+    .step-item {
+      background: #f8fafc;
+      border: 1px solid var(--slate-200);
+      border-radius: 12px;
+      padding: 12px;
+      font-size: 11px;
+      color: var(--slate-600);
+    }
+
+    .step-num {
+      width: 22px;
+      height: 22px;
+      background: var(--primary);
+      color: #ffffff;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 800;
+      margin-bottom: 6px;
+    }
+
+    .step-text {
+      font-weight: 700;
+      color: var(--slate-900);
+      display: block;
+      margin-bottom: 2px;
+    }
+
+    /* URL Bilgisi */
+    .url-info-bar {
+      width: 100%;
+      background: #f8fafc;
+      border: 1px dashed #cbd5e1;
+      border-radius: 12px;
+      padding: 10px 16px;
+      font-family: monospace;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--primary);
+      word-break: break-all;
+    }
+
+    /* Yazdırma Modu (A4 Standı) */
+    @media print {
+      body {
+        background: #ffffff;
+        padding: 0;
+      }
+
+      .no-print {
+        display: none !important;
+      }
+
+      .poster-card {
+        border: 2px solid #000000;
+        box-shadow: none;
+        max-width: 100%;
+        border-radius: 0;
+        padding: 40px 20px;
+        page-break-inside: avoid;
+      }
+
+      .qr-frame {
+        border: 4px solid #000000;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Üst Aksiyon Çubuğu (Yazdırmada Gizlenir) -->
+  <div class="top-bar no-print">
+    <a href="index.html" class="btn btn-secondary">← Forma Git</a>
+    <div style="display: flex; gap: 8px;">
+      <a href="qr-code.png" download="Midas-Ziyaretci-QR.png" class="btn btn-secondary">PNG İndir</a>
+      <button onclick="window.print()" class="btn btn-primary">Afişi Yazdır (A4)</button>
+    </div>
+  </div>
+
+  <!-- A4 AFİŞ STANDI KARTI -->
+  <main class="poster-card">
+    <div class="logo-container">
+      <svg xmlns="http://www.w3.org/2000/svg" width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/>
+        <path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/>
+        <path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/>
+        <path d="M10 6h4"/>
+        <path d="M10 10h4"/>
+        <path d="M10 14h4"/>
+        <path d="M10 18h4"/>
+      </svg>
+    </div>
+
+    <h1 class="company-title">Midas Hediyelik Eşya</h1>
+    <div class="badge-bar">Ziyaretçi Giriş ve Bilgilendirme Sistemi</div>
+
+    <!-- QR KOD GÖRSELİ -->
+    <div class="qr-frame">
+      <img src="qr-code.svg" alt="Ziyaretçi QR Kodu: http://192.168.3.5:3000/qr">
+    </div>
+
+    <h2 class="instruction-title">Hoş Geldiniz!</h2>
+    <p class="instruction-desc">
+      Lütfen akıllı telefonunuzun kamerasını açarak QR kodu okutunuz ve ekranda beliren bağlantı üzerinden ziyaretçi formunu doldurunuz.
+    </p>
+
+    <!-- 3 ADIM -->
+    <div class="steps-grid">
+      <div class="step-item">
+        <div class="step-num">1</div>
+        <span class="step-text">Kamerayı Açın</span>
+        Telefonunuzun kamerasını QR koda tutun.
+      </div>
+      <div class="step-item">
+        <div class="step-num">2</div>
+        <span class="step-text">Formu Doldurun</span>
+        Ekranda açılan formu eksiksiz tamamlayın.
+      </div>
+      <div class="step-item">
+        <div class="step-num">3</div>
+        <span class="step-text">Kartınızı Alın</span>
+        Güvenlik görevlisinden ziyaretçi kartınızı teslim alın.
+      </div>
+    </div>
+
+    <!-- HEDEF BAĞLANTI -->
+    <div class="url-info-bar">
+      🌐 Bağlantı: http://192.168.3.5:3000/qr
+    </div>
+  </main>
+
+</body>
+</html>

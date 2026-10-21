@@ -25,6 +25,7 @@
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.1.1",
     "nodemailer": "^8.0.5",
+    "qrcode": "^1.5.4",
     "sequelize": "^6.37.8",
     "tedious": "^19.2.1",
     "xlsx": "^0.18.5"
