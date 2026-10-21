@@ -151,6 +151,7 @@ function App() {
             {/* 2.9 Dış Ziyaretçi QR Kayıt - Bağımsız Public Mobil Layout (Şifresiz) */}
             <Route element={<VisitorPublicLayout />}>
               <Route path="/ziyaretci-kayit" element={<VisitorRegisterPage />} />
+              <Route path="/qr" element={<VisitorRegisterPage />} />
             </Route>
 
             {/* 2.10 Ziyaretçi Takip Sistemi - Bağımsız Güvenlik Terminal Layout */}
@@ -275,3 +276,4 @@ function App() {
 }
 
 export default App;
+
