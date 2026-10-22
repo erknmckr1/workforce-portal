@@ -22,18 +22,38 @@ export function KioskLogin() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!userid.trim()) return;
+    const query = userid.trim();
+    if (!query) return;
     
     setLoading(true);
     try {
-      const resp = await apiClient.get(`/personnel?search=${userid}`);
-      const foundUser = resp.data.data.find((p: Personnel) => p.id_dec === userid);
+      let foundUser: Personnel | null = null;
+      
+      // 1. Doğrudan tekil ID ile tam eşleşme sorgusu
+      try {
+        const resp = await apiClient.get(`/personnel/${encodeURIComponent(query)}`);
+        if (resp.data?.data) {
+          foundUser = resp.data.data;
+        }
+      } catch (err: any) {
+        if (err.response?.status !== 404) {
+          throw err;
+        }
+      }
+
+      // 2. Geriye dönük uyumluluk (Fallback): id_dec parametresi ile sorgula
+      if (!foundUser) {
+        const fallbackResp = await apiClient.get(`/personnel?id_dec=${encodeURIComponent(query)}&limit=1`);
+        if (fallbackResp.data?.data?.length > 0) {
+          foundUser = fallbackResp.data.data[0];
+        }
+      }
       
       if (foundUser) {
         setUser(foundUser);
         toast.success(`Hoş geldiniz, ${foundUser.name}. Kalan İzniniz: ${foundUser.leave_balance || 0} Gün`);
       } else {
-        toast.error("Bu ID'ye ait personel bulunamadı.");
+        toast.error("Bu ID'ye ait aktif personel bulunamadı.");
       }
     } catch {
       toast.error("Sistemsel bir hata oluştu.");

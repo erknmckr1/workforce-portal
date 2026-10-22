@@ -37,7 +37,12 @@ const corsOptions: cors.CorsOptions = {
   origin: true,
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization", "X-Kiosk-Key"],
+  allowedHeaders: [
+    "Content-Type",
+    "Authorization",
+    "X-Kiosk-Key",
+    "X-Kiosk-Context",
+  ],
 };
 
 app.use(cors(corsOptions));

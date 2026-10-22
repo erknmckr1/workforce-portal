@@ -17,7 +17,8 @@ import {
     createDepartment,
     updateDepartment,
     getApprovalAuditLogs,
-    getSystemAuditLogs
+    getSystemAuditLogs,
+    getPersonnelById
 } from "../controllers/personnelController";
 
 const router = Router();
@@ -58,4 +59,10 @@ router.put("/:id_dec", updatePersonnel);
 // Personel sil (Soft Delete)
 router.delete("/:id_dec", deletePersonnel);
 
+
+// Tekil personel getir (Kiosk / Barkod okutma)
+router.get("/by-id/:id", getPersonnelById);
+router.get("/:id", getPersonnelById);
+
 export default router;
+

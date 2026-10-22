@@ -159,8 +159,10 @@ export const getAllPersonnel = async (req: Request, res: Response): Promise<Resp
             ] };
         }
 
-        // Arama filtresi (İsim, Soyisim, ID_DEC)
-        if (search) {
+        // Birebir id_dec filtresi (Kiosk hızlı arama) veya genel Arama filtresi
+        if (req.query.id_dec) {
+            whereCondition.id_dec = String(req.query.id_dec).trim();
+        } else if (search) {
             whereCondition[Op.or] = [
                 { name: { [Op.like]: `%${search}%` } },
                 { surname: { [Op.like]: `%${search}%` } },
@@ -868,5 +870,44 @@ export const getSystemAuditLogs = async (req: Request, res: Response): Promise<R
     } catch (error) {
         console.error("getSystemAuditLogs Hatası:", error);
         return res.status(500).json({ success: false, message: "Denetim logları alınamadı." });
+    }
+};
+
+
+// Tekil Personel Getir (id_dec veya id_hex ile - Kiosk ve tekil sorgular için)
+export const getPersonnelById = async (req: Request, res: Response): Promise<Response> => {
+    try {
+        const { id } = req.params;
+        if (!id) {
+            return res.status(400).json({ success: false, message: "ID parametresi gereklidir." });
+        }
+
+        const trimmedId = String(id).trim();
+        const operator = await Operator.findOne({
+            where: {
+                is_active: 1,
+                [Op.or]: [
+                    { id_dec: trimmedId },
+                    { id_hex: trimmedId }
+                ]
+            },
+            include: [
+                { model: Role, attributes: ["id", "name"] },
+                { model: Section, attributes: ["id", "name"] },
+                { model: Department, attributes: ["id", "name"] },
+                { model: JobTitle, attributes: ["id", "name"] },
+                { model: Operator, as: "Auth1", attributes: ["name", "surname"] },
+                { model: Operator, as: "Auth2", attributes: ["name", "surname"] },
+            ]
+        });
+
+        if (!operator) {
+            return res.status(404).json({ success: false, message: "Bu ID'ye ait aktif personel bulunamadı." });
+        }
+
+        return res.status(200).json({ success: true, data: operator });
+    } catch (error) {
+        console.error("getPersonnelById Hatası:", error);
+        return res.status(500).json({ success: false, message: "Personel bilgisi alınırken hata oluştu." });
     }
 };

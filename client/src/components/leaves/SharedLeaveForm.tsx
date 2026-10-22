@@ -201,7 +201,7 @@ export function SharedLeaveForm({
                     <SelectTrigger className={cn("h-16! rounded-2xl bg-muted/40 border-none font-bold", errors.leave_reason_id && "ring-2 ring-destructive")}>
                       <SelectValue placeholder="Seçin..." />
                     </SelectTrigger>
-                    <SelectContent className="rounded-2xl border-none shadow-xl z-110">
+                    <SelectContent className="rounded-2xl border-none shadow-xl z-[110]">
                       {lookups.reasons.map(reason => (
                         <SelectItem key={reason.id} value={String(reason.id)} className="font-bold py-3">{reason.label}</SelectItem>
                       ))}
@@ -249,7 +249,7 @@ export function SharedLeaveForm({
                     <SelectTrigger className={cn("h-16! rounded-2xl bg-muted/40 border-none font-bold", errors.leave_duration_type_id && "ring-2 ring-destructive")}>
                       <SelectValue placeholder="Seçin..." />
                     </SelectTrigger>
-                    <SelectContent className="rounded-2xl border-none shadow-xl z-110">
+                    <SelectContent className="rounded-2xl border-none shadow-xl z-[110]">
                       {lookups.durationTypes.map(type => (
                         <SelectItem key={type.id} value={String(type.id)} className="font-bold py-3">{type.label}</SelectItem>
                       ))}
@@ -267,19 +267,19 @@ export function SharedLeaveForm({
                 <div className="col-span-12 sm:col-span-8 flex gap-2">
                   <Select value={(start_date_val?.split("T")[0] || `${new Date().getFullYear()}-01-01`).split("-")[2]} onValueChange={(val) => updateDateTime("start_date", "day", val)}>
                     <SelectTrigger className="h-16! rounded-2xl bg-muted/40 border-none font-bold flex-1"><SelectValue placeholder="Gün" /></SelectTrigger>
-                    <SelectContent className="max-h-75 rounded-2xl border-none shadow-xl z-110">
+                    <SelectContent className="max-h-75 rounded-2xl border-none shadow-xl z-[110]">
                       {DAYS.map(d => <SelectItem key={d} value={d} className="font-bold py-4 text-base cursor-pointer">{d}</SelectItem>)}
                     </SelectContent>
                   </Select>
                   <Select value={(start_date_val?.split("T")[0] || `${new Date().getFullYear()}-01-01`).split("-")[1]} onValueChange={(val) => updateDateTime("start_date", "month", val)}>
                     <SelectTrigger className="h-16! rounded-2xl bg-muted/40 border-none font-bold flex-1"><SelectValue placeholder="Ay" /></SelectTrigger>
-                    <SelectContent className="max-h-75 rounded-2xl border-none shadow-xl z-110">
+                    <SelectContent className="max-h-75 rounded-2xl border-none shadow-xl z-[110]">
                       {MONTHS.map(m => <SelectItem key={m.value} value={m.value} className="font-bold py-4 text-base cursor-pointer">{m.label}</SelectItem>)}
                     </SelectContent>
                   </Select>
                   <Select value={(start_date_val?.split("T")[0] || `${new Date().getFullYear()}-01-01`).split("-")[0]} onValueChange={(val) => updateDateTime("start_date", "year", val)}>
                     <SelectTrigger className="h-16! rounded-2xl bg-muted/40 border-none font-bold flex-1"><SelectValue placeholder="Yıl" /></SelectTrigger>
-                    <SelectContent className="max-h-75 rounded-2xl border-none shadow-xl z-110">
+                    <SelectContent className="max-h-75 rounded-2xl border-none shadow-xl z-[110]">
                       {YEARS.map(y => <SelectItem key={y} value={y} className="font-bold py-4 text-base cursor-pointer">{y}</SelectItem>)}
                     </SelectContent>
                   </Select>
@@ -287,13 +287,13 @@ export function SharedLeaveForm({
                 <div className="col-span-12 sm:col-span-4 flex gap-2">
                   <Select value={(start_date_val?.split("T")[1] || "09:00").split(":")[0]} onValueChange={(val) => updateDateTime("start_date", "hour", val)}>
                     <SelectTrigger className="h-16! rounded-2xl bg-muted/40 border-none font-bold flex-1"><SelectValue placeholder="Saat" /></SelectTrigger>
-                    <SelectContent className="max-h-75 rounded-2xl border-none shadow-xl z-110">
+                    <SelectContent className="max-h-75 rounded-2xl border-none shadow-xl z-[110]">
                       {HOURS.map(h => <SelectItem key={h} value={h} className="font-bold py-4 text-base cursor-pointer">{h}:00</SelectItem>)}
                     </SelectContent>
                   </Select>
                   <Select value={(start_date_val?.split("T")[1] || "09:00").split(":")[1]} onValueChange={(val) => updateDateTime("start_date", "minute", val)}>
                     <SelectTrigger className="h-16! rounded-2xl bg-muted/40 border-none font-bold flex-1"><SelectValue placeholder="Dk" /></SelectTrigger>
-                    <SelectContent className="rounded-2xl border-none shadow-xl z-110">
+                    <SelectContent className="rounded-2xl border-none shadow-xl z-[110]">
                       {MINUTES.map(m => <SelectItem key={m} value={m} className="font-bold py-4 text-base cursor-pointer">:{m}</SelectItem>)}
                     </SelectContent>
                   </Select>
@@ -308,19 +308,19 @@ export function SharedLeaveForm({
                 <div className="col-span-12 sm:col-span-8 flex gap-2">
                   <Select value={(end_date_val?.split("T")[0] || `${new Date().getFullYear()}-01-01`).split("-")[2]} onValueChange={(val) => updateDateTime("end_date", "day", val)}>
                     <SelectTrigger className="h-16! rounded-2xl bg-muted/40 border-none font-bold flex-1"><SelectValue placeholder="Gün" /></SelectTrigger>
-                    <SelectContent className="max-h-75 rounded-2xl border-none shadow-xl z-110">
+                    <SelectContent className="max-h-75 rounded-2xl border-none shadow-xl z-[110]">
                       {DAYS.map(d => <SelectItem key={d} value={d} className="font-bold py-4 text-base cursor-pointer">{d}</SelectItem>)}
                     </SelectContent>
                   </Select>
                   <Select value={(end_date_val?.split("T")[0] || `${new Date().getFullYear()}-01-01`).split("-")[1]} onValueChange={(val) => updateDateTime("end_date", "month", val)}>
                     <SelectTrigger className="h-16! rounded-2xl bg-muted/40 border-none font-bold flex-1"><SelectValue placeholder="Ay" /></SelectTrigger>
-                    <SelectContent className="max-h-75 rounded-2xl border-none shadow-xl z-110">
+                    <SelectContent className="max-h-75 rounded-2xl border-none shadow-xl z-[110]">
                       {MONTHS.map(m => <SelectItem key={m.value} value={m.value} className="font-bold py-4 text-base cursor-pointer">{m.label}</SelectItem>)}
                     </SelectContent>
                   </Select>
                   <Select value={(end_date_val?.split("T")[0] || `${new Date().getFullYear()}-01-01`).split("-")[0]} onValueChange={(val) => updateDateTime("end_date", "year", val)}>
                     <SelectTrigger className="h-16! rounded-2xl bg-muted/40 border-none font-bold flex-1"><SelectValue placeholder="Yıl" /></SelectTrigger>
-                    <SelectContent className="max-h-75 rounded-2xl border-none shadow-xl z-110">
+                    <SelectContent className="max-h-75 rounded-2xl border-none shadow-xl z-[110]">
                       {YEARS.map(y => <SelectItem key={y} value={y} className="font-bold py-4 text-base cursor-pointer">{y}</SelectItem>)}
                     </SelectContent>
                   </Select>
@@ -328,13 +328,13 @@ export function SharedLeaveForm({
                 <div className="col-span-12 sm:col-span-4 flex gap-2">
                   <Select value={(end_date_val?.split("T")[1] || "17:00").split(":")[0]} onValueChange={(val) => updateDateTime("end_date", "hour", val)}>
                     <SelectTrigger className="h-16! rounded-2xl bg-muted/40 border-none font-bold flex-1"><SelectValue placeholder="Saat" /></SelectTrigger>
-                    <SelectContent className="max-h-75 rounded-2xl border-none shadow-xl z-110">
+                    <SelectContent className="max-h-75 rounded-2xl border-none shadow-xl z-[110]">
                       {HOURS.map(h => <SelectItem key={h} value={h} className="font-bold py-4 text-base cursor-pointer">{h}:00</SelectItem>)}
                     </SelectContent>
                   </Select>
                   <Select value={(end_date_val?.split("T")[1] || "17:00").split(":")[1]} onValueChange={(val) => updateDateTime("end_date", "minute", val)}>
                     <SelectTrigger className="h-16! rounded-2xl bg-muted/40 border-none font-bold flex-1"><SelectValue placeholder="Dk" /></SelectTrigger>
-                    <SelectContent className="rounded-2xl border-none shadow-xl z-110">
+                    <SelectContent className="rounded-2xl border-none shadow-xl z-[110]">
                       {MINUTES.map(m => <SelectItem key={m} value={m} className="font-bold py-4 text-base cursor-pointer">:{m}</SelectItem>)}
                     </SelectContent>
                   </Select>
