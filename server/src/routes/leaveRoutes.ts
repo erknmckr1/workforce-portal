@@ -10,7 +10,8 @@ import {
     confirmExit,
     handleEmailAction,
     getLeaveActivity,
-    getLeaveKPIs
+    getLeaveKPIs,
+    logLeaveKPIAudit
 } from "../controllers/leaveController";
 import { requireKioskOrAuth } from "../middlewares/kioskMiddleware";
 import { requireAuth } from "../middlewares/authMiddleware";
@@ -23,6 +24,7 @@ router.get("/email-action", handleEmailAction);
 // --- İzin İşlemleri & Raporlama ---
 router.get("/lookups", requireKioskOrAuth, getLeaveLookups);
 router.get("/kpis", requireAuth, getLeaveKPIs);
+router.post("/kpis/audit", requireAuth, logLeaveKPIAudit);
 router.get("/:id/activity", requireAuth, getLeaveActivity);
 router.get("/", requireKioskOrAuth, getLeaves);
 router.post("/", requireKioskOrAuth, createLeave);

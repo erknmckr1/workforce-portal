@@ -13,6 +13,7 @@ import {
 import { Op, fn } from "sequelize";
 import sequelize from "../config/database";
 import { sendLeaveApprovalEmailAndLog } from "../services/leaveEmailNotificationService";
+import { writeAuditLog } from "../services/auditService";
 import jwt from "jsonwebtoken";
 
 interface EmailActionPayload {
@@ -1730,5 +1731,38 @@ export const getLeaveKPIs = async (req: Request, res: Response): Promise<Respons
   } catch (error) {
     console.error("GetLeaveKPIs Error:", error);
     return res.status(500).json({ message: "İzin KPI verileri hesaplanırken hata oluştu." });
+  }
+};
+
+/**
+ * İzin Analitikleri Sayfası Denetim Kaydı (Audit Log)
+ * Excel indirme, Şu an izinliler açılır yan paneli ve Onay bekleyenler açılır yan paneli gibi ekran hareketlerini loglar.
+ */
+export const logLeaveKPIAudit = async (req: Request, res: Response): Promise<Response> => {
+  try {
+    const { actionType, description, screen, actionData } = req.body;
+    if (!actionType) {
+      return res.status(400).json({ success: false, message: "actionType parametresi zorunludur." });
+    }
+
+    await writeAuditLog({
+      req,
+      module: "LEAVE_ANALYTICS",
+      actionType: String(actionType).trim().toUpperCase(),
+      description: description || `İzin analitiği işlem: ${actionType}`,
+      details: {
+        screen: screen || {
+          pageTitle: "İzin ve Revir Analitik Paneli",
+          route: "/reports/leave-kpis",
+          component: "MAIN_DASHBOARD",
+        },
+        actionData: actionData || {},
+      },
+    });
+
+    return res.status(200).json({ success: true, message: "Denetim kaydı başarıyla oluşturuldu." });
+  } catch (error: any) {
+    console.error("[logLeaveKPIAudit Hatası]:", error);
+    return res.status(500).json({ success: false, message: "Denetim kaydı kaydedilirken hata oluştu." });
   }
 };

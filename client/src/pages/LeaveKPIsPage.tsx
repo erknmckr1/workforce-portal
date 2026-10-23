@@ -489,6 +489,32 @@ function DashboardSkeleton() {
   );
 }
 
+// --- AUDIT LOG HELPER ---
+interface AuditActionParams {
+  actionType: "EXPORT_EXCEL" | "VIEW_ACTIVE_LEAVES" | "VIEW_PENDING_APPROVALS";
+  description: string;
+  component: "MAIN_DASHBOARD" | "ACTIVE_LEAVES_PANEL" | "PENDING_LEAVES_PANEL";
+  actionData?: Record<string, any>;
+}
+
+const logAuditAction = ({ actionType, description, component, actionData }: AuditActionParams) => {
+  apiClient
+    .post("/leave/kpis/audit", {
+      actionType,
+      description,
+      screen: {
+        pageTitle: "İzin ve Revir Analitik Paneli",
+        route: window.location.pathname,
+        component,
+      },
+      actionData: actionData || {},
+    })
+    .catch((err) => {
+      // Arka plan denetim kaydı hatası ana kullanıcı arayüzünü asla bozmaz
+      console.warn("[AuditLog] Arka plan denetim kaydı gönderilemedi:", err);
+    });
+};
+
 // --- AKTİF İZİNLİLER ÇEKMECESİ (DRAWER) ---
 interface ActiveLeavesDrawerProps {
   isOpen: boolean;
@@ -500,13 +526,22 @@ function ActiveLeavesDrawer({ isOpen, onClose, leaves }: ActiveLeavesDrawerProps
   const [searchTerm, setSearchTerm] = useState("");
   const inputRef = React.useRef<HTMLInputElement>(null);
 
-  // Otomatik odaklanma ve arama sıfırlama
+  // Otomatik odaklanma, arama sıfırlama ve denetim logu
   React.useEffect(() => {
     if (isOpen) {
       setSearchTerm("");
       const timer = setTimeout(() => {
         inputRef.current?.focus();
       }, 80);
+
+      // Denetim kaydı: "Şu An İzinli" açılır yan paneli görüntülendi
+      logAuditAction({
+        actionType: "VIEW_ACTIVE_LEAVES",
+        description: `Bugün işletme dışında olan aktif izinli personellerin listesi açılır yan panelde görüntülendi (${leaves.length} kişi).`,
+        component: "ACTIVE_LEAVES_PANEL",
+        actionData: { activeCount: leaves.length },
+      });
+
       return () => clearTimeout(timer);
     }
   }, [isOpen]);
@@ -719,13 +754,22 @@ function PendingLeavesDrawer({ isOpen, onClose, leaves }: PendingLeavesDrawerPro
   const [searchTerm, setSearchTerm] = useState("");
   const inputRef = React.useRef<HTMLInputElement>(null);
 
-  // Otomatik odaklanma ve arama sıfırlama
+  // Otomatik odaklanma, arama sıfırlama ve denetim logu
   React.useEffect(() => {
     if (isOpen) {
       setSearchTerm("");
       const timer = setTimeout(() => {
         inputRef.current?.focus();
       }, 80);
+
+      // Denetim kaydı: "Onay Bekleyenler" açılır yan paneli görüntülendi
+      logAuditAction({
+        actionType: "VIEW_PENDING_APPROVALS",
+        description: `Yönetici onayı bekleyen aktif izin talepleri ve bekleme süreleri açılır yan panelde görüntülendi (${leaves.length} talep).`,
+        component: "PENDING_LEAVES_PANEL",
+        actionData: { pendingCount: leaves.length },
+      });
+
       return () => clearTimeout(timer);
     }
   }, [isOpen]);
@@ -1242,6 +1286,24 @@ export default function LeaveKPIsPage() {
       const dateTag = format(new Date(), "yyyyMMdd_HHmm");
       XLSX.writeFile(wb, `Izin_Ve_Revir_Analizi_${dateTag}.xlsx`);
       toast.success("Excel raporu başarıyla indirildi.");
+
+      // Merkezi denetim kaydını (Audit Log) arka planda kaydet
+      logAuditAction({
+        actionType: "EXPORT_EXCEL",
+        description: `İzin ve Revir Analitik raporu Excel formatında indirildi (${filteredRecords.length} kayıt, ${data.bySection?.length || 0} bölüm).`,
+        component: "MAIN_DASHBOARD",
+        actionData: {
+          period,
+          startDate: queryDates.startDate,
+          endDate: queryDates.endDate,
+          rowCount: filteredRecords.length,
+          sectionCount: data.bySection?.length || 0,
+          filterStatus: tableStatusFilter,
+          searchQuery: tableSearch || undefined,
+          hasSectionFilter: selectedSectionIds !== null,
+          hasReasonFilter: selectedReasonIds !== null,
+        },
+      });
     } catch (err) {
       console.error(err);
       toast.error("Excel oluşturulurken bir hata meydana geldi.");
