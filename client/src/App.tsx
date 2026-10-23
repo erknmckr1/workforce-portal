@@ -13,6 +13,8 @@ import VisitorTrackingLayout from "./components/layout/VisitorTrackingLayout";
 import VisitorPublicLayout from "./components/layout/VisitorPublicLayout";
 import VisitorTrackingPage from "./pages/VisitorTrackingPage";
 import VisitorRegisterPage from "./pages/VisitorRegisterPage";
+import LeaveAnalyticsLayout from "./components/layout/LeaveAnalyticsLayout";
+import LeaveKPIsPage from "./pages/LeaveKPIsPage";
 import ProtectedRoute from "./components/layout/ProtectedRoute";
 import SettingsIndex from "./pages/settings/SettingsIndex";
 import Approvals from "./pages/settings/Approvals";
@@ -165,6 +167,19 @@ function App() {
               <Route element={<VisitorTrackingLayout />}>
                 <Route path="/visitors" element={<VisitorTrackingPage />} />
                 <Route path="/security/visitors" element={<Navigate to="/visitors" replace />} />
+              </Route>
+            </Route>
+
+            {/* 2.11 İzin & Devamsızlık Süreç Analitiği - Bağımsız Raporlama Layout */}
+            <Route
+              element={
+                <AuthLayoutWrapper>
+                  <ProtectedRoute allowedRoles={["Admin", "İK", "Müdür", "Yönetici", "Revir"]} />
+                </AuthLayoutWrapper>
+              }
+            >
+              <Route element={<LeaveAnalyticsLayout />}>
+                <Route path="/reports/leave-kpis" element={<LeaveKPIsPage />} />
               </Route>
             </Route>
 

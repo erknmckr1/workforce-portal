@@ -9,7 +9,8 @@ import {
     updateLeave,
     confirmExit,
     handleEmailAction,
-    getLeaveActivity
+    getLeaveActivity,
+    getLeaveKPIs
 } from "../controllers/leaveController";
 import { requireKioskOrAuth } from "../middlewares/kioskMiddleware";
 import { requireAuth } from "../middlewares/authMiddleware";
@@ -19,8 +20,9 @@ const router = Router();
 // --- E-posta Aksiyonu (Auth İstemez, Token yeterlidir) ---
 router.get("/email-action", handleEmailAction);
 
-// --- İzin İşlemleri (Kiosk Anahtarı veya Giriş Bileti Şart!) ---
+// --- İzin İşlemleri & Raporlama ---
 router.get("/lookups", requireKioskOrAuth, getLeaveLookups);
+router.get("/kpis", requireAuth, getLeaveKPIs);
 router.get("/:id/activity", requireAuth, getLeaveActivity);
 router.get("/", requireKioskOrAuth, getLeaves);
 router.post("/", requireKioskOrAuth, createLeave);

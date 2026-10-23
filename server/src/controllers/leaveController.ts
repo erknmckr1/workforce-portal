@@ -6,6 +6,7 @@ import {
   LeaveDurationType,
   Operator,
   Section,
+  Department,
   LeaveActivityLog,
   Notification,
 } from "../models";
@@ -1279,5 +1280,365 @@ export const handleEmailAction = async (
     if (transaction) await transaction.rollback();
     console.error("Email Action Error:", error);
     return res.status(500).send("İşlem sırasında bir hata oluştu.");
+  }
+};
+
+
+// --- İzin & Devamsızlık Süreç Analitiği (KPIs & Raporlama) ---
+export const getLeaveKPIs = async (req: Request, res: Response): Promise<Response> => {
+  try {
+    const { startDate, endDate, sectionId, sectionIds, reasonCategory, reasonIds } = req.query;
+
+    const where: any = {};
+
+    // Tarih Aralığı Filtresi (start_date bazlı)
+    if (startDate || endDate) {
+      const dateFilter: any = {};
+      if (startDate) {
+        const [y, m, d] = String(startDate).split("-").map(Number);
+        dateFilter[Op.gte] = new Date(y, m - 1, d, 0, 0, 0, 0);
+      }
+      if (endDate) {
+        const [y, m, d] = String(endDate).split("-").map(Number);
+        dateFilter[Op.lte] = new Date(y, m - 1, d, 23, 59, 59, 999);
+      }
+      where.start_date = dateFilter;
+    }
+
+    // Neden Filtresi (İzin Nedenleri Dağılımı listesinin teke düşmemesi için sorgu sonrası filtrelenir)
+    let allowedReasonIds: number[] | null = null;
+    if (reasonIds) {
+      if (reasonIds === "-1" || reasonIds === "NONE") {
+        allowedReasonIds = [];
+      } else {
+        const rIds = String(reasonIds)
+          .split(",")
+          .map(Number)
+          .filter((n) => !isNaN(n));
+        if (rIds.length > 0) allowedReasonIds = rIds;
+      }
+    } else if (reasonCategory === "REVIR") {
+      allowedReasonIds = [8, 9];
+    } else if (reasonCategory === "ANNUAL") {
+      allowedReasonIds = [1];
+    } else if (reasonCategory === "SICK") {
+      allowedReasonIds = [2];
+    } else if (reasonCategory && reasonCategory !== "ALL") {
+      const numericReason = Number(reasonCategory);
+      if (!isNaN(numericReason)) allowedReasonIds = [numericReason];
+    }
+
+    // Bölüm Filtresi (Bölüm Dağılımı listesinin teke düşmemesi için sorgu sonrası filtrelenir)
+    let allowedSectionIds: string[] | null = null;
+    const sParam = sectionIds || sectionId;
+    if (sParam && sParam !== "ALL") {
+      if (sParam === "NONE" || sParam === "-1") {
+        allowedSectionIds = [];
+      } else {
+        const sIds = String(sParam)
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean);
+        if (sIds.length > 0) allowedSectionIds = sIds;
+      }
+    }
+
+    // Kayıtları Çek
+    const records = await LeaveRecord.findAll({
+      where,
+      include: [
+        {
+          model: Operator,
+          as: "User",
+          required: false,
+          attributes: ["id_dec", "name", "surname", "section", "department"],
+          include: [
+            { model: Section, attributes: ["id", "name"] },
+            { model: Department, attributes: ["id", "name"] }
+          ]
+        },
+        { model: LeaveReason, attributes: ["id", "code", "label"] },
+        { model: LeaveStatus, attributes: ["id", "code", "label"] },
+        { model: LeaveDurationType, attributes: ["id", "code", "label"] }
+      ],
+      order: [["start_date", "DESC"]]
+    });
+
+    // Lookup seçeneklerini al (Filtre açılır kutuları için)
+    const [allSections, allReasons] = await Promise.all([
+      Section.findAll({ attributes: ["id", "name"], order: [["name", "ASC"]] }),
+      LeaveReason.findAll({ where: { is_active: true }, attributes: ["id", "code", "label"], order: [["label", "ASC"]] })
+    ]);
+
+    // Dinamik Gün & Saat Hesaplayıcı
+    const calculateDuration = (r: any) => {
+      let days = Number(r.total_days || 0);
+      let hours = Number(r.total_hours || 0);
+
+      if (days === 0 && r.start_date && r.end_date) {
+        const s = new Date(r.start_date);
+        const e = new Date(r.end_date);
+        const diffMs = Math.max(0, e.getTime() - s.getTime());
+        const diffHours = diffMs / (1000 * 60 * 60);
+
+        if (r.leave_duration_type_id === 4) {
+          hours = Math.round(diffHours * 10) / 10;
+          days = Math.round((hours / 9) * 10) / 10;
+        } else if (r.leave_duration_type_id === 2 || r.leave_duration_type_id === 3) {
+          days = 0.5;
+          hours = 4.5;
+        } else {
+          const startDay = new Date(s.getFullYear(), s.getMonth(), s.getDate());
+          const endDay = new Date(e.getFullYear(), e.getMonth(), e.getDate());
+          const dayCount = Math.round((endDay.getTime() - startDay.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+          days = Math.max(1, dayCount);
+          hours = days * 9;
+        }
+      }
+
+      return {
+        days: Math.round(days * 10) / 10,
+        hours: Math.round(hours * 10) / 10
+      };
+    };
+
+    const now = new Date();
+    let currentlyOnLeave = 0;
+    let totalRequests = 0;
+    let totalDays = 0;
+    let totalHours = 0;
+
+    let pendingCount = 0;
+    let approvedCount = 0;
+    let rejectedCount = 0;
+    let cancelledCount = 0;
+
+    let totalApprovalDurationHours = 0;
+    let approvalDurationCount = 0;
+
+    let revirTotal = 0;
+    let revirSevkCount = 0;
+    let revirIstirahatCount = 0;
+    let revirLostHours = 0;
+
+    // Reason aggregation map: Tarih ve bölüm filtresindeki TÜM kayıtları içerir (Böylece dağılım asla teke düşmez!)
+    const reasonMap = new Map<number, { label: string; code: string; count: number; days: number; hours: number }>();
+    for (const ar of allReasons) {
+      const p = (ar as any).get ? (ar as any).get({ plain: true }) : ar;
+      reasonMap.set(p.id, { label: p.label, code: p.code, count: 0, days: 0, hours: 0 });
+    }
+
+    // Section aggregation map: 23 fabrikanın tüm bölümlerini içerir (3x3 grid asla teke düşmez!)
+    const sectionMap = new Map<string, { id: any; name: string; total: number; approved: number; revir: number; days: number; hours: number }>();
+    for (const sec of allSections) {
+      const p = (sec as any).get ? (sec as any).get({ plain: true }) : sec;
+      const sId = String(p.id);
+      sectionMap.set(sId, { id: p.id, name: p.name, total: 0, approved: 0, revir: 0, days: 0, hours: 0 });
+    }
+
+    const monthlyMap = new Map<string, { month: string; label: string; total: number; revir: number; approved: number }>();
+    const matchingRecords: any[] = [];
+    const totalScopeRequests = records.length;
+
+    for (const rec of records) {
+      const r = rec.get({ plain: true });
+      const { days, hours } = calculateDuration(r);
+      const reasonId = Number(r.leave_reason_id);
+      const userSecId = r.User?.Section?.id != null ? String(r.User.Section.id) : (r.User?.section != null ? String(r.User.section) : null);
+      const secId = userSecId || "UNKNOWN";
+      const secName = r.User?.Section?.name || (userSecId ? `Bölüm #${userSecId}` : "Bölüm Belirtilmemiş");
+      const statusId = Number(r.leave_status_id);
+      const isRevir = reasonId === 8 || reasonId === 9;
+
+      // 1. Bölüm Dağılımı Hesaplama:
+      // Seçilen İzin Nedenleri (varsa) filtrelenir, ancak bölüm filtresinden bağımsız olarak TÜM bölümler görünür kalır.
+      const matchesReason = allowedReasonIds === null || allowedReasonIds.includes(reasonId);
+      if (matchesReason) {
+        if (!sectionMap.has(secId)) {
+          sectionMap.set(secId, { id: userSecId || secId, name: secName, total: 0, approved: 0, revir: 0, days: 0, hours: 0 });
+        }
+        const sEntry = sectionMap.get(secId)!;
+        sEntry.total++;
+        if (statusId === 3) sEntry.approved++;
+        if (isRevir) sEntry.revir++;
+        sEntry.days += days;
+        sEntry.hours += hours;
+      }
+
+      // 2. Neden Dağılımı Hesaplama:
+      // Seçilen Bölümler (varsa) filtrelenir, ancak tüm nedenler görünür kalır.
+      const matchesSection = allowedSectionIds === null || (userSecId != null && allowedSectionIds.includes(userSecId));
+      if (matchesSection) {
+        const reasonLabel = r.LeaveReason?.label || ("Neden #" + reasonId);
+        const reasonCode = r.LeaveReason?.code || "";
+        if (!reasonMap.has(reasonId)) {
+          reasonMap.set(reasonId, { label: reasonLabel, code: reasonCode, count: 0, days: 0, hours: 0 });
+        }
+        const rEntry = reasonMap.get(reasonId)!;
+        rEntry.count++;
+        rEntry.days += days;
+        rEntry.hours += hours;
+      }
+
+      // 3. Genel KPI'lar, Trend ve Tablo Kayıtları:
+      // Hem seçilen neden(ler)e hem de seçilen bölüm(ler)e uyan kayıtlar dahil edilir.
+      if (!matchesReason || !matchesSection) {
+        continue;
+      }
+
+      totalRequests++;
+      totalDays += days;
+      totalHours += hours;
+
+      if (statusId === 1 || statusId === 2) pendingCount++;
+      else if (statusId === 3) approvedCount++;
+      else if (statusId === 4) cancelledCount++;
+      else if (statusId === 5) rejectedCount++;
+
+      // Şu an aktif izinli mi?
+      if (statusId === 3 && r.start_date && r.end_date) {
+        const sDate = new Date(r.start_date);
+        const eDate = new Date(r.end_date);
+        if (sDate <= now && eDate >= now) {
+          currentlyOnLeave++;
+        }
+      }
+
+      // Ortalama onay süresi (Oluşturma -> 1. Onay yanıtı)
+      if (r.auth1_responded_at && r.created_at) {
+        const diffMs = new Date(r.auth1_responded_at).getTime() - new Date(r.created_at).getTime();
+        if (diffMs > 0) {
+          const diffHours = diffMs / (1000 * 60 * 60);
+          if (diffHours < 24 * 365) {
+            totalApprovalDurationHours += diffHours;
+            approvalDurationCount++;
+          }
+        }
+      }
+
+      // Revir Kontrolü (8: Doktor Sevk, 9: Doktor İstirahat)
+      if (isRevir) {
+        revirTotal++;
+        if (reasonId === 8) revirSevkCount++;
+        if (reasonId === 9) revirIstirahatCount++;
+        revirLostHours += hours;
+      }
+
+      // Aylık Trend
+      if (r.start_date) {
+        const d = new Date(r.start_date);
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, "0");
+        const monthKey = yyyy + "-" + mm;
+        if (!monthlyMap.has(monthKey)) {
+          const monthName = d.toLocaleDateString("tr-TR", { month: "short", year: "numeric" });
+          monthlyMap.set(monthKey, { month: monthKey, label: monthName, total: 0, revir: 0, approved: 0 });
+        }
+        const mEntry = monthlyMap.get(monthKey)!;
+        mEntry.total++;
+        if (isRevir) mEntry.revir++;
+        if (statusId === 3) mEntry.approved++;
+      }
+
+      matchingRecords.push({ r, duration: { days, hours } });
+    }
+
+    const approvalRate = (approvedCount + rejectedCount) > 0 
+      ? Math.round((approvedCount / (approvedCount + rejectedCount)) * 1000) / 10 
+      : 100;
+
+    const avgApprovalHours = approvalDurationCount > 0 
+      ? Math.round((totalApprovalDurationHours / approvalDurationCount) * 10) / 10 
+      : 0;
+
+    const revirSharePercentage = totalRequests > 0 
+      ? Math.round((revirTotal / totalRequests) * 1000) / 10 
+      : 0;
+
+    const totalReasonScopeRequests = Array.from(reasonMap.values()).reduce((sum, v) => sum + v.count, 0);
+
+    const byReason = Array.from(reasonMap.entries())
+      .map(([id, val]) => ({
+        id,
+        code: val.code,
+        label: val.label,
+        count: val.count,
+        totalDays: Math.round(val.days * 10) / 10,
+        totalHours: Math.round(val.hours * 10) / 10,
+        percentage: totalReasonScopeRequests > 0 ? Math.round((val.count / totalReasonScopeRequests) * 1000) / 10 : 0
+      }))
+      .sort((a, b) => {
+        if (b.count !== a.count) return b.count - a.count;
+        return a.label.localeCompare(b.label, "tr");
+      });
+
+    const bySection = Array.from(sectionMap.values())
+      .map((val) => ({
+        ...val,
+        days: Math.round(val.days * 10) / 10,
+        hours: Math.round(val.hours * 10) / 10
+      }))
+      .sort((a, b) => {
+        if (b.total !== a.total) return b.total - a.total;
+        return a.name.localeCompare(b.name, "tr");
+      });
+
+    const monthlyTrend = Array.from(monthlyMap.values()).sort((a, b) => a.month.localeCompare(b.month));
+
+    const tableRecords = matchingRecords.slice(0, 300).map(({ r, duration }) => {
+      return {
+        id: r.id,
+        userId: r.user_id,
+        employeeName: r.User ? (r.User.name + " " + r.User.surname) : ("ID: " + r.user_id),
+        sectionName: r.User?.Section?.name || "-",
+        departmentName: r.User?.Department?.name || "-",
+        reasonId: r.leave_reason_id,
+        reasonLabel: r.LeaveReason?.label || "-",
+        statusId: r.leave_status_id,
+        statusLabel: r.LeaveStatus?.label || "-",
+        statusCode: r.LeaveStatus?.code || "-",
+        durationType: r.LeaveDurationType?.label || "Tam Gün",
+        startDate: r.start_date,
+        endDate: r.end_date,
+        totalDays: r.total_days ?? duration.days,
+        totalHours: r.total_hours ?? duration.hours,
+        description: r.description,
+        createdAt: r.created_at,
+        respondedAt: r.auth1_responded_at
+      };
+    });
+
+    return res.json({
+      summary: {
+        totalRequests,
+        totalDays: Math.round(totalDays * 10) / 10,
+        totalHours: Math.round(totalHours * 10) / 10,
+        currentlyOnLeave,
+        pendingCount,
+        approvedCount,
+        rejectedCount,
+        cancelledCount,
+        approvalRate,
+        avgApprovalHours,
+        revir: {
+          total: revirTotal,
+          sevkCount: revirSevkCount,
+          istirahatCount: revirIstirahatCount,
+          lostHours: Math.round(revirLostHours * 10) / 10,
+          sharePercentage: revirSharePercentage
+        }
+      },
+      byReason,
+      bySection,
+      monthlyTrend,
+      records: tableRecords,
+      filterOptions: {
+        sections: allSections,
+        reasons: allReasons
+      }
+    });
+  } catch (error) {
+    console.error("GetLeaveKPIs Error:", error);
+    return res.status(500).json({ message: "İzin KPI verileri hesaplanırken hata oluştu." });
   }
 };

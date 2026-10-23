@@ -1,10 +1,19 @@
-import { Clock, ArrowRight } from "lucide-react";
+import { Clock, ArrowRight, FileBarChart2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const Reports = () => {
   const navigate = useNavigate();
 
   const reportCategories = [
+    {
+      id: "leave-kpis",
+      title: "İzin & Devamsızlık Analizi",
+      description:
+        "Departman bazlı izin yoğunluğu, onay süreleri, mazeret ve revir sevk/istirahat süreç analitiği.",
+      icon: <FileBarChart2 className="text-indigo-500" size={32} />,
+      status: "Aktif",
+      color: "border-indigo-500/20 bg-indigo-500/5",
+    },
     {
       id: "personnel-movement",
       title: "Personel Hareket Analizi",
@@ -51,7 +60,7 @@ const Reports = () => {
                     {report.title}
                   </h3>
                   {report.status === "Aktif" && (
-                    <div className="w-10 h-10 rounded-full bg-amber-500 text-black flex items-center justify-center -translate-x-4 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all duration-300 shadow-lg">
+                    <div className="w-10 h-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center -translate-x-4 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all duration-300 shadow-lg">
                       <ArrowRight size={20} />
                     </div>
                   )}
@@ -63,7 +72,7 @@ const Reports = () => {
 
               <div className="flex items-center gap-3 pt-4 border-t border-border/50">
                 <span
-                  className={`px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${report.status === "Aktif" ? "bg-amber-500 text-black shadow-lg" : "bg-muted text-muted-foreground"}`}
+                  className={`px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${report.status === "Aktif" ? "bg-primary text-primary-foreground shadow-lg" : "bg-muted text-muted-foreground"}`}
                 >
                   {report.status}
                 </span>
