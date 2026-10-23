@@ -489,6 +489,459 @@ function DashboardSkeleton() {
   );
 }
 
+// --- AKTİF İZİNLİLER ÇEKMECESİ (DRAWER) ---
+interface ActiveLeavesDrawerProps {
+  isOpen: boolean;
+  onClose: () => void;
+  leaves: ActiveLeaveItem[];
+}
+
+function ActiveLeavesDrawer({ isOpen, onClose, leaves }: ActiveLeavesDrawerProps) {
+  const [searchTerm, setSearchTerm] = useState("");
+  const inputRef = React.useRef<HTMLInputElement>(null);
+
+  // Otomatik odaklanma ve arama sıfırlama
+  React.useEffect(() => {
+    if (isOpen) {
+      setSearchTerm("");
+      const timer = setTimeout(() => {
+        inputRef.current?.focus();
+      }, 80);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen]);
+
+  // ESC tuşuyla çekmeceyi kapatma
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
+
+  // Sıfır gecikmeli lokal bellek içi arama (Tüm sayfayı yeniden render ETMEZ)
+  const filteredLeaves = useMemo(() => {
+    if (!searchTerm.trim()) return leaves;
+    const q = searchTerm.toLowerCase().trim();
+    return leaves.filter(
+      (person) =>
+        (person.employeeName && person.employeeName.toLowerCase().includes(q)) ||
+        (person.userId && person.userId.toLowerCase().includes(q)) ||
+        (person.sectionName && person.sectionName.toLowerCase().includes(q)) ||
+        (person.reasonLabel && person.reasonLabel.toLowerCase().includes(q))
+    );
+  }, [leaves, searchTerm]);
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[150] flex justify-end">
+      {/* Backdrop / Arka Plan Karartması */}
+      <div
+        className="fixed inset-0 bg-black/50 backdrop-blur-xs transition-opacity animate-in fade-in duration-200"
+        onClick={onClose}
+      />
+
+      {/* Çekmece Paneli (Slide-in from right) */}
+      <div className="relative w-full max-w-lg bg-card text-card-foreground border-l border-border/80 shadow-2xl h-full flex flex-col z-[160] animate-in slide-in-from-right duration-300">
+        {/* Çekmece Başlığı */}
+        <div className="p-5 border-b border-border/60 bg-muted/20 flex items-start justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 flex items-center justify-center">
+                <Users size={16} />
+              </div>
+              <h3 className="text-base font-black text-foreground tracking-tight">
+                Bugün Kimler İzinli?
+              </h3>
+              <span className="px-2 py-0.5 rounded-full text-xs font-black bg-emerald-600 text-white shadow-xs">
+                {filteredLeaves.length}
+              </span>
+            </div>
+            <p className="text-xs text-muted-foreground font-medium mt-1">
+              Şu an fabrikada olmayan aktif onaylı izin ve revir istirahatleri
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-8 h-8 rounded-xl border border-border/60 bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center transition-all cursor-pointer"
+            title="Kapat (ESC)"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Arama Alanı (Anlık & Hızlı) */}
+        <div className="p-4 border-b border-border/40 bg-background/50">
+          <div className="relative">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+            <input
+              ref={inputRef}
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Personel adı, sicil no veya bölüm ara..."
+              className="w-full pl-9 pr-8 py-2 bg-muted/40 border border-border/70 rounded-xl text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+            />
+            {searchTerm && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchTerm("");
+                  inputRef.current?.focus();
+                }}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5 rounded-md hover:bg-muted/80 transition-colors"
+                title="Aramayı Temizle"
+              >
+                <X size={13} />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Personel Listesi */}
+        <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-3">
+          {filteredLeaves.length === 0 ? (
+            <div className="h-64 flex flex-col items-center justify-center text-center p-6 space-y-2 text-muted-foreground">
+              <div className="w-12 h-12 rounded-2xl bg-muted/40 flex items-center justify-center text-muted-foreground mb-1">
+                <UserCheck size={24} />
+              </div>
+              <div className="text-sm font-bold text-foreground">
+                {searchTerm ? "Aramaya uygun izinli bulunamadı" : "Bugün İzinli Personel Yok"}
+              </div>
+              <p className="text-xs max-w-xs">
+                {searchTerm
+                  ? "Farklı bir arama terimi deneyebilir veya aramayı temizleyebilirsiniz."
+                  : "Şu anda işletme dışında onaylı izin veya revir istirahatinde olan personel bulunmamaktadır."}
+              </p>
+            </div>
+          ) : (
+            filteredLeaves.map((person) => {
+              const sDate = person.startDate ? new Date(person.startDate) : null;
+              const eDate = person.endDate ? new Date(person.endDate) : null;
+              const isRevir = person.isRevir;
+
+              return (
+                <div
+                  key={person.id}
+                  className="p-4 rounded-2xl bg-card border border-border/70 hover:border-emerald-500/40 hover:shadow-sm transition-all space-y-2.5"
+                >
+                  {/* Üst Satır: İsim, Sicil ve Neden Rozeti */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="space-y-0.5 truncate">
+                      <div className="text-xs font-black text-foreground truncate" title={person.employeeName}>
+                        {person.employeeName}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground font-semibold flex items-center gap-1.5">
+                        <span>Sicil: {person.userId}</span>
+                        <span>•</span>
+                        <span className="text-foreground font-bold">{person.sectionName}</span>
+                      </div>
+                    </div>
+
+                    {/* İzin Nedeni Rozeti */}
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-black shrink-0 ${
+                        isRevir
+                          ? "bg-rose-500/10 text-rose-500 border border-rose-500/20"
+                          : person.reasonId === 1
+                          ? "bg-amber-500/10 text-amber-500 border border-amber-500/20"
+                          : "bg-indigo-500/10 text-indigo-500 border border-indigo-500/20"
+                      }`}
+                    >
+                      {person.reasonLabel}
+                    </span>
+                  </div>
+
+                  {/* Tarih ve Süre Bilgisi */}
+                  <div className="p-2.5 rounded-xl bg-muted/30 border border-border/40 text-[11px] grid grid-cols-2 gap-2">
+                    <div>
+                      <div className="text-[9px] text-muted-foreground uppercase font-bold">Başlangıç</div>
+                      <div className="font-semibold text-foreground">
+                        {sDate ? format(sDate, "dd MMM yyyy HH:mm", { locale: tr }) : "-"}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[9px] text-muted-foreground uppercase font-bold">İşe Dönüş / Bitiş</div>
+                      <div className="font-bold text-emerald-600 dark:text-emerald-400">
+                        {eDate ? format(eDate, "dd MMM yyyy HH:mm", { locale: tr }) : "-"}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Süre Tipi ve Açıklama */}
+                  <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-1">
+                    <span className="font-semibold">
+                      Toplam: <strong>{person.totalDays} Gün</strong> ({person.totalHours} Saat) • {person.durationType}
+                    </span>
+                    {person.description && (
+                      <span className="truncate max-w-[150px] italic text-[9px]" title={person.description}>
+                        "{person.description}"
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Çekmece Alt Bilgi */}
+        <div className="p-4 border-t border-border/60 bg-muted/20 flex items-center justify-between text-xs font-bold text-muted-foreground">
+          <span>Toplam {filteredLeaves.length} aktif kayıt</span>
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-3.5 py-1.5 rounded-xl bg-muted hover:bg-muted/80 text-foreground text-xs font-bold transition-colors cursor-pointer"
+          >
+            Kapat
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// --- ONAY BEKLEYEN TALEPLER ÇEKMECESİ (DRAWER) ---
+interface PendingLeavesDrawerProps {
+  isOpen: boolean;
+  onClose: () => void;
+  leaves: PendingLeaveItem[];
+}
+
+function PendingLeavesDrawer({ isOpen, onClose, leaves }: PendingLeavesDrawerProps) {
+  const [searchTerm, setSearchTerm] = useState("");
+  const inputRef = React.useRef<HTMLInputElement>(null);
+
+  // Otomatik odaklanma ve arama sıfırlama
+  React.useEffect(() => {
+    if (isOpen) {
+      setSearchTerm("");
+      const timer = setTimeout(() => {
+        inputRef.current?.focus();
+      }, 80);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen]);
+
+  // ESC tuşuyla çekmeceyi kapatma
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
+
+  // Sıfır gecikmeli lokal bellek içi arama (Tüm sayfayı yeniden render ETMEZ)
+  const filteredLeaves = useMemo(() => {
+    if (!searchTerm.trim()) return leaves;
+    const q = searchTerm.toLowerCase().trim();
+    return leaves.filter(
+      (item) =>
+        (item.employeeName && item.employeeName.toLowerCase().includes(q)) ||
+        (item.userId && item.userId.toLowerCase().includes(q)) ||
+        (item.sectionName && item.sectionName.toLowerCase().includes(q)) ||
+        (item.reasonLabel && item.reasonLabel.toLowerCase().includes(q)) ||
+        (item.statusLabel && item.statusLabel.toLowerCase().includes(q))
+    );
+  }, [leaves, searchTerm]);
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[150] flex justify-end">
+      {/* Backdrop / Arka Plan Karartması */}
+      <div
+        className="fixed inset-0 bg-black/50 backdrop-blur-xs transition-opacity animate-in fade-in duration-200"
+        onClick={onClose}
+      />
+
+      {/* Çekmece Paneli (Slide-in from right) */}
+      <div className="relative w-full max-w-lg bg-card text-card-foreground border-l border-border/80 shadow-2xl h-full flex flex-col z-[160] animate-in slide-in-from-right duration-300">
+        {/* Çekmece Başlığı */}
+        <div className="p-5 border-b border-border/60 bg-muted/20 flex items-start justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-500 border border-amber-500/20 flex items-center justify-center">
+                <Clock size={16} />
+              </div>
+              <h3 className="text-base font-black text-foreground tracking-tight">
+                Onay Bekleyen Talepler
+              </h3>
+              <span className="px-2 py-0.5 rounded-full text-xs font-black bg-amber-600 text-white shadow-xs">
+                {filteredLeaves.length}
+              </span>
+            </div>
+            <p className="text-xs text-muted-foreground font-medium mt-1">
+              Yönetici onayı bekleyen aktif izin talepleri (En eskiden en yeniye)
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-8 h-8 rounded-xl border border-border/60 bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center transition-all cursor-pointer"
+            title="Kapat (ESC)"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Arama Alanı (Anlık & Hızlı) */}
+        <div className="p-4 border-b border-border/40 bg-background/50">
+          <div className="relative">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+            <input
+              ref={inputRef}
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Personel adı, sicil no, bölüm veya durum ara..."
+              className="w-full pl-9 pr-8 py-2 bg-muted/40 border border-border/70 rounded-xl text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-amber-500/40"
+            />
+            {searchTerm && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchTerm("");
+                  inputRef.current?.focus();
+                }}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5 rounded-md hover:bg-muted/80 transition-colors"
+                title="Aramayı Temizle"
+              >
+                <X size={13} />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Personel Listesi */}
+        <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-3">
+          {filteredLeaves.length === 0 ? (
+            <div className="h-64 flex flex-col items-center justify-center text-center p-6 space-y-2 text-muted-foreground">
+              <div className="w-12 h-12 rounded-2xl bg-muted/40 flex items-center justify-center text-muted-foreground mb-1">
+                <CheckCircle2 size={24} className="text-emerald-500" />
+              </div>
+              <div className="text-sm font-bold text-foreground">
+                {searchTerm ? "Aramaya uygun bekleyen talep bulunamadı" : "Onay Bekleyen Talep Yok"}
+              </div>
+              <p className="text-xs max-w-xs">
+                {searchTerm
+                  ? "Farklı bir arama terimi deneyebilir veya aramayı temizleyebilirsiniz."
+                  : "Harika! Şu anda yönetici onayı bekleyen herhangi bir izin talebi bulunmamaktadır."}
+              </p>
+            </div>
+          ) : (
+            filteredLeaves.map((item) => {
+              const sDate = item.startDate ? new Date(item.startDate) : null;
+              const eDate = item.endDate ? new Date(item.endDate) : null;
+              const cDate = item.createdAt ? new Date(item.createdAt) : null;
+              const isRevir = item.isRevir;
+
+              // Ne kadar süredir bekliyor?
+              const waitHours = cDate ? Math.max(0, Math.round((Date.now() - cDate.getTime()) / (1000 * 60 * 60))) : 0;
+              const waitDays = Math.floor(waitHours / 24);
+
+              return (
+                <div
+                  key={item.id}
+                  className="p-4 rounded-2xl bg-card border border-border/70 hover:border-amber-500/40 hover:shadow-sm transition-all space-y-2.5"
+                >
+                  {/* Üst Satır: İsim, Sicil ve Onay Durumu Rozeti */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="space-y-0.5 truncate">
+                      <div className="text-xs font-black text-foreground truncate" title={item.employeeName}>
+                        {item.employeeName}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground font-semibold flex items-center gap-1.5">
+                        <span>Sicil: {item.userId}</span>
+                        <span>•</span>
+                        <span className="text-foreground font-bold">{item.sectionName}</span>
+                      </div>
+                    </div>
+
+                    {/* Onay Durumu & İzin Nedeni Rozetleri */}
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+                          item.statusId === 1
+                            ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
+                            : "bg-orange-500/10 text-orange-600 dark:text-orange-400 border border-orange-500/20"
+                        }`}
+                      >
+                        {item.statusLabel}
+                      </span>
+                      <span
+                        className={`px-1.5 py-0.2 rounded text-[9px] font-bold ${
+                          isRevir
+                            ? "bg-rose-500/10 text-rose-500 border border-rose-500/20"
+                            : "bg-muted text-muted-foreground border border-border/60"
+                        }`}
+                      >
+                        {item.reasonLabel}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Tarih ve Bekleme Bilgisi */}
+                  <div className="p-2.5 rounded-xl bg-muted/30 border border-border/40 text-[11px] grid grid-cols-2 gap-2">
+                    <div>
+                      <div className="text-[9px] text-muted-foreground uppercase font-bold">Talep Edilen İzin</div>
+                      <div className="font-semibold text-foreground">
+                        {sDate ? format(sDate, "dd MMM yyyy", { locale: tr }) : "-"} → {eDate ? format(eDate, "dd MMM yyyy", { locale: tr }) : "-"}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[9px] text-muted-foreground uppercase font-bold">Bekleme Süresi</div>
+                      <div className="font-bold text-amber-600 dark:text-amber-400">
+                        {waitDays > 0 ? `${waitDays} gün ${waitHours % 24} saat` : `${waitHours} saat önce`}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Süre Tipi ve Açıklama */}
+                  <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-1">
+                    <span className="font-semibold">
+                      Toplam: <strong>{item.totalDays} Gün</strong> ({item.totalHours} Saat) • {item.durationType}
+                    </span>
+                    {item.description && (
+                      <span className="truncate max-w-[150px] italic text-[9px]" title={item.description}>
+                        "{item.description}"
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Çekmece Alt Bilgi */}
+        <div className="p-4 border-t border-border/60 bg-muted/20 flex items-center justify-between text-xs font-bold text-muted-foreground">
+          <span>Toplam {filteredLeaves.length} bekleyen talep</span>
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-3.5 py-1.5 rounded-xl bg-muted hover:bg-muted/80 text-foreground text-xs font-bold transition-colors cursor-pointer"
+          >
+            Kapat
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function LeaveKPIsPage() {
   // --- STATE ---
   const [period, setPeriod] = useState<PeriodPreset>("year");
@@ -502,13 +955,9 @@ export default function LeaveKPIsPage() {
   const [cachedSections, setCachedSections] = useState<FilterOption[]>([]);
   const [cachedReasons, setCachedReasons] = useState<FilterOption[]>([]);
 
-  // "Bugün Kimler İzinli?" Drawer State
+  // Drawer States
   const [isActiveLeavesDrawerOpen, setIsActiveLeavesDrawerOpen] = useState(false);
-  const [drawerSearch, setDrawerSearch] = useState("");
-
-  // "Onay Bekleyen Talepler" Drawer State
   const [isPendingLeavesDrawerOpen, setIsPendingLeavesDrawerOpen] = useState(false);
-  const [pendingDrawerSearch, setPendingDrawerSearch] = useState("");
 
   // Table filters & pagination
   const [tableSearch, setTableSearch] = useState("");
@@ -626,53 +1075,6 @@ export default function LeaveKPIsPage() {
     const start = (currentPage - 1) * pageSize;
     return filteredRecords.slice(start, start + pageSize);
   }, [filteredRecords, currentPage]);
-
-  // "Bugün Kimler İzinli?" Aktif İzinliler Listesi & Filtresi
-  const activeLeavesList = useMemo(() => {
-    return data?.activeLeaves || [];
-  }, [data?.activeLeaves]);
-
-  const filteredActiveLeaves = useMemo(() => {
-    if (!drawerSearch.trim()) return activeLeavesList;
-    const q = drawerSearch.toLowerCase();
-    return activeLeavesList.filter(
-      (item) =>
-        item.employeeName.toLowerCase().includes(q) ||
-        item.userId.toLowerCase().includes(q) ||
-        item.sectionName.toLowerCase().includes(q) ||
-        item.reasonLabel.toLowerCase().includes(q)
-    );
-  }, [activeLeavesList, drawerSearch]);
-
-  // "Onay Bekleyen Talepler" Listesi & Filtresi
-  const pendingLeavesList = useMemo(() => {
-    return data?.pendingLeaves || [];
-  }, [data?.pendingLeaves]);
-
-  const filteredPendingLeaves = useMemo(() => {
-    if (!pendingDrawerSearch.trim()) return pendingLeavesList;
-    const q = pendingDrawerSearch.toLowerCase();
-    return pendingLeavesList.filter(
-      (item) =>
-        item.employeeName.toLowerCase().includes(q) ||
-        item.userId.toLowerCase().includes(q) ||
-        item.sectionName.toLowerCase().includes(q) ||
-        item.reasonLabel.toLowerCase().includes(q) ||
-        item.statusLabel.toLowerCase().includes(q)
-    );
-  }, [pendingLeavesList, pendingDrawerSearch]);
-
-  // ESC tuşuyla çekmeceleri kapatma dinleyicisi
-  React.useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        if (isActiveLeavesDrawerOpen) setIsActiveLeavesDrawerOpen(false);
-        if (isPendingLeavesDrawerOpen) setIsPendingLeavesDrawerOpen(false);
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isActiveLeavesDrawerOpen, isPendingLeavesDrawerOpen]);
 
   // Section slider pagination calculations
   const allSectionsList = useMemo(() => data?.bySection || [], [data?.bySection]);
@@ -1726,331 +2128,18 @@ export default function LeaveKPIsPage() {
         </div>
       )}
 
-      {/* SAĞDAN SOLA AÇILIR ÇEKMECE (DRAWER): BUGÜN KİMLER İZİNLİ? */}
-      {isActiveLeavesDrawerOpen && (
-        <div className="fixed inset-0 z-[150] flex justify-end">
-          {/* Backdrop / Arka Plan Karartması */}
-          <div
-            className="fixed inset-0 bg-black/50 backdrop-blur-xs transition-opacity animate-in fade-in duration-200"
-            onClick={() => setIsActiveLeavesDrawerOpen(false)}
-          />
+      {/* SAĞDAN SOLA AÇILIR ÇEKMECELER (DRAWERS) */}
+      <ActiveLeavesDrawer
+        isOpen={isActiveLeavesDrawerOpen}
+        onClose={() => setIsActiveLeavesDrawerOpen(false)}
+        leaves={data?.activeLeaves || []}
+      />
 
-          {/* Çekmece Paneli (Slide-in from right) */}
-          <div className="relative w-full max-w-lg bg-card text-card-foreground border-l border-border/80 shadow-2xl h-full flex flex-col z-[160] animate-in slide-in-from-right duration-300">
-            {/* Çekmece Başlığı */}
-            <div className="p-5 border-b border-border/60 bg-muted/20 flex items-start justify-between gap-3">
-              <div>
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 flex items-center justify-center">
-                    <Users size={16} />
-                  </div>
-                  <h3 className="text-base font-black text-foreground tracking-tight">
-                    Bugün Kimler İzinli?
-                  </h3>
-                  <span className="px-2 py-0.5 rounded-full text-xs font-black bg-emerald-600 text-white shadow-xs">
-                    {filteredActiveLeaves.length}
-                  </span>
-                </div>
-                <p className="text-xs text-muted-foreground font-medium mt-1">
-                  Şu an fabrikada olmayan aktif onaylı izin ve revir istirahatleri
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setIsActiveLeavesDrawerOpen(false)}
-                className="w-8 h-8 rounded-xl border border-border/60 bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center transition-all cursor-pointer"
-                title="Kapat (ESC)"
-              >
-                <X size={16} />
-              </button>
-            </div>
-
-            {/* Arama Alanı */}
-            <div className="p-4 border-b border-border/40 bg-background/50">
-              <div className="relative">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                <input
-                  type="text"
-                  value={drawerSearch}
-                  onChange={(e) => setDrawerSearch(e.target.value)}
-                  placeholder="Personel adı, sicil no veya bölüm ara..."
-                  className="w-full pl-9 pr-3 py-2 bg-muted/40 border border-border/70 rounded-xl text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
-                />
-              </div>
-            </div>
-
-            {/* Personel Listesi */}
-            <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-3">
-              {filteredActiveLeaves.length === 0 ? (
-                <div className="h-64 flex flex-col items-center justify-center text-center p-6 space-y-2 text-muted-foreground">
-                  <div className="w-12 h-12 rounded-2xl bg-muted/40 flex items-center justify-center text-muted-foreground mb-1">
-                    <UserCheck size={24} />
-                  </div>
-                  <div className="text-sm font-bold text-foreground">
-                    {drawerSearch ? "Aramaya uygun izinli bulunamadı" : "Bugün İzinli Personel Yok"}
-                  </div>
-                  <p className="text-xs max-w-xs">
-                    {drawerSearch
-                      ? "Farklı bir arama terimi deneyebilir veya aramayı temizleyebilirsiniz."
-                      : "Şu anda işletme dışında onaylı izin veya revir istirahatinde olan personel bulunmamaktadır."}
-                  </p>
-                </div>
-              ) : (
-                filteredActiveLeaves.map((person) => {
-                  const sDate = person.startDate ? new Date(person.startDate) : null;
-                  const eDate = person.endDate ? new Date(person.endDate) : null;
-                  const isRevir = person.isRevir;
-
-                  return (
-                    <div
-                      key={person.id}
-                      className="p-4 rounded-2xl bg-card border border-border/70 hover:border-emerald-500/40 hover:shadow-sm transition-all space-y-2.5"
-                    >
-                      {/* Üst Satır: İsim, Sicil ve Neden Rozeti */}
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="space-y-0.5 truncate">
-                          <div className="text-xs font-black text-foreground truncate" title={person.employeeName}>
-                            {person.employeeName}
-                          </div>
-                          <div className="text-[10px] text-muted-foreground font-semibold flex items-center gap-1.5">
-                            <span>Sicil: {person.userId}</span>
-                            <span>•</span>
-                            <span className="text-foreground font-bold">{person.sectionName}</span>
-                          </div>
-                        </div>
-
-                        {/* İzin Nedeni Rozeti */}
-                        <span
-                          className={`px-2 py-0.5 rounded-full text-[10px] font-black shrink-0 ${
-                            isRevir
-                              ? "bg-rose-500/10 text-rose-500 border border-rose-500/20"
-                              : person.reasonId === 1
-                              ? "bg-amber-500/10 text-amber-500 border border-amber-500/20"
-                              : "bg-indigo-500/10 text-indigo-500 border border-indigo-500/20"
-                          }`}
-                        >
-                          {person.reasonLabel}
-                        </span>
-                      </div>
-
-                      {/* Tarih ve Süre Bilgisi */}
-                      <div className="p-2.5 rounded-xl bg-muted/30 border border-border/40 text-[11px] grid grid-cols-2 gap-2">
-                        <div>
-                          <div className="text-[9px] text-muted-foreground uppercase font-bold">Başlangıç</div>
-                          <div className="font-semibold text-foreground">
-                            {sDate ? format(sDate, "dd MMM yyyy HH:mm", { locale: tr }) : "-"}
-                          </div>
-                        </div>
-                        <div>
-                          <div className="text-[9px] text-muted-foreground uppercase font-bold">İşe Dönüş / Bitiş</div>
-                          <div className="font-bold text-emerald-600 dark:text-emerald-400">
-                            {eDate ? format(eDate, "dd MMM yyyy HH:mm", { locale: tr }) : "-"}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Süre Tipi ve Açıklama */}
-                      <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-1">
-                        <span className="font-semibold">
-                          Toplam: <strong>{person.totalDays} Gün</strong> ({person.totalHours} Saat) • {person.durationType}
-                        </span>
-                        {person.description && (
-                          <span className="truncate max-w-[150px] italic text-[9px]" title={person.description}>
-                            "{person.description}"
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-
-            {/* Çekmece Alt Bilgi */}
-            <div className="p-4 border-t border-border/60 bg-muted/20 flex items-center justify-between text-xs font-bold text-muted-foreground">
-              <span>Toplam {filteredActiveLeaves.length} aktif kayıt</span>
-              <button
-                type="button"
-                onClick={() => setIsActiveLeavesDrawerOpen(false)}
-                className="px-3.5 py-1.5 rounded-xl bg-muted hover:bg-muted/80 text-foreground text-xs font-bold transition-colors cursor-pointer"
-              >
-                Kapat
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* SAĞDAN SOLA AÇILIR ÇEKMECE (DRAWER): ONAY BEKLEYEN TALEPLER */}
-      {isPendingLeavesDrawerOpen && (
-        <div className="fixed inset-0 z-[150] flex justify-end">
-          {/* Backdrop / Arka Plan Karartması */}
-          <div
-            className="fixed inset-0 bg-black/50 backdrop-blur-xs transition-opacity animate-in fade-in duration-200"
-            onClick={() => setIsPendingLeavesDrawerOpen(false)}
-          />
-
-          {/* Çekmece Paneli (Slide-in from right) */}
-          <div className="relative w-full max-w-lg bg-card text-card-foreground border-l border-border/80 shadow-2xl h-full flex flex-col z-[160] animate-in slide-in-from-right duration-300">
-            {/* Çekmece Başlığı */}
-            <div className="p-5 border-b border-border/60 bg-muted/20 flex items-start justify-between gap-3">
-              <div>
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-500 border border-amber-500/20 flex items-center justify-center">
-                    <Clock size={16} />
-                  </div>
-                  <h3 className="text-base font-black text-foreground tracking-tight">
-                    Onay Bekleyen Talepler
-                  </h3>
-                  <span className="px-2 py-0.5 rounded-full text-xs font-black bg-amber-600 text-white shadow-xs">
-                    {filteredPendingLeaves.length}
-                  </span>
-                </div>
-                <p className="text-xs text-muted-foreground font-medium mt-1">
-                  Yönetici onayı bekleyen aktif izin talepleri (En eskiden en yeniye)
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setIsPendingLeavesDrawerOpen(false)}
-                className="w-8 h-8 rounded-xl border border-border/60 bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center transition-all cursor-pointer"
-                title="Kapat (ESC)"
-              >
-                <X size={16} />
-              </button>
-            </div>
-
-            {/* Arama Alanı */}
-            <div className="p-4 border-b border-border/40 bg-background/50">
-              <div className="relative">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                <input
-                  type="text"
-                  value={pendingDrawerSearch}
-                  onChange={(e) => setPendingDrawerSearch(e.target.value)}
-                  placeholder="Personel adı, sicil no, bölüm veya durum ara..."
-                  className="w-full pl-9 pr-3 py-2 bg-muted/40 border border-border/70 rounded-xl text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-amber-500/40"
-                />
-              </div>
-            </div>
-
-            {/* Personel Listesi */}
-            <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-3">
-              {filteredPendingLeaves.length === 0 ? (
-                <div className="h-64 flex flex-col items-center justify-center text-center p-6 space-y-2 text-muted-foreground">
-                  <div className="w-12 h-12 rounded-2xl bg-muted/40 flex items-center justify-center text-muted-foreground mb-1">
-                    <CheckCircle2 size={24} className="text-emerald-500" />
-                  </div>
-                  <div className="text-sm font-bold text-foreground">
-                    {pendingDrawerSearch ? "Aramaya uygun bekleyen talep bulunamadı" : "Onay Bekleyen Talep Yok"}
-                  </div>
-                  <p className="text-xs max-w-xs">
-                    {pendingDrawerSearch
-                      ? "Farklı bir arama terimi deneyebilir veya aramayı temizleyebilirsiniz."
-                      : "Harika! Şu anda yönetici onayı bekleyen herhangi bir izin talebi bulunmamaktadır."}
-                  </p>
-                </div>
-              ) : (
-                filteredPendingLeaves.map((item) => {
-                  const sDate = item.startDate ? new Date(item.startDate) : null;
-                  const eDate = item.endDate ? new Date(item.endDate) : null;
-                  const cDate = item.createdAt ? new Date(item.createdAt) : null;
-                  const isRevir = item.isRevir;
-
-                  // Ne kadar süredir bekliyor?
-                  const waitHours = cDate ? Math.max(0, Math.round((Date.now() - cDate.getTime()) / (1000 * 60 * 60))) : 0;
-                  const waitDays = Math.floor(waitHours / 24);
-
-                  return (
-                    <div
-                      key={item.id}
-                      className="p-4 rounded-2xl bg-card border border-border/70 hover:border-amber-500/40 hover:shadow-sm transition-all space-y-2.5"
-                    >
-                      {/* Üst Satır: İsim, Sicil ve Onay Durumu Rozeti */}
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="space-y-0.5 truncate">
-                          <div className="text-xs font-black text-foreground truncate" title={item.employeeName}>
-                            {item.employeeName}
-                          </div>
-                          <div className="text-[10px] text-muted-foreground font-semibold flex items-center gap-1.5">
-                            <span>Sicil: {item.userId}</span>
-                            <span>•</span>
-                            <span className="text-foreground font-bold">{item.sectionName}</span>
-                          </div>
-                        </div>
-
-                        {/* Onay Durumu & İzin Nedeni Rozetleri */}
-                        <div className="flex flex-col items-end gap-1 shrink-0">
-                          <span
-                            className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
-                              item.statusId === 1
-                                ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
-                                : "bg-orange-500/10 text-orange-600 dark:text-orange-400 border border-orange-500/20"
-                            }`}
-                          >
-                            {item.statusLabel}
-                          </span>
-                          <span
-                            className={`px-1.5 py-0.2 rounded text-[9px] font-bold ${
-                              isRevir
-                                ? "bg-rose-500/10 text-rose-500 border border-rose-500/20"
-                                : "bg-muted text-muted-foreground border border-border/60"
-                            }`}
-                          >
-                            {item.reasonLabel}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Tarih ve Bekleme Bilgisi */}
-                      <div className="p-2.5 rounded-xl bg-muted/30 border border-border/40 text-[11px] grid grid-cols-2 gap-2">
-                        <div>
-                          <div className="text-[9px] text-muted-foreground uppercase font-bold">Talep Edilen İzin</div>
-                          <div className="font-semibold text-foreground">
-                            {sDate ? format(sDate, "dd MMM yyyy", { locale: tr }) : "-"} → {eDate ? format(eDate, "dd MMM yyyy", { locale: tr }) : "-"}
-                          </div>
-                        </div>
-                        <div>
-                          <div className="text-[9px] text-muted-foreground uppercase font-bold">Bekleme Süresi</div>
-                          <div className="font-bold text-amber-600 dark:text-amber-400">
-                            {waitDays > 0 ? `${waitDays} gün ${waitHours % 24} saat` : `${waitHours} saat önce`}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Süre Tipi ve Açıklama */}
-                      <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-1">
-                        <span className="font-semibold">
-                          Toplam: <strong>{item.totalDays} Gün</strong> ({item.totalHours} Saat) • {item.durationType}
-                        </span>
-                        {item.description && (
-                          <span className="truncate max-w-[150px] italic text-[9px]" title={item.description}>
-                            "{item.description}"
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-
-            {/* Çekmece Alt Bilgi */}
-            <div className="p-4 border-t border-border/60 bg-muted/20 flex items-center justify-between text-xs font-bold text-muted-foreground">
-              <span>Toplam {filteredPendingLeaves.length} bekleyen talep</span>
-              <button
-                type="button"
-                onClick={() => setIsPendingLeavesDrawerOpen(false)}
-                className="px-3.5 py-1.5 rounded-xl bg-muted hover:bg-muted/80 text-foreground text-xs font-bold transition-colors cursor-pointer"
-              >
-                Kapat
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <PendingLeavesDrawer
+        isOpen={isPendingLeavesDrawerOpen}
+        onClose={() => setIsPendingLeavesDrawerOpen(false)}
+        leaves={data?.pendingLeaves || []}
+      />
     </div>
   );
 }
