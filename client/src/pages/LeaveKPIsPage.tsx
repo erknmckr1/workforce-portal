@@ -1408,7 +1408,7 @@ export default function LeaveKPIsPage() {
           {/* 2. TOP KPI KARTLARI (5'Lİ GRID) */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         {/* KART 1: Toplam İzin */}
-        <div className="bg-card/80 backdrop-blur-xl border border-indigo-500/20 rounded-3xl p-5 shadow-sm relative overflow-hidden group hover:border-indigo-500/40 transition-all">
+        <div className="bg-card/80 backdrop-blur-xl border border-indigo-500/20 rounded-3xl p-5 shadow-sm relative overflow-hidden group hover:border-indigo-500/40 transition-all flex flex-col justify-between">
           <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/5 rounded-full blur-2xl group-hover:bg-indigo-500/10 transition-colors" />
           <div className="flex items-center justify-between mb-3">
             <span className="text-[11px] font-black uppercase tracking-wider text-muted-foreground">
@@ -1431,69 +1431,81 @@ export default function LeaveKPIsPage() {
         {/* KART 2: Şu An İzinli (Tıklanabilir -> Sağdan Açılır Çekmece) */}
         <div 
           onClick={() => setIsActiveLeavesDrawerOpen(true)}
-          className="bg-card/80 backdrop-blur-xl border border-emerald-500/20 rounded-3xl p-5 shadow-sm relative overflow-hidden group hover:border-emerald-500/50 hover:shadow-md transition-all cursor-pointer select-none"
+          className="bg-card/80 backdrop-blur-xl border border-emerald-500/30 hover:border-emerald-500 rounded-3xl p-5 shadow-sm relative group transition-colors cursor-pointer select-none flex flex-col justify-between"
           title="Bugün izinli olan personelleri sağdan açılır listede görmek için tıklayın"
         >
-          <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full blur-2xl group-hover:bg-emerald-500/15 transition-colors" />
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-[11px] font-black uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-              <span>Şu An İzinli</span>
-              <span className="text-[9px] font-black px-1.5 py-0.2 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
-                LİSTELE →
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-[11px] font-black uppercase tracking-wider text-muted-foreground">
+                Şu An İzinli
               </span>
-            </span>
-            <div className="w-9 h-9 rounded-2xl bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 flex items-center justify-center group-hover:scale-110 group-hover:bg-emerald-600 group-hover:text-white transition-all">
-              <Users size={18} />
+              <div className="w-9 h-9 rounded-2xl bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 flex items-center justify-center">
+                <Users size={18} />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl font-black tracking-tight text-foreground">
+                  {summary ? summary.currentlyOnLeave : "-"}
+                </span>
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                  Personel
+                </span>
+              </div>
             </div>
           </div>
-          <div className="space-y-1">
-            <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-black tracking-tight text-foreground">
-                {summary ? summary.currentlyOnLeave : "-"}
-              </span>
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                Personel
-              </span>
-            </div>
-            <div className="text-xs text-muted-foreground font-medium group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
-              Bugün işletme dışında olanlar • Görmek için tıklayın
-            </div>
+
+          {/* Tıklanabilir Aksiyon Satırı */}
+          <div className="pt-2.5 mt-3 border-t border-border/50 flex items-center justify-between text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
+            <span className="text-muted-foreground font-semibold text-[10px] truncate max-w-[110px]" title="Bugün fabrikada olmayanlar">
+              Fabrikada Yok
+            </span>
+            <span className="inline-flex items-center gap-0.5 group-hover:translate-x-0.5 transition-transform shrink-0">
+              <span>Listeyi Gör</span>
+              <ChevronRight size={12} />
+            </span>
           </div>
         </div>
 
         {/* KART 3: Onay Bekleyen & Oran (Tıklanabilir -> Sağdan Açılır Çekmece) */}
         <div 
           onClick={() => setIsPendingLeavesDrawerOpen(true)}
-          className="bg-card/80 backdrop-blur-xl border border-amber-500/20 rounded-3xl p-5 shadow-sm relative overflow-hidden group hover:border-amber-500/50 hover:shadow-md transition-all cursor-pointer select-none"
+          className="bg-card/80 backdrop-blur-xl border border-amber-500/30 hover:border-amber-500 rounded-3xl p-5 shadow-sm relative group transition-colors cursor-pointer select-none flex flex-col justify-between"
           title="Onay bekleyen izin taleplerini sağdan açılır listede görmek için tıklayın"
         >
-          <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/5 rounded-full blur-2xl group-hover:bg-amber-500/15 transition-colors" />
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-[11px] font-black uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-              <span>Onay Süreci</span>
-              <span className="text-[9px] font-black px-1.5 py-0.2 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 group-hover:bg-amber-600 group-hover:text-white transition-colors">
-                LİSTELE →
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-[11px] font-black uppercase tracking-wider text-muted-foreground">
+                Onay Süreci
               </span>
-            </span>
-            <div className="w-9 h-9 rounded-2xl bg-amber-500/10 text-amber-500 border border-amber-500/20 flex items-center justify-center group-hover:scale-110 group-hover:bg-amber-600 group-hover:text-white transition-all">
-              <Clock size={18} />
+              <div className="w-9 h-9 rounded-2xl bg-amber-500/10 text-amber-500 border border-amber-500/20 flex items-center justify-center">
+                <Clock size={18} />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl font-black tracking-tight text-foreground">
+                  {summary ? `${summary.pendingCount}` : "-"}
+                </span>
+                <span className="text-xs font-bold text-muted-foreground">Bekleyen</span>
+              </div>
             </div>
           </div>
-          <div className="space-y-1">
-            <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-black tracking-tight text-foreground">
-                {summary ? `${summary.pendingCount}` : "-"}
-              </span>
-              <span className="text-xs font-bold text-muted-foreground">Bekleyen</span>
-            </div>
-            <div className="text-xs text-muted-foreground font-medium group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
-              {summary ? `%${summary.approvalRate} Onay Oranı • Detay için tıklayın` : "-"}
-            </div>
+
+          {/* Tıklanabilir Aksiyon Satırı */}
+          <div className="pt-2.5 mt-3 border-t border-border/50 flex items-center justify-between text-[11px] font-bold text-amber-600 dark:text-amber-400">
+            <span className="text-muted-foreground font-semibold text-[10px] truncate max-w-[110px]">
+              {summary ? `%${summary.approvalRate} Onay Oranı` : "-"}
+            </span>
+            <span className="inline-flex items-center gap-0.5 group-hover:translate-x-0.5 transition-transform shrink-0">
+              <span>Listeyi Gör</span>
+              <ChevronRight size={12} />
+            </span>
           </div>
         </div>
 
         {/* KART 4: Revir Sevk & İstirahat (Kilit Gösterge!) */}
-        <div className="bg-card/80 backdrop-blur-xl border border-rose-500/20 rounded-3xl p-5 shadow-sm relative overflow-hidden group hover:border-rose-500/40 transition-all">
+        <div className="bg-card/80 backdrop-blur-xl border border-rose-500/20 rounded-3xl p-5 shadow-sm relative overflow-hidden group hover:border-rose-500/40 transition-all flex flex-col justify-between">
           <div className="absolute top-0 right-0 w-24 h-24 bg-rose-500/5 rounded-full blur-2xl group-hover:bg-rose-500/10 transition-colors" />
           <div className="flex items-center justify-between mb-3">
             <span className="text-[11px] font-black uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
@@ -1524,7 +1536,7 @@ export default function LeaveKPIsPage() {
         </div>
 
         {/* KART 5: Ortalama Onay Süresi */}
-        <div className="bg-card/80 backdrop-blur-xl border border-blue-500/20 rounded-3xl p-5 shadow-sm relative overflow-hidden group hover:border-blue-500/40 transition-all">
+        <div className="bg-card/80 backdrop-blur-xl border border-blue-500/20 rounded-3xl p-5 shadow-sm relative overflow-hidden group hover:border-blue-500/40 transition-all flex flex-col justify-between">
           <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 rounded-full blur-2xl group-hover:bg-blue-500/10 transition-colors" />
           <div className="flex items-center justify-between mb-3">
             <span className="text-[11px] font-black uppercase tracking-wider text-muted-foreground">
