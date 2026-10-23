@@ -1608,12 +1608,100 @@ export const getLeaveKPIs = async (req: Request, res: Response): Promise<Respons
       };
     });
 
+    // Bugün aktif izinli personeller (start_date <= now ve end_date >= now ve status = 3 Onaylandı)
+    const activeLeavesRecords = await LeaveRecord.findAll({
+      where: {
+        leave_status_id: 3,
+        start_date: { [Op.lte]: now },
+        end_date: { [Op.gte]: now }
+      },
+      include: [
+        {
+          model: Operator,
+          as: "User",
+          required: false,
+          attributes: ["id_dec", "name", "surname", "section", "department", "email"],
+          include: [
+            { model: Section, attributes: ["id", "name"] },
+            { model: Department, attributes: ["id", "name"] }
+          ]
+        },
+        { model: LeaveReason, attributes: ["id", "code", "label"] },
+        { model: LeaveDurationType, attributes: ["id", "code", "label"] }
+      ],
+      order: [["end_date", "ASC"]]
+    });
+
+    const activeLeaves = activeLeavesRecords
+      .map((rec: any) => {
+        const r = rec.get({ plain: true });
+        const reasonId = Number(r.leave_reason_id);
+        const userSecId = r.User?.Section?.id != null ? String(r.User.Section.id) : (r.User?.section != null ? String(r.User.section) : null);
+        const duration = calculateDuration(r);
+        return {
+          id: r.id,
+          userId: r.user_id,
+          employeeName: r.User ? (r.User.name + " " + r.User.surname) : ("ID: " + r.user_id),
+          sectionId: userSecId,
+          sectionName: r.User?.Section?.name || (userSecId ? `Bölüm #${userSecId}` : "Bölüm Belirtilmemiş"),
+          departmentName: r.User?.Department?.name || "-",
+          reasonId,
+          reasonLabel: r.LeaveReason?.label || "-",
+          durationType: r.LeaveDurationType?.label || "Tam Gün",
+          startDate: r.start_date,
+          endDate: r.end_date,
+          totalDays: r.total_days ?? duration.days,
+          totalHours: r.total_hours ?? duration.hours,
+          description: r.description,
+          email: r.User?.email,
+          isRevir: reasonId === 8 || reasonId === 9
+        };
+      })
+      .filter((item: any) => {
+        if (allowedReasonIds !== null && !allowedReasonIds.includes(item.reasonId)) return false;
+        if (allowedSectionIds !== null && item.sectionId != null && !allowedSectionIds.includes(item.sectionId)) return false;
+        return true;
+      });
+
+    // Onay bekleyen talepler (statusId = 1: 1. Onay Bekliyor, statusId = 2: 2. Onay Bekliyor)
+    const pendingLeaves = matchingRecords
+      .filter(({ r }) => Number(r.leave_status_id) === 1 || Number(r.leave_status_id) === 2)
+      .map(({ r, duration }) => {
+        const reasonId = Number(r.leave_reason_id);
+        const userSecId = r.User?.Section?.id != null ? String(r.User.Section.id) : (r.User?.section != null ? String(r.User.section) : null);
+        const statusId = Number(r.leave_status_id);
+        return {
+          id: r.id,
+          userId: r.user_id,
+          employeeName: r.User ? (r.User.name + " " + r.User.surname) : ("ID: " + r.user_id),
+          sectionId: userSecId,
+          sectionName: r.User?.Section?.name || (userSecId ? `Bölüm #${userSecId}` : "Bölüm Belirtilmemiş"),
+          departmentName: r.User?.Department?.name || "-",
+          reasonId,
+          reasonLabel: r.LeaveReason?.label || "-",
+          statusId,
+          statusLabel: r.LeaveStatus?.label || (statusId === 1 ? "1. Onay Bekliyor" : "2. Onay Bekliyor"),
+          statusCode: r.LeaveStatus?.code || (statusId === 1 ? "PENDING_AUTH1" : "PENDING_AUTH2"),
+          durationType: r.LeaveDurationType?.label || "Tam Gün",
+          startDate: r.start_date,
+          endDate: r.end_date,
+          totalDays: r.total_days ?? duration.days,
+          totalHours: r.total_hours ?? duration.hours,
+          description: r.description,
+          createdAt: r.created_at,
+          auth1UserId: r.auth1_user_id,
+          auth2UserId: r.auth2_user_id,
+          isRevir: reasonId === 8 || reasonId === 9
+        };
+      })
+      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+
     return res.json({
       summary: {
         totalRequests,
         totalDays: Math.round(totalDays * 10) / 10,
         totalHours: Math.round(totalHours * 10) / 10,
-        currentlyOnLeave,
+        currentlyOnLeave: activeLeaves.length,
         pendingCount,
         approvedCount,
         rejectedCount,
@@ -1628,6 +1716,8 @@ export const getLeaveKPIs = async (req: Request, res: Response): Promise<Respons
           sharePercentage: revirSharePercentage
         }
       },
+      activeLeaves,
+      pendingLeaves,
       byReason,
       bySection,
       monthlyTrend,
