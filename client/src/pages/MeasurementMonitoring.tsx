@@ -377,7 +377,7 @@ export default function MeasurementMonitoring() {
 
   return (
     <div 
-      className="flex flex-col space-y-4 h-[calc(100vh-90px)] overflow-hidden p-1"
+      className="flex flex-col space-y-3 h-full overflow-hidden"
       onClick={() => activeFilterColumn && setActiveFilterColumn(null)}
     >
       

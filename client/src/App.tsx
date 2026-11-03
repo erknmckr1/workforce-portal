@@ -9,6 +9,7 @@ import MainLayout from "./components/layout/MainLayout";
 import PartiTakibiLayout from "./components/layout/PartiTakibiLayout";
 import HurdaTakibiLayout from "./components/layout/HurdaTakibiLayout";
 import QrGeneratorLayout from "./components/layout/QrGeneratorLayout";
+import MeasurementLayout from "./components/layout/MeasurementLayout";
 import VisitorTrackingLayout from "./components/layout/VisitorTrackingLayout";
 import VisitorPublicLayout from "./components/layout/VisitorPublicLayout";
 import VisitorTrackingPage from "./pages/VisitorTrackingPage";
@@ -150,6 +151,11 @@ function App() {
               <Route path="/mes-qr-generator" element={<MesQrGeneratorPage />} />
             </Route>
 
+            {/* 2.8.1 MES Ölçüm Takip & Tolerans İzleme - Bağımsız Terminal Layout ile */}
+            <Route element={<MeasurementLayout />}>
+              <Route path="/mes-measurements" element={<MeasurementMonitoring />} />
+            </Route>
+
             {/* 2.9 Dış Ziyaretçi QR Kayıt - Bağımsız Public Mobil Layout (Şifresiz) */}
             <Route element={<VisitorPublicLayout />}>
               <Route path="/ziyaretci-kayit" element={<VisitorRegisterPage />} />
@@ -265,7 +271,7 @@ function App() {
               {/* Üretim Ekranları Gezgini */}
               <Route element={<ProtectedRoute allowedRoles={["Admin", "Yönetici", "Mühendis", "Ustabasi", "Personel"]} />}>
                 <Route path="mes-screens" element={<MesScreensNavigator />} />
-                <Route path="mes-measurements" element={<MeasurementMonitoring />} />
+
               </Route>
 
               {/* Veri Dışa Aktarma Merkezi */}
