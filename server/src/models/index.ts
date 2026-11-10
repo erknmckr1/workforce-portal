@@ -35,6 +35,7 @@ import SystemAuditLog from "./SystemAuditLog";
 import MesLabelPrintLog from "./MesLabelPrintLog";
 import Visitor from "./Visitor";
 import VisitorContact from "./VisitorContact";
+import CompanySurvey from "./CompanySurvey";
 
 // --- Lookups & Operator Associations ---
 Section.hasMany(Department, { foreignKey: "section_id" });
@@ -191,5 +192,6 @@ export {
     SystemAuditLog,
     MesLabelPrintLog,
     Visitor,
-    VisitorContact
+    VisitorContact,
+    CompanySurvey
 };
