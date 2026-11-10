@@ -1,5 +1,5 @@
 import { Outlet, NavLink } from "react-router-dom";
-import { Settings, ShieldCheck, FileText, UserCheck } from "lucide-react";
+import { Settings, ShieldCheck, FileText, UserCheck, ClipboardList } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const settingsLinks = [
@@ -7,6 +7,7 @@ const settingsLinks = [
   { path: "/settings/visitor-contacts", label: "Ziyaretçi Görüşme Ayarları", icon: UserCheck, end: false },
   { path: "/settings/approvals", label: "Onay Hiyerarşisi", icon: ShieldCheck, end: false },
   { path: "/settings/documents", label: "Döküman Yönetimi", icon: FileText, end: false },
+  { path: "/settings/surveys", label: "Anket Yönetimi", icon: ClipboardList, end: false },
 ];
 
 export default function SettingsLayout() {

@@ -79,7 +79,7 @@ const menuItems = [
       {
         title: "Tüm İzinler",
         path: "/all-leaves",
-        roles: ["Admin", "İK"],
+        roles: ["Admin", "İK", "Yönetici", "Müdür"],
       },
       {
         title: "Revir İşlemleri",
@@ -92,7 +92,7 @@ const menuItems = [
     title: "Personel Yönetimi",
     icon: Users,
     path: "/management",
-    roles: ["Admin", "İK"],
+    roles: ["Admin", "İK", "Yönetici", "Müdür"],
   },
   {
     title: "Güvenlik Paneli",
@@ -234,7 +234,7 @@ const menuItems = [
   {
     title: "Ayarlar",
     icon: Settings,
-    roles: ["Admin", "İK"],
+    roles: ["Admin", "İK", "Yönetici", "Müdür"],
     children: [
       {
         title: "Genel Ayarlar",
@@ -249,7 +249,7 @@ const menuItems = [
       {
         title: "Takvim Yönetimi",
         path: "/calendar-manager",
-        roles: ["Admin", "İK"],
+        roles: ["Admin", "İK", "Yönetici", "Müdür"],
       },
       {
         title: "Şifre Talepleri",
@@ -264,17 +264,22 @@ const menuItems = [
       {
         title: "Rehber Yönetimi",
         path: "/settings/phone-directory",
-        roles: ["Admin", "İK"],
+        roles: ["Admin", "İK", "Yönetici", "Müdür"],
       },
       {
         title: "Döküman Yönetimi",
         path: "/settings/documents",
-        roles: ["Admin", "İK"],
+        roles: ["Admin", "İK", "Yönetici", "Müdür"],
       },
       {
         title: "Ziyaretçi Görüşme Ayarları",
         path: "/settings/visitor-contacts",
         roles: ["Admin", "Güvenlik", "İK", "Yönetici", "Müdür"],
+      },
+      {
+        title: "Anket Yönetimi",
+        path: "/settings/surveys",
+        roles: ["Admin", "İK", "Yönetici", "Müdür"],
       },
     ],
   },

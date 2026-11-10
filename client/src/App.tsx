@@ -43,6 +43,7 @@ import PhoneDirectoryPage from "./pages/PhoneDirectoryPage";
 import PhoneDirectoryManager from "./pages/settings/PhoneDirectoryManager";
 import DocumentManager from "./pages/settings/DocumentManager";
 import VisitorContactsSettings from "./pages/settings/VisitorContactsSettings";
+import SurveyManager from "./pages/settings/SurveyManager";
 import ITRequests from "./pages/ITRequests";
 import ITSupportDashboard from "./pages/settings/ITSupportDashboard";
 import DataExport from "./pages/DataExport";
@@ -251,6 +252,7 @@ function App() {
                 <Route path="settings/phone-directory" element={<PhoneDirectoryManager />} />
                 <Route path="settings/documents" element={<DocumentManager />} />
                 <Route path="settings/visitor-contacts" element={<VisitorContactsSettings />} />
+                <Route path="settings/surveys" element={<SurveyManager />} />
               </Route>
               {/* Takvim Yönetimi - Sadece Admin & İK */}
               <Route element={<ProtectedRoute allowedRoles={["Admin", "İK"]} />}>
