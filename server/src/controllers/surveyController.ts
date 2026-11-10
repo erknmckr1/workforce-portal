@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { Op } from "sequelize";
 import { CompanySurvey } from "../models";
+import { writeAuditLog } from "../services/auditService";
 
 // Admin / Ayarlar: Tüm anketleri listele
 export const getAllSurveys = async (req: Request, res: Response): Promise<Response> => {
@@ -84,6 +85,23 @@ export const createSurvey = async (req: Request, res: Response): Promise<Respons
       created_by: createdBy,
     });
 
+    await writeAuditLog({
+      req,
+      module: "SURVEY_SETTINGS",
+      actionType: "CREATE_SURVEY",
+      description: `Yeni şirket anketi eklendi: "${newSurvey.title}" (Hedef: ${newSurvey.target_platforms})`,
+      details: {
+        surveyId: newSurvey.id,
+        title: newSurvey.title,
+        form_url: newSurvey.form_url,
+        target_platforms: newSurvey.target_platforms,
+        is_active: newSurvey.is_active,
+        start_date: newSurvey.start_date,
+        end_date: newSurvey.end_date,
+        order_index: newSurvey.order_index,
+      },
+    });
+
     return res.status(201).json({ success: true, message: "Anket başarıyla oluşturuldu.", data: newSurvey });
   } catch (error) {
     console.error("[SurveyController] createSurvey error:", error);
@@ -112,6 +130,17 @@ export const updateSurvey = async (req: Request, res: Response): Promise<Respons
       order_index,
     } = req.body;
 
+    const oldValues = {
+      title: survey.title,
+      description: survey.description,
+      form_url: survey.form_url,
+      target_platforms: survey.target_platforms,
+      is_active: survey.is_active,
+      start_date: survey.start_date,
+      end_date: survey.end_date,
+      order_index: survey.order_index,
+    };
+
     await survey.update({
       title: title !== undefined ? title.trim() : survey.title,
       description: description !== undefined ? (description ? description.trim() : null) : survey.description,
@@ -121,6 +150,27 @@ export const updateSurvey = async (req: Request, res: Response): Promise<Respons
       start_date: start_date !== undefined ? (start_date ? new Date(start_date) : null) : survey.start_date,
       end_date: end_date !== undefined ? (end_date ? new Date(end_date) : null) : survey.end_date,
       order_index: order_index !== undefined ? Number(order_index) : survey.order_index,
+    });
+
+    await writeAuditLog({
+      req,
+      module: "SURVEY_SETTINGS",
+      actionType: "UPDATE_SURVEY",
+      description: `Şirket anketi güncellendi: "${survey.title}" (ID: #${survey.id})`,
+      details: {
+        surveyId: survey.id,
+        oldValues,
+        newValues: {
+          title: survey.title,
+          description: survey.description,
+          form_url: survey.form_url,
+          target_platforms: survey.target_platforms,
+          is_active: survey.is_active,
+          start_date: survey.start_date,
+          end_date: survey.end_date,
+          order_index: survey.order_index,
+        },
+      },
     });
 
     return res.status(200).json({ success: true, message: "Anket güncellendi.", data: survey });
@@ -143,6 +193,18 @@ export const toggleSurveyStatus = async (req: Request, res: Response): Promise<R
     const nextState = !survey.is_active;
     await survey.update({ is_active: nextState });
 
+    await writeAuditLog({
+      req,
+      module: "SURVEY_SETTINGS",
+      actionType: "TOGGLE_SURVEY_STATUS",
+      description: `Şirket anketi yayın durumu değiştirildi: "${survey.title}" -> ${nextState ? "YAYINDA" : "PASİF"}`,
+      details: {
+        surveyId: survey.id,
+        title: survey.title,
+        is_active: nextState,
+      },
+    });
+
     return res.status(200).json({
       success: true,
       message: `Anket durumu ${nextState ? "aktif" : "pasif"} olarak değiştirildi.`,
@@ -164,7 +226,22 @@ export const deleteSurvey = async (req: Request, res: Response): Promise<Respons
       return res.status(404).json({ success: false, message: "Anket bulunamadı." });
     }
 
+    const deletedInfo = {
+      id: survey.id,
+      title: survey.title,
+      form_url: survey.form_url,
+      target_platforms: survey.target_platforms,
+    };
+
     await survey.destroy();
+
+    await writeAuditLog({
+      req,
+      module: "SURVEY_SETTINGS",
+      actionType: "DELETE_SURVEY",
+      description: `Şirket anketi silindi: "${deletedInfo.title}" (ID: #${deletedInfo.id})`,
+      details: deletedInfo,
+    });
     return res.status(200).json({ success: true, message: "Anket başarıyla silindi." });
   } catch (error) {
     console.error("[SurveyController] deleteSurvey error:", error);
