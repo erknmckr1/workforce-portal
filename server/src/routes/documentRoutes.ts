@@ -64,7 +64,7 @@ router.get("/", requireAuth, documentController.getDocuments);
 router.post(
   "/",
   requireAuth,
-  requireRoles([7, 4]),
+  requireRoles([7, 4, 8]),
   handleMulterUpload,
   documentController.uploadDocument
 );
@@ -72,7 +72,7 @@ router.post(
 router.delete(
   "/:id",
   requireAuth,
-  requireRoles([7, 4]),
+  requireRoles([7, 4, 8]),
   documentController.deleteDocument
 );
 

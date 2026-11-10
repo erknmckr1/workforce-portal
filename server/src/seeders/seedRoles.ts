@@ -15,6 +15,9 @@ const seedRoles = async () => {
             { id: 5, name: "Revir", description: "Revir ve sağlık görevlileri" },
             { id: 6, name: "Güvenlik", description: "Kapı güvenlik personeli" },
             { id: 7, name: "Admin", description: "Sistem yöneticisi" },
+            { id: 8, name: "Kalite Mühendisi", description: "Kalite kontrol, anket ve operasyonel döküman yöneticisi" },
+            { id: 9, name: "Ustabasi", description: "Üretim ustabaşısı" },
+            { id: 10, name: "Bilgi İşlem", description: "IT ve sistem destek uzmanı" },
         ];
 
         for (const role of roles) {

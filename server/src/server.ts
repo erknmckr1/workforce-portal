@@ -2,7 +2,7 @@ import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import dotenv from "dotenv";
-import { sequelize, Status } from "./models";
+import { sequelize, Status, Role } from "./models";
 import authRoutes from "./routes/authRoutes";
 import personnelRoutes from "./routes/personnelRoutes";
 import leaveRoutes from "./routes/leaveRoutes";
@@ -138,6 +138,30 @@ const startServer = async () => {
     }
 
     await seedInitialSurveysIfEmpty();
+
+    // Temel Sistem Rollerini Dogrula ve Eksikleri Ekle (Orn: Kalite Muhendisi)
+    const baseRoles = [
+      { id: 1, name: "Personel", description: "Standart personel yetkisine sahip kullanıcı" },
+      { id: 2, name: "Yönetici", description: "1. Onay makamı - Birim Yöneticisi" },
+      { id: 3, name: "Müdür", description: "2. Onay makamı - Bölüm Amiri" },
+      { id: 4, name: "İK", description: "İnsan Kaynakları personeli" },
+      { id: 5, name: "Revir", description: "Revir ve sağlık görevlileri" },
+      { id: 6, name: "Güvenlik", description: "Kapı güvenlik personeli" },
+      { id: 7, name: "Admin", description: "Sistem yöneticisi" },
+      { id: 8, name: "Kalite Mühendisi", description: "Kalite kontrol, anket ve operasyonel döküman yöneticisi" },
+      { id: 9, name: "Ustabasi", description: "Üretim ustabaşısı" },
+      { id: 10, name: "Bilgi İşlem", description: "IT ve sistem destek uzmanı" },
+    ];
+
+    for (const r of baseRoles) {
+      const [roleItem, created] = await Role.findOrCreate({
+        where: { id: r.id },
+        defaults: r,
+      });
+      if (!created && (roleItem as any).name !== r.name) {
+        await (roleItem as any).update(r);
+      }
+    }
     startLeaveBalanceSyncScheduler();
 
     const startListening = (portToTry: number) => {

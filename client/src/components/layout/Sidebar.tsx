@@ -39,6 +39,7 @@ const menuItems = [
       "Güvenlik",
       "Ustabasi",
       "Mühendis",
+    "Kalite Mühendisi",
     ],
   },
   {
@@ -54,6 +55,7 @@ const menuItems = [
       "Güvenlik",
       "Ustabasi",
       "Mühendis",
+    "Kalite Mühendisi",
     ],
     children: [
       {
@@ -69,6 +71,7 @@ const menuItems = [
           "Güvenlik",
           "Ustabasi",
           "Mühendis",
+        "Kalite Mühendisi",
         ],
       },
       {
@@ -131,6 +134,7 @@ const menuItems = [
       "Ustabasi",
       "Bilgi İşlem",
       "Mühendis",
+    "Kalite Mühendisi",
     ],
     children: [
       {
@@ -147,6 +151,7 @@ const menuItems = [
           "Ustabasi",
           "Bilgi İşlem",
           "Mühendis",
+        "Kalite Mühendisi",
         ],
       },
       {
@@ -168,6 +173,7 @@ const menuItems = [
       "Güvenlik",
       "Ustabasi",
       "Mühendis",
+    "Kalite Mühendisi",
     ],
     children: [
       {
@@ -184,6 +190,7 @@ const menuItems = [
           "Güvenlik",
           "Ustabasi",
           "Mühendis",
+        "Kalite Mühendisi",
         ],
       },
       {
@@ -200,6 +207,7 @@ const menuItems = [
           "Güvenlik",
           "Ustabasi",
           "Mühendis",
+        "Kalite Mühendisi",
         ],
       },
       {
@@ -216,6 +224,7 @@ const menuItems = [
           "Güvenlik",
           "Ustabasi",
           "Mühendis",
+        "Kalite Mühendisi",
         ],
       },
       {
@@ -234,7 +243,7 @@ const menuItems = [
   {
     title: "Ayarlar",
     icon: Settings,
-    roles: ["Admin", "İK", "Yönetici", "Müdür"],
+    roles: ["Admin", "İK", "Yönetici", "Müdür", "Kalite Mühendisi"],
     children: [
       {
         title: "Genel Ayarlar",
@@ -269,17 +278,17 @@ const menuItems = [
       {
         title: "Döküman Yönetimi",
         path: "/settings/documents",
-        roles: ["Admin", "İK", "Yönetici", "Müdür"],
+        roles: ["Admin", "İK", "Yönetici", "Müdür", "Kalite Mühendisi"],
       },
       {
         title: "Ziyaretçi Görüşme Ayarları",
         path: "/settings/visitor-contacts",
-        roles: ["Admin", "Güvenlik", "İK", "Yönetici", "Müdür"],
+        roles: ["Admin", "Güvenlik", "İK", "Yönetici", "Müdür", "Kalite Mühendisi"],
       },
       {
         title: "Anket Yönetimi",
         path: "/settings/surveys",
-        roles: ["Admin", "İK", "Yönetici", "Müdür"],
+        roles: ["Admin", "İK", "Yönetici", "Müdür", "Kalite Mühendisi"],
       },
     ],
   },

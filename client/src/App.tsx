@@ -199,12 +199,12 @@ function App() {
               }
             >
               {/* Panel (Eski Dashboard) */}
-              <Route element={<ProtectedRoute allowedRoles={["Admin", "Müdür", "Yönetici", "Personel", "İK", "Revir", "Güvenlik", "Ustabasi", "Mühendis"]} />}>
+              <Route element={<ProtectedRoute allowedRoles={["Admin", "Müdür", "Yönetici", "Personel", "İK", "Revir", "Güvenlik", "Ustabasi", "Mühendis", "Kalite Mühendisi"]} />}>
                 <Route path="panel" element={<Dashboard />} />
               </Route>
 
               {/* İzinlerim (Herkes Görebilir) */}
-              <Route element={<ProtectedRoute allowedRoles={["Admin", "Müdür", "Yönetici", "Personel", "İK", "Revir", "Güvenlik", "Ustabasi", "Mühendis"]} />}>
+              <Route element={<ProtectedRoute allowedRoles={["Admin", "Müdür", "Yönetici", "Personel", "İK", "Revir", "Güvenlik", "Ustabasi", "Mühendis", "Kalite Mühendisi"]} />}>
                 <Route path="leaves" element={<Leaves />} />
               </Route>
 
@@ -250,6 +250,8 @@ function App() {
               <Route element={<ProtectedRoute allowedRoles={["Admin", "İK", "Güvenlik", "Yönetici", "Müdür"]} />}>
                 <Route path="settings/food-menu" element={<FoodMenuManager />} />
                 <Route path="settings/phone-directory" element={<PhoneDirectoryManager />} />
+              </Route>
+              <Route element={<ProtectedRoute allowedRoles={["Admin", "İK", "Güvenlik", "Yönetici", "Müdür", "Kalite Mühendisi"]} />}>
                 <Route path="settings/documents" element={<DocumentManager />} />
                 <Route path="settings/visitor-contacts" element={<VisitorContactsSettings />} />
                 <Route path="settings/surveys" element={<SurveyManager />} />
@@ -260,11 +262,11 @@ function App() {
               </Route>
 
               {/* Senelik Plan - Tüm personel görebilir */}
-              <Route element={<ProtectedRoute allowedRoles={["Admin", "İK", "Müdür", "Yönetici", "Personel", "Revir", "Güvenlik", "Ustabasi", "Mühendis"]} />}>
+              <Route element={<ProtectedRoute allowedRoles={["Admin", "İK", "Müdür", "Yönetici", "Personel", "Revir", "Güvenlik", "Ustabasi", "Mühendis", "Kalite Mühendisi"]} />}>
                 <Route path="yearly-plan" element={<YearlyCalendarPage />} />
               </Route>
               
-              <Route element={<ProtectedRoute allowedRoles={["Admin", "İK", "Müdür", "Yönetici", "Personel", "Revir", "Güvenlik", "Ustabasi", "Bilgi İşlem", "Mühendis"]} />}>
+              <Route element={<ProtectedRoute allowedRoles={["Admin", "İK", "Müdür", "Yönetici", "Personel", "Revir", "Güvenlik", "Ustabasi", "Bilgi İşlem", "Mühendis", "Kalite Mühendisi"]} />}>
                 <Route path="food-menu" element={<FoodMenuPage />} />
                 <Route path="phone-directory" element={<PhoneDirectoryPage />} />
                 <Route path="it-requests" element={<ITRequests />} />

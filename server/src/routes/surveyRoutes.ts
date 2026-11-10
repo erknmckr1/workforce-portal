@@ -7,7 +7,7 @@ import {
   toggleSurveyStatus,
   deleteSurvey,
 } from "../controllers/surveyController";
-import { requireAuth } from "../middlewares/authMiddleware";
+import { requireAuth, requireRoles } from "../middlewares/authMiddleware";
 
 const router = Router();
 
@@ -15,18 +15,18 @@ const router = Router();
 router.get("/active", getActiveSurveys);
 
 // Ayarlar Paneli: Tüm anketler
-router.get("/", requireAuth, getAllSurveys);
+router.get("/", requireAuth, requireRoles([7, 4, 2, 3, 8]), getAllSurveys);
 
 // Yeni anket ekleme
-router.post("/", requireAuth, createSurvey);
+router.post("/", requireAuth, requireRoles([7, 4, 2, 3, 8]), createSurvey);
 
 // Anket güncelleme
-router.put("/:id", requireAuth, updateSurvey);
+router.put("/:id", requireAuth, requireRoles([7, 4, 2, 3, 8]), updateSurvey);
 
 // Durum değiştirme (Aktif / Pasif)
-router.patch("/:id/toggle", requireAuth, toggleSurveyStatus);
+router.patch("/:id/toggle", requireAuth, requireRoles([7, 4, 2, 3, 8]), toggleSurveyStatus);
 
 // Anket silme
-router.delete("/:id", requireAuth, deleteSurvey);
+router.delete("/:id", requireAuth, requireRoles([7, 4, 2, 3, 8]), deleteSurvey);
 
 export default router;
