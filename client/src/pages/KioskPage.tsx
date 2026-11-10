@@ -1,6 +1,9 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import SurveysModal from "@/components/terminal/SurveysModal";
+import { useActiveSurveys } from "@/hooks/useSurveys";
 import { useModuleStore } from "@/store/moduleStore";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 import {
   KioskLogin,
   KioskUserProfile,
@@ -9,6 +12,8 @@ import {
 
 export default function KioskPage() {
   const { selectedFlow, setSelectedFlow, user } = useModuleStore();
+  const [isSurveysOpen, setIsSurveysOpen] = useState(false);
+  const { data: activeSurveys = [], refetch: refetchSurveys } = useActiveSurveys("KIOSK");
 
   // Sayfa yüklendiğinde veya değiştiğinde tab'ı temizleyebiliriz (opsiyonel)
   useEffect(() => {
@@ -26,6 +31,7 @@ export default function KioskPage() {
       {/* Kiosk Header (Sayfa Modu) */}
       <div className="flex items-center justify-between p-4 px-8 border-b border-border/50 bg-card z-10 shrink-0 shadow-sm">
         <div className="flex items-center gap-4">
+          
           <div className="mr-4 flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-primary-foreground font-black text-xs shadow-md shadow-primary/20">
               M
@@ -77,6 +83,22 @@ export default function KioskPage() {
         </div>
 
         <div className="flex items-center gap-4">
+          {activeSurveys.length > 0 && (
+            <button
+              onClick={async () => {
+                const { data: freshSurveys } = await refetchSurveys();
+                if (!freshSurveys || freshSurveys.length === 0) {
+                  toast.info("Şu anda yayında aktif bir anket bulunmamaktadır.");
+                  return;
+                }
+                setIsSurveysOpen(true);
+              }}
+              className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-700 to-purple-800 hover:from-indigo-600 hover:to-purple-700 text-white font-black uppercase tracking-wider text-[11px] shadow-lg shadow-indigo-500/20 animate-pulse flex items-center gap-1.5 cursor-pointer active:scale-95"
+            >
+              <span>📋</span>
+              <span>Şirket Anketleri</span>
+            </button>
+          )}
           <div className="text-right hidden sm:block">
             <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground leading-none">
               Terminal Durumu
@@ -104,6 +126,11 @@ export default function KioskPage() {
           </div>
         )}
       </div>
+      <SurveysModal
+        isOpen={isSurveysOpen}
+        onClose={() => setIsSurveysOpen(false)}
+        platform="KIOSK"
+      />
     </div>
   );
 }

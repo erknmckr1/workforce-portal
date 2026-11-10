@@ -11,6 +11,8 @@ interface TerminalLeftSideProps {
   onOpenFoodMenu: () => void;
   onOpenBreak: () => void;
   onEndBreak: () => void;
+  onOpenSurveys?: () => void;
+  hasActiveSurveys?: boolean;
 }
 
 const TerminalLeftSide: React.FC<TerminalLeftSideProps> = ({
@@ -20,6 +22,8 @@ const TerminalLeftSide: React.FC<TerminalLeftSideProps> = ({
   onOpenFoodMenu,
   onOpenBreak,
   onEndBreak,
+  onOpenSurveys,
+  hasActiveSurveys = false,
 }) => {
   const apiBaseUrl = import.meta.env.VITE_API_BASE_URL.replace("/api", "");
   const photoUrl = operator?.photo_url
@@ -72,6 +76,7 @@ const TerminalLeftSide: React.FC<TerminalLeftSideProps> = ({
 
       <div className="space-y-2 pb-4">
         {[
+          ...(hasActiveSurveys ? [{ label: "Şirket Anketleri", variant: "survey" }] : []),
           { label: "Yemek Menüsü", variant: "info" },
           { label: "İzin Girişi", variant: "info" },
           { label: "Araya Çık", variant: "warning" },
@@ -80,12 +85,14 @@ const TerminalLeftSide: React.FC<TerminalLeftSideProps> = ({
           <button
             key={i}
             onClick={() => {
+              if (btn.label === "Şirket Anketleri") onOpenSurveys?.();
               if (btn.label === "İzin Girişi") onOpenKiosk();
               if (btn.label === "Yemek Menüsü") onOpenFoodMenu();
               if (btn.label === "Araya Çık") onOpenBreak();
               if (btn.label === "Moladan Dön") onEndBreak();
             }}
             className={`w-full text-white font-bold py-6 rounded-lg shadow-md transition-all duration-300 text-[14px] uppercase tracking-widest border border-border active:scale-95
+              ${btn.variant === "survey" ? "bg-gradient-to-r from-indigo-700 to-purple-800 hover:from-indigo-600 hover:to-purple-700 border-indigo-400/60 shadow-indigo-500/30 text-white animate-pulse" : ""}
               ${btn.variant === "info" ? "bg-blue-800 hover:bg-info hover:text-info-foreground" : ""}
               ${btn.variant === "warning" ? "bg-blue-800 hover:bg-warning hover:text-warning-foreground" : ""}
               ${btn.variant === "success" ? "bg-blue-800 hover:bg-success hover:text-success-foreground" : ""}

@@ -13,6 +13,8 @@ import TerminalLoginModal from "../components/terminal/TerminalLoginModal";
 import FinishWorkModal from "../components/terminal/FinishWorkModal";
 import StopWorkModal from "../components/terminal/StopWorkModal";
 import FoodMenuModal from "../components/terminal/FoodMenuModal";
+import SurveysModal from "../components/terminal/SurveysModal";
+import { useActiveSurveys } from "../hooks/useSurveys";
 import BreakModal from "../components/terminal/BreakModal";
 import ProductImageModal from "../components/terminal/ProductImageModal";
 import FirePopup from "../components/terminal/FirePopup";
@@ -51,6 +53,8 @@ const UretimTerminal = () => {
   const [isKioskOpen, setIsKioskOpen] = useState(false);
   const [cekicField, setCekicField] = useState<string>("makine");
   const [isFoodMenuOpen, setIsFoodMenuOpen] = useState(false);
+  const [isSurveysModalOpen, setIsSurveysModalOpen] = useState(false);
+  const { data: activeSurveys = [], refetch: refetchSurveys } = useActiveSurveys("MES");
   const [isBreakModalOpen, setIsBreakModalOpen] = useState(false);
   const [isProductImageModalOpen, setIsProductImageModalOpen] = useState(false);
   const [isFireModalOpen, setIsFireModalOpen] = useState(false);
@@ -472,6 +476,11 @@ const UretimTerminal = () => {
         isOpen={isFoodMenuOpen}
         onClose={() => setIsFoodMenuOpen(false)}
       />
+      <SurveysModal
+        isOpen={isSurveysModalOpen}
+        onClose={() => setIsSurveysModalOpen(false)}
+        platform="MES"
+      />
 
       <BreakModal
         isOpen={isBreakModalOpen}
@@ -530,6 +539,15 @@ const UretimTerminal = () => {
           onLogout={handleLogout}
           onOpenKiosk={() => setIsKioskOpen(true)}
           onOpenFoodMenu={() => setIsFoodMenuOpen(true)}
+          onOpenSurveys={async () => {
+            const { data: freshSurveys } = await refetchSurveys();
+            if (!freshSurveys || freshSurveys.length === 0) {
+              toast.info("Şu anda yayında aktif bir anket bulunmamaktadır.");
+              return;
+            }
+            setIsSurveysModalOpen(true);
+          }}
+          hasActiveSurveys={activeSurveys.length > 0}
           onOpenBreak={async () => {
             try {
               const opId = await requireOperatorAuth({ actionType: "break" });

@@ -41,6 +41,8 @@ import {
 } from "../components/ui/dialog";
 import { usePhoneDirectory } from "../hooks/usePhoneDirectory";
 import { useDebounce } from "../hooks/useDebounce";
+import SurveysModal from "@/components/terminal/SurveysModal";
+import { useActiveSurveys } from "@/hooks/useSurveys";
 import {
   Table,
   TableBody,
@@ -112,6 +114,8 @@ const Home = () => {
 
   // Phone Directory Modal States
   const [isPhoneModalOpen, setIsPhoneModalOpen] = useState(false);
+  const [isSurveysModalOpen, setIsSurveysModalOpen] = useState(false);
+  const { data: portalSurveys = [], refetch: refetchPortalSurveys } = useActiveSurveys("PORTAL");
   const [phoneSearch, setPhoneSearch] = useState("");
   const debouncedPhoneSearch = useDebounce(phoneSearch, 400);
   const { directoryQuery } = usePhoneDirectory(debouncedPhoneSearch);
@@ -270,7 +274,21 @@ const Home = () => {
             >
               Numaralar
             </span>
-            <span onClick={notifyComingSoon} className="hover:opacity-100 cursor-pointer">Anketler</span>
+            {portalSurveys.length > 0 && (
+              <span
+                onClick={async () => {
+                  const { data: freshSurveys } = await refetchPortalSurveys();
+                  if (!freshSurveys || freshSurveys.length === 0) {
+                    toast.info("Şu anda yayında aktif bir anket bulunmamaktadır.");
+                    return;
+                  }
+                  setIsSurveysModalOpen(true);
+                }}
+                className="hover:opacity-100 cursor-pointer text-card animate-pulse"
+              >
+                Anketler
+              </span>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-4">
@@ -1075,6 +1093,13 @@ const Home = () => {
           </div>
         </DialogContent>
       </Dialog>
+      {/* Şirket Anketleri Modalı */}
+      <SurveysModal
+        isOpen={isSurveysModalOpen}
+        onClose={() => setIsSurveysModalOpen(false)}
+        platform="PORTAL"
+      />
+
       {/* Vardiya Koşucusu (Easter Egg Game) */}
       {isGameOpen && (
         <ShiftRunner 
