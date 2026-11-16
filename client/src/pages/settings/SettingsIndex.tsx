@@ -19,7 +19,14 @@ interface SyncSummary {
   updated: number;
   notFound: number;
   unchanged: number;
+  matchedByTc?: number;
+  matchedByName?: number;
   path?: string;
+  unmatchedPreview?: Array<{
+    name?: string;
+    tc?: string;
+    balance: number;
+  }>;
 }
 
 export default function SettingsIndex() {
@@ -151,29 +158,59 @@ export default function SettingsIndex() {
             </div>
 
             {summary && (
-              <div className="bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-2xl space-y-2 animate-in fade-in zoom-in duration-300">
+              <div className="bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-2xl space-y-3 animate-in fade-in zoom-in duration-300">
                 <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
                   <CheckCircle2 size={18} />
-                  <span className="font-bold text-sm">İşlem Tamamlandı</span>
+                  <span className="font-bold text-sm">İşlem Başarıyla Tamamlandı</span>
                 </div>
-                <div className="grid grid-cols-2 gap-3 pt-2">
-                  <div className="flex flex-col p-2 rounded-xl bg-background/50 border border-border/50">
+                <div className="grid grid-cols-2 gap-3 pt-1">
+                  <div className="flex flex-col p-2.5 rounded-xl bg-background/50 border border-border/50">
                     <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Toplam Satır</span>
-                    <span className="text-xs font-black">{summary.totalRows}</span>
+                    <span className="text-sm font-black">{summary.totalRows}</span>
                   </div>
-                  <div className="flex flex-col p-2 rounded-xl bg-emerald-500/5 border border-emerald-500/20">
+                  <div className="flex flex-col p-2.5 rounded-xl bg-emerald-500/5 border border-emerald-500/20">
                     <span className="text-[10px] uppercase tracking-wider text-emerald-600/70 font-bold">Güncellenen</span>
-                    <span className="text-xs font-black text-emerald-600">{summary.updated}</span>
+                    <span className="text-sm font-black text-emerald-600">{summary.updated}</span>
                   </div>
-                  <div className="flex flex-col p-2 rounded-xl bg-orange-500/5 border border-orange-500/20">
+                  <div className="flex flex-col p-2.5 rounded-xl bg-orange-500/5 border border-orange-500/20">
                     <span className="text-[10px] uppercase tracking-wider text-orange-600/70 font-bold">Bulunamayan</span>
-                    <span className="text-xs font-black text-orange-600">{summary.notFound}</span>
+                    <span className="text-sm font-black text-orange-600">{summary.notFound}</span>
                   </div>
-                  <div className="flex flex-col p-2 rounded-xl bg-slate-500/5 border border-slate-500/20">
+                  <div className="flex flex-col p-2.5 rounded-xl bg-slate-500/5 border border-slate-500/20">
                     <span className="text-[10px] uppercase tracking-wider text-slate-600/70 font-bold">Aynı Kalan</span>
-                    <span className="text-xs font-black text-slate-600">{summary.unchanged}</span>
+                    <span className="text-sm font-black text-slate-600">{summary.unchanged}</span>
                   </div>
                 </div>
+
+                {(summary.matchedByTc !== undefined || summary.matchedByName !== undefined) && (
+                  <div className="text-[11px] font-medium text-muted-foreground bg-background/40 p-2 rounded-lg border border-border/40 flex items-center justify-between">
+                    <span>Eşleşme Dağılımı:</span>
+                    <span className="font-bold text-foreground">
+                      {summary.matchedByTc || 0} TC ile • {summary.matchedByName || 0} Ad-Soyad ile
+                    </span>
+                  </div>
+                )}
+
+                {summary.unmatchedPreview && summary.unmatchedPreview.length > 0 && (
+                  <details className="text-xs bg-orange-500/5 border border-orange-500/20 rounded-xl p-2.5">
+                    <summary className="font-bold text-orange-600 dark:text-orange-400 cursor-pointer select-none">
+                      Eşleşmeyen Personeller ({summary.unmatchedPreview.length})
+                    </summary>
+                    <div className="mt-2 space-y-1 max-h-36 overflow-y-auto pr-1">
+                      {summary.unmatchedPreview.map((item, idx) => (
+                        <div key={idx} className="flex justify-between items-center text-[11px] py-0.5 border-b border-border/30 last:border-0">
+                          <span className="font-semibold text-foreground truncate max-w-[180px]">
+                            {item.name || item.tc || "Bilinmeyen"}
+                          </span>
+                          <span className="text-muted-foreground font-mono">
+                            {item.balance} gün
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                )}
+
                 {summary.path && (
                   <p className="text-[10px] text-muted-foreground truncate italic pt-1">
                     Dosya: {summary.path}
@@ -198,19 +235,25 @@ export default function SettingsIndex() {
                   <div className="flex gap-3">
                     <div className="w-5 h-5 rounded-full bg-blue-500/10 text-blue-600 flex items-center justify-center text-[10px] font-black shrink-0">1</div>
                     <p className="text-xs font-medium text-muted-foreground leading-relaxed">
-                      Excel dosyasında <span className="font-bold text-foreground underline decoration-blue-500/50 underline-offset-4">"TC NO"</span> ve <span className="font-bold text-foreground underline decoration-blue-500/50 underline-offset-4">"KALAN İZİN"</span> kolon başlıkları bulunmalıdır.
+                      Excel dosyasında <span className="font-bold text-foreground underline decoration-blue-500/50 underline-offset-4">"TC NO"</span> veya <span className="font-bold text-foreground underline decoration-blue-500/50 underline-offset-4">"ADI SOYADI"</span> ve <span className="font-bold text-foreground underline decoration-blue-500/50 underline-offset-4">"KALAN İZİN"</span> bilgileri bulunmalıdır.
                     </p>
                   </div>
                   <div className="flex gap-3">
                     <div className="w-5 h-5 rounded-full bg-blue-500/10 text-blue-600 flex items-center justify-center text-[10px] font-black shrink-0">2</div>
                     <p className="text-xs font-medium text-muted-foreground leading-relaxed">
-                      Sistem personelleri TC numaralarına göre eşleştirir. Eğer personelin TC'si kayıtlı değilse izinleri güncellenmez.
+                      <span className="font-bold text-foreground">Akıllı Eşleştirme:</span> Sistem personelleri öncelikle TC Kimlik numarasıyla, bulunamazsa Ad Soyad (evlilik/çift soyisim ve Türkçe karakter toleranslı) ile eşleştirir. Eksik TC kayıtları Excel'den otomatik tamamlanır.
                     </p>
                   </div>
                   <div className="flex gap-3">
                     <div className="w-5 h-5 rounded-full bg-blue-500/10 text-blue-600 flex items-center justify-center text-[10px] font-black shrink-0">3</div>
                     <p className="text-xs font-medium text-muted-foreground leading-relaxed">
-                      Dosya adının <span className="italic font-bold text-foreground">YILLIK İZİN TAKİP 2026.xlsx</span> olduğundan ve sistemde tanımlı yolda bulunduğundan emin olun.
+                      <span className="font-bold text-foreground">Hassas Bakiye:</span> Yarım gün ve kesirli izinler (ör. <span className="font-bold text-foreground">14,5</span> gün veya eksi bakiyeler) eksiksiz biçimde sisteme aktarılır.
+                    </p>
+                  </div>
+                  <div className="flex gap-3">
+                    <div className="w-5 h-5 rounded-full bg-blue-500/10 text-blue-600 flex items-center justify-center text-[10px] font-black shrink-0">4</div>
+                    <p className="text-xs font-medium text-muted-foreground leading-relaxed">
+                      Dosyanın sunucu ağ yolunda veya masaüstünde <span className="italic font-bold text-foreground">YILLIK İZİN TAKİP 2026.xlsx</span> olarak bulunması otomatik okuma için yeterlidir.
                     </p>
                   </div>
                </div>
@@ -222,7 +265,7 @@ export default function SettingsIndex() {
                     onClick={() => window.open("/management", "_blank")}
                   >
                     <Users className="mr-3 text-muted-foreground group-hover:text-primary" size={20} />
-                    Personel TC Kayıtlarını Kontrol Et
+                    Personel Listesini Kontrol Et
                   </Button>
                </div>
             </CardContent>
@@ -232,7 +275,7 @@ export default function SettingsIndex() {
             <div className="flex gap-3">
                <XCircle className="text-orange-500 shrink-0" size={18} />
                <p className="text-[11px] font-bold text-orange-600 dark:text-orange-400 leading-relaxed uppercase tracking-tight">
-                  TİP: Excel dosyasını her güncellediğinizde butona basarak verilerin sisteme yansımasını sağlayabilirsiniz.
+                  İPUCU: Excel dosyasını her güncellediğinizde butona basarak verilerin anında sisteme yansımasını sağlayabilirsiniz.
                </p>
             </div>
           </Alert>
