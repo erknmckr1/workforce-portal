@@ -15,6 +15,7 @@ import VisitorPublicLayout from "./components/layout/VisitorPublicLayout";
 import VisitorTrackingPage from "./pages/VisitorTrackingPage";
 import VisitorRegisterPage from "./pages/VisitorRegisterPage";
 import LeaveAnalyticsLayout from "./components/layout/LeaveAnalyticsLayout";
+import KaliteRaporuLayout from "./components/layout/KaliteRaporuLayout";
 import LeaveKPIsPage from "./pages/LeaveKPIsPage";
 import ProtectedRoute from "./components/layout/ProtectedRoute";
 import SettingsIndex from "./pages/settings/SettingsIndex";
@@ -39,6 +40,7 @@ import HurdaTakibi from "./pages/HurdaTakibi";
 import HurdaRaporuPage from "./pages/HurdaRaporuPage";
 import Reports from "./pages/Reports";
 import PersonnelMovementReport from "./pages/PersonnelMovementReport";
+import KaliteKontrolRaporu from "./pages/KaliteKontrolRaporu";
 import PhoneDirectoryPage from "./pages/PhoneDirectoryPage";
 import PhoneDirectoryManager from "./pages/settings/PhoneDirectoryManager";
 import DocumentManager from "./pages/settings/DocumentManager";
@@ -190,6 +192,21 @@ function App() {
               </Route>
             </Route>
 
+            {/* 2.12 Kalite Kontrol & Tamir Analizi - Bağımsız Tam Ekran Raporlama Layout (Sidebar Yok) */}
+            <Route
+              element={
+                <AuthLayoutWrapper>
+                  <ProtectedRoute allowedRoles={["Admin", "İK", "Müdür", "Yönetici", "Mühendis", "Kalite Mühendisi"]} />
+                </AuthLayoutWrapper>
+              }
+            >
+              <Route element={<KaliteRaporuLayout />}>
+                <Route path="/kalite-kontrol-raporu" element={<KaliteKontrolRaporu />} />
+                <Route path="/reports/quality" element={<KaliteKontrolRaporu />} />
+                <Route path="/reports/quality-control" element={<KaliteKontrolRaporu />} />
+              </Route>
+            </Route>
+
             {/* 3. Korumalı Rotalar (Layout ile birlikte) */}
             <Route
               element={
@@ -234,9 +251,10 @@ function App() {
               </Route>
 
               {/* Raporlar */}
-              <Route element={<ProtectedRoute allowedRoles={["Admin", "İK", "Müdür"]} />}>
+              <Route element={<ProtectedRoute allowedRoles={["Admin", "İK", "Müdür", "Yönetici", "Mühendis", "Kalite Mühendisi"]} />}>
                 <Route path="reports" element={<Reports />} />
                 <Route path="reports/personnel-movement" element={<PersonnelMovementReport />} />
+
               </Route>
               
               {/* Sistem Ayarları Düz Routing - Sadece Admin */}

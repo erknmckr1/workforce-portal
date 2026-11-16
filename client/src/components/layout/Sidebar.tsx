@@ -230,7 +230,7 @@ const menuItems = [
       {
         title: "Raporlar",
         path: "/reports",
-        roles: ["Admin", "İK", "Müdür"],
+        roles: ["Admin", "İK", "Müdür", "Yönetici", "Mühendis", "Kalite Mühendisi"],
       },
       {
         title: "Veri Dışa Aktarma",

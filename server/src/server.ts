@@ -21,6 +21,7 @@ import scrapTrackingRoutes from "./routes/scrapTrackingRoutes";
 import visitorRoutes from "./routes/visitorRoutes";
 import visitorContactRoutes from "./routes/visitorContactRoutes";
 import surveyRoutes from "./routes/surveyRoutes";
+import qualityReportRoutes from "./routes/qualityReportRoutes";
 import { seedInitialSurveysIfEmpty } from "./controllers/surveyController";
 import { ensureApplicationSchema } from "./services/schemaMigrationService";
 import path from "path";
@@ -75,6 +76,7 @@ app.use("/api/visitors", visitorRoutes);
 app.use("/api/visitor-contacts", visitorContactRoutes);
 app.use("/api/export", exportRoutes);
 app.use("/api/surveys", surveyRoutes);
+app.use("/api/quality-report", qualityReportRoutes);
 
 // Fotoğrafları frontend için /photos adresi ile dışarı aç
 const photoPath =

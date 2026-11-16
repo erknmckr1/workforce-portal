@@ -1,10 +1,20 @@
-import { Clock, ArrowRight, FileBarChart2 } from "lucide-react";
+import { Clock, ArrowRight, FileBarChart2, ShieldCheck } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const Reports = () => {
   const navigate = useNavigate();
 
   const reportCategories = [
+    {
+      id: "kalite-kontrol",
+      title: "Kalite Kontrol & Tamir Analizi",
+      description:
+        "Montaj & Kalite istasyonunda kontrol edilen işler, operatör hata yakalama performansı, kusur Pareto dağılımı ve tamir birim sevkleri.",
+      icon: <ShieldCheck className="text-emerald-500" size={32} />,
+      status: "Aktif",
+      color: "border-emerald-500/20 bg-emerald-500/5",
+      path: "/kalite-kontrol-raporu",
+    },
     {
       id: "leave-kpis",
       title: "İzin & Devamsızlık Analizi",
@@ -13,6 +23,7 @@ const Reports = () => {
       icon: <FileBarChart2 className="text-indigo-500" size={32} />,
       status: "Aktif",
       color: "border-indigo-500/20 bg-indigo-500/5",
+      path: "/reports/leave-kpis",
     },
     {
       id: "personnel-movement",
@@ -22,6 +33,7 @@ const Reports = () => {
       icon: <Clock className="text-amber-500" size={32} />,
       status: "Aktif",
       color: "border-amber-500/20 bg-amber-500/5",
+      path: "/reports/personnel-movement",
     },
   ];
 
@@ -37,12 +49,12 @@ const Reports = () => {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6 mt-10">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-10">
         {reportCategories.map((report) => (
           <div
             key={report.id}
             onClick={() =>
-              report.status === "Aktif" && navigate(`/reports/${report.id}`)
+              report.status === "Aktif" && navigate(report.path)
             }
             className={`group relative p-8 rounded-[32px] border transition-all duration-500 cursor-pointer overflow-hidden ${report.color} ${report.status === "Aktif" ? "hover:scale-[1.02] hover:shadow-2xl hover:border-amber-500/40" : "opacity-60 cursor-not-allowed grayscale"}`}
           >
@@ -65,7 +77,7 @@ const Reports = () => {
                     </div>
                   )}
                 </div>
-                <p className="text-muted-foreground text-sm leading-relaxed max-w-[80%]">
+                <p className="text-muted-foreground text-sm leading-relaxed max-w-[90%]">
                   {report.description}
                 </p>
               </div>
