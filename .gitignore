@@ -3,6 +3,10 @@ node_modules/
 /.pnp
 .pnp.*
 
+# Uploads
+server/uploads/scrap-images/*
+!server/uploads/scrap-images/.gitkeep
+
 # Build outputs
 /client/dist
 /client/dist-ssr

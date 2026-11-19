@@ -1,3 +1,4 @@
+import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
@@ -113,6 +114,7 @@ if (!fs.existsSync(scrapImagePath)) {
   fs.mkdirSync(scrapImagePath, { recursive: true });
 }
 app.use("/uploads/scrap-images", express.static(scrapImagePath));
+console.log(`[STORAGE] Hurda görselleri depolama yolu: ${scrapImagePath}`);
 
 // DB bağlantısı ve sunucu başlatma
 const startServer = async () => {

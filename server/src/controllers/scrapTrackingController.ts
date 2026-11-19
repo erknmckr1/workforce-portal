@@ -219,6 +219,14 @@ export const createScrapTracking = async (req: Request, res: Response) => {
   }
 };
 
+// Görsel depolama klasörü yardımcısı
+const getScrapUploadDir = () => {
+  return (
+    process.env.SCRAP_IMAGE_STORAGE_PATH ||
+    path.join(__dirname, "../../uploads/scrap-images")
+  );
+};
+
 export const updateScrapTracking = async (req: Request, res: Response) => {
   try {
     const rawId = req.params.id;
@@ -246,9 +254,13 @@ export const updateScrapTracking = async (req: Request, res: Response) => {
       // Yeni dosya yüklendiyse eskisini temizlemeye çalış (opsiyonel)
       if (record.image_url && record.image_url.startsWith("/uploads/scrap-images/")) {
         const oldFilename = record.image_url.replace("/uploads/scrap-images/", "");
-        const oldPath = path.join(__dirname, "../../uploads/scrap-images", oldFilename);
+        const oldPath = path.join(getScrapUploadDir(), oldFilename);
         if (fs.existsSync(oldPath)) {
-          fs.unlinkSync(oldPath);
+          try {
+            fs.unlinkSync(oldPath);
+          } catch (e) {
+            console.warn("Eski görsel silinemedi:", e);
+          }
         }
       }
       imageUrl = `/uploads/scrap-images/${req.file.filename}`;
@@ -286,9 +298,13 @@ export const deleteScrapTracking = async (req: Request, res: Response) => {
 
     if (record.image_url && record.image_url.startsWith("/uploads/scrap-images/")) {
       const filename = record.image_url.replace("/uploads/scrap-images/", "");
-      const filePath = path.join(__dirname, "../../uploads/scrap-images", filename);
+      const filePath = path.join(getScrapUploadDir(), filename);
       if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
+        try {
+          fs.unlinkSync(filePath);
+        } catch (e) {
+          console.warn("Görsel silinemedi:", e);
+        }
       }
     }
 

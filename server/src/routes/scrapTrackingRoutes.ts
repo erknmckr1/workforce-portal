@@ -14,29 +14,54 @@ import {
 
 const router = Router();
 
-// Multer Storage Yapılandırması
+// Multer Storage Yapılandırması (Ağ Paylaşımı / Dosya Sunucusu Desteği)
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
+  destination: (_req, _file, cb) => {
     const uploadDir =
       process.env.SCRAP_IMAGE_STORAGE_PATH ||
       path.join(__dirname, "../../uploads/scrap-images");
     if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
+      try {
+        fs.mkdirSync(uploadDir, { recursive: true });
+      } catch (err) {
+        console.warn("Hurda görselleri klasörü oluşturulamadı:", err);
+      }
     }
     cb(null, uploadDir);
   },
   filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    const ext = path.extname(file.originalname);
-    const safeName = path
-      .basename(file.originalname, ext)
-      .replace(/[^a-zA-Z0-9]/g, "_");
-    cb(null, `hurda_${uniqueSuffix}_${safeName}${ext}`);
+    // 1. Sipariş No'yu al ve güvenli hale getir
+    const rawOrder = (req.body.order_no || "").toString().trim();
+    const cleanOrder = rawOrder.replace(/[^a-zA-Z0-9_-]/g, "") || "SIPARIS";
+
+    // 2. Tel Kodu'nu al ve güvenli hale getir
+    const rawWire = (req.body.wire_code || "").toString().trim();
+    const cleanWire = rawWire.replace(/[^a-zA-Z0-9_-]/g, "");
+
+    // 3. Tarih-Saat Damgası (YYYYMMDD-HHmmss)
+    const now = new Date();
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const timestamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(
+      now.getDate()
+    )}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+
+    // 4. Uzantı (.jpg, .png vb. - boşsa varsayılan .jpg)
+    let ext = (path.extname(file.originalname) || "").toLowerCase();
+    if (!ext || ext === ".") {
+      ext = ".jpg";
+    }
+
+    // 5. Standart İsimlendirme: order_id-material_no_YYYYMMDD-HHmmss.jpg
+    const finalFilename = cleanWire
+      ? `${cleanOrder}-${cleanWire}_${timestamp}${ext}`
+      : `${cleanOrder}_${timestamp}${ext}`;
+
+    cb(null, finalFilename);
   },
 });
 
 // Sadece görsel (JPEG, PNG, WEBP) filtrelemesi
-const fileFilter = (req: any, file: any, cb: any) => {
+const fileFilter = (_req: any, file: any, cb: any) => {
   if (
     file.mimetype === "image/jpeg" ||
     file.mimetype === "image/png" ||
@@ -53,7 +78,7 @@ const upload = multer({
   storage,
   fileFilter,
   limits: {
-    fileSize: 15 * 1024 * 1024, // 15 MB Limit
+    fileSize: 30 * 1024 * 1024, // 30 MB Limit (Orijinal yüksek çözünürlük için)
   },
 });
 

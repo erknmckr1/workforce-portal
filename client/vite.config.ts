@@ -30,5 +30,19 @@ export default defineConfig({
     host: true,
     port: 5173,
     allowedHosts: [".ngrok-free.dev", ".ngrok-free.app", ".loca.lt", "192.168.0.77"],
+    proxy: {
+      '/uploads': {
+        target: 'http://localhost:3003',
+        changeOrigin: true,
+      },
+      '/photos': {
+        target: 'http://localhost:3003',
+        changeOrigin: true,
+      },
+      '/it-attachments': {
+        target: 'http://localhost:3003',
+        changeOrigin: true,
+      },
+    },
   },
 })

@@ -16,6 +16,7 @@ import Webcam from "react-webcam";
 import { useForm } from "react-hook-form";
 import apiClient from "@/lib/api";
 import { toast } from "sonner";
+import { getBackendFileUrl } from "@/lib/utils";
 import QrBarcodeScannerModal from "@/components/common/QrBarcodeScannerModal";
 import {
   type ScrapRecord,
@@ -151,7 +152,9 @@ export default function ScrapFormModal({
             : "",
       });
       setSelectedFile(null);
-      setFilePreviewUrl(initialRecord.image_url || null);
+      setFilePreviewUrl(
+        initialRecord.image_url ? getBackendFileUrl(initialRecord.image_url) : null
+      );
     } else {
       reset(INITIAL_SCRAP_FORM);
       setSelectedFile(null);

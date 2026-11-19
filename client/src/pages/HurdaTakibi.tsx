@@ -14,12 +14,13 @@ import {
   ListFilter,
   ChevronDown,
   RotateCcw,
+  ExternalLink,
 } from "lucide-react";
 import apiClient from "@/lib/api";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { useDebounce } from "@/hooks/useDebounce";
-import { cn } from "@/lib/utils";
+import { cn, getBackendFileUrl } from "@/lib/utils";
 import DataTable, { type DataTableColumn } from "@/components/common/DataTable";
 import ScrapFormModal from "@/components/scrap/ScrapFormModal";
 import {
@@ -338,7 +339,7 @@ export default function HurdaTakibi() {
         `"${r.scrap_reason || ""}"`,
         `"${r.is_scrap ? "HURDA" : "TAKİPTE"}"`,
         `"${(r.defect_note || "").replace(/"/g, '""')}"`,
-        `"${r.image_url ? window.location.origin + r.image_url : ""}"`,
+        `"${r.image_url ? getBackendFileUrl(r.image_url) : ""}"`,
         `"${format(new Date(r.created_at), "yyyy-MM-dd HH:mm")}"`,
       ]);
 
@@ -812,12 +813,16 @@ export default function HurdaTakibi() {
               {/* Görsel Thumbnail */}
               <td className="py-2.5 px-3 text-center">
                 <button
-                  onClick={() => setPreviewImage(record.image_url || DEFAULT_SCRAP_IMAGE)}
+                  onClick={() =>
+                    setPreviewImage(
+                      record.image_url ? getBackendFileUrl(record.image_url) : DEFAULT_SCRAP_IMAGE
+                    )
+                  }
                   className="w-10 h-10 rounded-lg overflow-hidden border border-border/80 bg-black/5 hover:border-rose-500 hover:scale-105 transition-all cursor-pointer relative group/img shadow-2xs mx-auto block"
                   title="Görseli İncele (Büyüt)"
                 >
                   <img
-                    src={record.image_url || DEFAULT_SCRAP_IMAGE}
+                    src={record.image_url ? getBackendFileUrl(record.image_url) : DEFAULT_SCRAP_IMAGE}
                     alt={record.order_no}
                     className="w-full h-full object-cover"
                   />
@@ -958,12 +963,27 @@ export default function HurdaTakibi() {
                 <AlertTriangle size={15} className="text-rose-500" />
                 Hurda / Mikroskop Hata Görseli
               </span>
-              <button
-                onClick={() => setPreviewImage(null)}
-                className="p-1.5 hover:bg-muted rounded-xl text-muted-foreground hover:text-foreground cursor-pointer"
-              >
-                <X size={18} />
-              </button>
+              <div className="flex items-center gap-1.5">
+                {previewImage && !previewImage.startsWith("data:") && (
+                  <a
+                    href={previewImage}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors"
+                    title="Tam Boyutta Yeni Sekmede Aç"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <ExternalLink size={14} />
+                    <span className="hidden sm:inline">Yeni Sekmede Aç</span>
+                  </a>
+                )}
+                <button
+                  onClick={() => setPreviewImage(null)}
+                  className="p-1.5 hover:bg-muted rounded-xl text-muted-foreground hover:text-foreground cursor-pointer"
+                >
+                  <X size={18} />
+                </button>
+              </div>
             </div>
             <div className="p-4 flex items-center justify-center bg-black/30">
               <img
