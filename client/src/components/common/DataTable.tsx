@@ -27,6 +27,7 @@ export interface DataTableProps<T> {
   iconClassName?: string;
   hideTotalBadge?: boolean;
   headerActions?: React.ReactNode;
+  filterContent?: React.ReactNode;
   onRefresh?: () => void;
   isRefreshing?: boolean;
 
@@ -64,6 +65,7 @@ export default function DataTable<T>({
   iconClassName,
   hideTotalBadge = false,
   headerActions,
+  filterContent,
   onRefresh,
   isRefreshing = false,
 
@@ -149,6 +151,15 @@ export default function DataTable<T>({
               </button>
             )}
           </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* 1.1 FİLTRE VE ARAMA PANELİ (İSTEĞE BAĞLI GENİŞLETİLEBİLİR)*/}
+      {/* ========================================================= */}
+      {filterContent && (
+        <div className="shrink-0 animate-in fade-in duration-200">
+          {filterContent}
         </div>
       )}
 

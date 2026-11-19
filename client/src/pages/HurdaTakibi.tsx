@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   AlertTriangle,
   Search,
@@ -8,71 +8,27 @@ import {
   Eye,
   FileSpreadsheet,
   X,
-  Upload,
   Clock,
   Loader2,
   Calendar,
+  ListFilter,
+  ChevronDown,
+  RotateCcw,
 } from "lucide-react";
 import apiClient from "@/lib/api";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { useDebounce } from "@/hooks/useDebounce";
+import { cn } from "@/lib/utils";
 import DataTable, { type DataTableColumn } from "@/components/common/DataTable";
-
-interface ScrapRecord {
-  id: number;
-  order_no: string;
-  karat: string | null;
-  color: string | null;
-  description: string | null;
-  wire_code: string | null;
-  defect_note: string | null;
-  is_scrap: boolean;
-  scrap_location: string | null;
-  scrap_reason: string | null;
-  image_url: string | null;
-  operator_id: string | null;
-  created_at: string;
-  updated_at: string;
-  Operator?: {
-    id_dec: string;
-    name: string;
-    surname: string;
-  };
-}
-
-const DEFAULT_LOCATIONS = [
-  "ÖRME",
-  "DÖKÜM",
-  "CİLA",
-  "TEL ÇEKME",
-  "BUZLAMA",
-  "ÇEKİÇ",
-  "KURU TIRAŞ",
-  "TASLAMA",
-  "KALİTE KONTROL",
-];
-const KARAT_OPTIONS = ["8", "9", "10", "14", "18", "21", "22"];
-const COLOR_OPTIONS = [
-  { code: "Y", label: "Y - Yeşil / Sarı" },
-  { code: "K", label: "K - Kırmızı / Rose" },
-  { code: "B", label: "B - Beyaz" },
-];
-
-const DEFAULT_SCRAP_IMAGE = "/images/sample-scrap.svg";
-
-const DEFAULT_SCRAP_REASONS = [
-  "Döküm Boşluğu / Porozite",
-  "Çatlak / Kırık",
-  "Tel Kopması / Ezilme",
-  "Ölçü / Tolerans Dışı",
-  "Kaynak / Lehim Hatası",
-  "Yüzey Hatası / Çizik",
-  "Renk / Alaşım Bozukluğu",
-  "Çapak / Deformasyon",
-  "Yanlış Montaj / Taş Düşmesi",
-  "Diğer",
-];
+import ScrapFormModal from "@/components/scrap/ScrapFormModal";
+import {
+  type ScrapRecord,
+  DEFAULT_LOCATIONS,
+  KARAT_OPTIONS,
+  DEFAULT_SCRAP_REASONS,
+  DEFAULT_SCRAP_IMAGE,
+} from "@/types/scrap";
 
 const SCRAP_COLUMNS: DataTableColumn<ScrapRecord>[] = [
   { header: "Görsel", align: "center", width: "55px" },
@@ -107,6 +63,57 @@ export default function HurdaTakibi() {
   const [customStartDate, setCustomStartDate] = useState<string>("");
   const [customEndDate, setCustomEndDate] = useState<string>("");
 
+  // Açılır/Kapanır Filtre Paneli State
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+
+  // Aktif Filtre Sayısı
+  const activeFilterCount =
+    (datePreset !== "ALL" ? 1 : 0) +
+    (selectedReason !== "ALL" ? 1 : 0) +
+    (selectedKarat !== "ALL" ? 1 : 0) +
+    (selectedStatus !== "ALL" ? 1 : 0) +
+    (selectedLocation !== "ALL" ? 1 : 0);
+
+  // Filtreleri Sıfırlama
+  const handleResetFilters = () => {
+    setDatePreset("ALL");
+    setCustomStartDate("");
+    setCustomEndDate("");
+    setSelectedReason("ALL");
+    setSelectedKarat("ALL");
+    setSelectedStatus("ALL");
+    setSelectedLocation("ALL");
+    setPage(1);
+  };
+
+  // Mobil Pull-to-Refresh State & Handlers
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [pullDistance, setPullDistance] = useState(0);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (window.scrollY <= 5) {
+      setTouchStart(e.touches[0].clientY);
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (touchStart === null) return;
+    const currentY = e.touches[0].clientY;
+    const diff = currentY - touchStart;
+    if (diff > 0) {
+      setPullDistance(Math.min(diff, 80));
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (pullDistance >= 60 && !isLoading) {
+      toast.info("Kayıtlar yenileniyor...");
+      fetchRecords();
+    }
+    setTouchStart(null);
+    setPullDistance(0);
+  };
+
   // Sayfalama (Pagination) State
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(20);
@@ -126,24 +133,6 @@ export default function HurdaTakibi() {
   const [editingRecord, setEditingRecord] = useState<ScrapRecord | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState<number | null>(null);
-
-  // Form State
-  const [formOrderNo, setFormOrderNo] = useState("");
-  const [formKarat, setFormKarat] = useState("");
-  const [formColor, setFormColor] = useState("Y");
-  const [formDescription, setFormDescription] = useState("");
-  const [formWireCode, setFormWireCode] = useState("");
-  const [formDefectNote, setFormDefectNote] = useState("");
-  const [formIsScrap, setFormIsScrap] = useState(true);
-  const [formScrapLocation, setFormScrapLocation] = useState("ÖRME");
-  const [formScrapReason, setFormScrapReason] = useState("Döküm Boşluğu / Porozite");
-  const [formCustomReason, setFormCustomReason] = useState("");
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
-  const [isFetchingSap, setIsFetchingSap] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Backend'den Verileri Çekme (Debounced Search, Tarih ve Neden Filtreleri Entegre)
   const fetchRecords = useCallback(async () => {
@@ -233,141 +222,15 @@ export default function HurdaTakibi() {
     fetchRecords();
   }, [fetchRecords]);
 
-  // SAP'den Sipariş Bilgisi Sorgula
-  const handleFetchSapOrder = async (orderNo: string) => {
-    const clean = orderNo.trim();
-    if (!clean) return;
-    setIsFetchingSap(true);
-    try {
-      const res = await apiClient.get(`/scrap-tracking/order/${clean}`);
-      const data = res.data;
-      if (data) {
-        if (data.karat) setFormKarat(data.karat);
-        if (data.color) setFormColor(data.color);
-        if (data.description) setFormDescription(data.description);
-        toast.success(`Sipariş bilgileri SAP'den getirildi (${clean})`);
-      }
-    } catch {
-      // Bulunamadıysa sessizce devam et
-    } finally {
-      setIsFetchingSap(false);
-    }
-  };
-
   // Yeni Kayıt Aç veya Düzenle
   const handleOpenModal = (record?: ScrapRecord) => {
-    if (record) {
-      setEditingRecord(record);
-      setFormOrderNo(record.order_no);
-      setFormKarat(record.karat || "");
-      setFormColor(record.color || "Y");
-      setFormDescription(record.description || "");
-      setFormWireCode(record.wire_code || "");
-      setFormDefectNote(record.defect_note || "");
-      setFormIsScrap(record.is_scrap);
-      setFormScrapLocation(record.scrap_location || "ÖRME");
-
-      const isKnownReason = DEFAULT_SCRAP_REASONS.includes(record.scrap_reason || "");
-      if (record.scrap_reason) {
-        if (isKnownReason) {
-          setFormScrapReason(record.scrap_reason);
-          setFormCustomReason("");
-        } else {
-          setFormScrapReason("Diğer");
-          setFormCustomReason(record.scrap_reason);
-        }
-      } else {
-        setFormScrapReason("Döküm Boşluğu / Porozite");
-        setFormCustomReason("");
-      }
-
-      setSelectedFile(null);
-      setFilePreviewUrl(record.image_url || null);
-    } else {
-      setEditingRecord(null);
-      setFormOrderNo("");
-      setFormKarat("");
-      setFormColor("Y");
-      setFormDescription("");
-      setFormWireCode("");
-      setFormDefectNote("");
-      setFormIsScrap(true);
-      setFormScrapLocation("ÖRME");
-      setFormScrapReason("Döküm Boşluğu / Porozite");
-      setFormCustomReason("");
-      setSelectedFile(null);
-      setFilePreviewUrl(null);
-    }
+    setEditingRecord(record || null);
     setIsModalOpen(true);
   };
 
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setEditingRecord(null);
-    setSelectedFile(null);
-    setFilePreviewUrl(null);
-  };
-
-  // Dosya Seçildiğinde
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      setSelectedFile(file);
-      setFilePreviewUrl(URL.createObjectURL(file));
-    }
-  };
-
-  // Form Kaydet
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formOrderNo.trim()) {
-      toast.error("Lütfen Sipariş Numarasını giriniz.");
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      const formData = new FormData();
-      formData.append("order_no", formOrderNo.trim());
-      formData.append("karat", formKarat.trim());
-      formData.append("color", formColor.trim());
-      formData.append("description", formDescription.trim());
-      formData.append("wire_code", formWireCode.trim());
-      formData.append("defect_note", formDefectNote.trim());
-      formData.append("is_scrap", String(formIsScrap));
-      formData.append("scrap_location", formScrapLocation.trim());
-
-      const finalReason =
-        formScrapReason === "Diğer"
-          ? formCustomReason.trim() || "Diğer"
-          : formScrapReason;
-      formData.append("scrap_reason", finalReason.trim());
-
-      if (selectedFile) {
-        formData.append("image", selectedFile);
-      }
-
-      if (editingRecord) {
-        await apiClient.put(`/scrap-tracking/${editingRecord.id}`, formData, {
-          headers: { "Content-Type": "multipart/form-data" },
-        });
-        toast.success("Hurda kaydı başarıyla güncellendi.");
-      } else {
-        await apiClient.post("/scrap-tracking", formData, {
-          headers: { "Content-Type": "multipart/form-data" },
-        });
-        toast.success("Yeni hurda kaydı oluşturuldu.");
-      }
-
-      handleCloseModal();
-      fetchRecords();
-    } catch (error: unknown) {
-      console.error("Kaydetme hatası:", error);
-      const err = error as { response?: { data?: { message?: string } } };
-      toast.error(err.response?.data?.message || "Kayıt kaydedilirken hata oluştu.");
-    } finally {
-      setIsSubmitting(false);
-    }
   };
 
   // Kayıt Sil
@@ -496,7 +359,27 @@ export default function HurdaTakibi() {
   };
 
   return (
-    <div className="w-full h-full min-w-full flex flex-col">
+    <div
+      className="w-full h-full min-w-full flex flex-col"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
+      {/* Mobil Pull-to-Refresh Görsel Göstergesi */}
+      {pullDistance > 15 && (
+        <div
+          style={{ height: `${pullDistance}px` }}
+          className="flex items-center justify-center text-xs font-bold text-rose-500 overflow-hidden transition-all duration-75 shrink-0 bg-rose-500/5 border-b border-rose-500/20"
+        >
+          <RotateCcw
+            size={14}
+            className={cn("mr-1.5 transition-transform", pullDistance >= 60 ? "animate-spin text-rose-500" : "")}
+            style={{ transform: `rotate(${pullDistance * 4}deg)` }}
+          />
+          <span>{pullDistance >= 60 ? "Yenilemek için bırakın" : "Yenilemek için çekin"}</span>
+        </div>
+      )}
+
       {/* REUSABLE DATA TABLE (BAŞLIK, İSTATİSTİKLER, ARAMA, FİLTRELER VE BUTONLAR TEK BİRLEŞİK HEADER'DA) */}
       <DataTable
         title={
@@ -532,12 +415,10 @@ export default function HurdaTakibi() {
           setLimit(l);
           setPage(1);
         }}
-        onRefresh={fetchRecords}
-        isRefreshing={isLoading}
         isLoading={isLoading}
         heightClassName="h-full min-h-[500px]"
         headerActions={
-          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
             {/* Arama Alanı (Debounced Search) */}
             <div className="relative w-36 sm:w-44 lg:w-52">
               <Search
@@ -574,123 +455,33 @@ export default function HurdaTakibi() {
               </div>
             </div>
 
-            {/* Tarih Filtresi */}
-            <div className="flex items-center gap-1">
-              <div className="relative">
-                <select
-                  value={datePreset}
-                  onChange={(e) => {
-                    setDatePreset(e.target.value);
-                    setPage(1);
-                  }}
-                  className="h-8 pl-2 pr-6 bg-muted/40 border border-border/80 rounded-lg text-xs font-bold text-foreground outline-none cursor-pointer appearance-none"
-                  title="Tarih Filtresi"
-                >
-                  <option value="ALL">Tüm Tarihler</option>
-                  <option value="TODAY">Bugün</option>
-                  <option value="YESTERDAY">Dün</option>
-                  <option value="THIS_WEEK">Bu Hafta</option>
-                  <option value="THIS_MONTH">Bu Ay</option>
-                  <option value="CUSTOM">Özel Aralık...</option>
-                </select>
-                <Calendar
-                  size={12}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
-                />
-              </div>
-
-              {datePreset === "CUSTOM" && (
-                <div className="flex items-center gap-1">
-                  <input
-                    type="date"
-                    value={customStartDate}
-                    onChange={(e) => {
-                      setCustomStartDate(e.target.value);
-                      setPage(1);
-                    }}
-                    className="h-8 px-1.5 bg-muted/40 border border-border/80 rounded-lg text-[11px] font-bold text-foreground outline-none cursor-pointer"
-                    title="Başlangıç Tarihi"
-                  />
-                  <span className="text-xs text-muted-foreground">-</span>
-                  <input
-                    type="date"
-                    value={customEndDate}
-                    onChange={(e) => {
-                      setCustomEndDate(e.target.value);
-                      setPage(1);
-                    }}
-                    className="h-8 px-1.5 bg-muted/40 border border-border/80 rounded-lg text-[11px] font-bold text-foreground outline-none cursor-pointer"
-                    title="Bitiş Tarihi"
-                  />
-                </div>
+            {/* Açılır / Kapanır Filtre Butonu */}
+            <button
+              type="button"
+              onClick={() => setIsFilterOpen((prev) => !prev)}
+              className={cn(
+                "flex items-center gap-1.5 px-2.5 sm:px-3 h-8 rounded-lg font-bold text-xs transition-all cursor-pointer active:scale-95 border",
+                isFilterOpen || activeFilterCount > 0
+                  ? "bg-rose-500/10 text-rose-500 border-rose-500/30"
+                  : "bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground border-border/80"
               )}
-            </div>
-
-            {/* Hurda Nedeni Filtresi */}
-            <select
-              value={selectedReason}
-              onChange={(e) => {
-                setSelectedReason(e.target.value);
-                setPage(1);
-              }}
-              className="h-8 px-2 bg-muted/40 border border-border/80 rounded-lg text-xs font-bold text-foreground outline-none cursor-pointer max-w-36 truncate"
-              title="Hurda Nedeni Filtresi"
+              title="Filtreleme seçeneklerini göster / gizle"
             >
-              <option value="ALL">Tüm Nedenler</option>
-              {DEFAULT_SCRAP_REASONS.map((r) => (
-                <option key={r} value={r}>
-                  {r}
-                </option>
-              ))}
-            </select>
-
-            {/* Ayar Filtresi */}
-            <select
-              value={selectedKarat}
-              onChange={(e) => {
-                setSelectedKarat(e.target.value);
-                setPage(1);
-              }}
-              className="h-8 px-2 bg-muted/40 border border-border/80 rounded-lg text-xs font-bold text-foreground outline-none cursor-pointer"
-            >
-              <option value="ALL">Tüm Ayarlar</option>
-              {KARAT_OPTIONS.map((k) => (
-                <option key={k} value={k}>
-                  {k} Ayar
-                </option>
-              ))}
-            </select>
-
-            {/* Durum Filtresi */}
-            <select
-              value={selectedStatus}
-              onChange={(e) => {
-                setSelectedStatus(e.target.value);
-                setPage(1);
-              }}
-              className="h-8 px-2 bg-muted/40 border border-border/80 rounded-lg text-xs font-bold text-foreground outline-none cursor-pointer"
-            >
-              <option value="ALL">Tüm Durumlar</option>
-              <option value="SCRAP">Hurda</option>
-              <option value="PENDING">Takipte</option>
-            </select>
-
-            {/* İstasyon Filtresi */}
-            <select
-              value={selectedLocation}
-              onChange={(e) => {
-                setSelectedLocation(e.target.value);
-                setPage(1);
-              }}
-              className="h-8 px-2 bg-muted/40 border border-border/80 rounded-lg text-xs font-bold text-foreground outline-none cursor-pointer max-w-32 truncate"
-            >
-              <option value="ALL">Tüm İstasyonlar</option>
-              {DEFAULT_LOCATIONS.map((loc) => (
-                <option key={loc} value={loc}>
-                  {loc}
-                </option>
-              ))}
-            </select>
+              <ListFilter size={13} />
+              <span className="hidden xs:inline sm:inline">Filtreler</span>
+              {activeFilterCount > 0 && (
+                <span className="min-w-4 h-4 px-1 rounded-full bg-rose-500 text-white flex items-center justify-center text-[10px] font-black">
+                  {activeFilterCount}
+                </span>
+              )}
+              <ChevronDown
+                size={13}
+                className={cn(
+                  "transition-transform duration-200",
+                  isFilterOpen && "rotate-180"
+                )}
+              />
+            </button>
 
             {/* Excel Dışa Aktar Butonu */}
             <button
@@ -702,6 +493,20 @@ export default function HurdaTakibi() {
               <span className="hidden sm:inline">Excel</span>
             </button>
 
+            {/* Yenile Butonu (Masaüstünde Excel'in hemen yanında, mobilde gizli) */}
+            <button
+              onClick={fetchRecords}
+              disabled={isLoading}
+              className="hidden sm:flex items-center gap-1.5 px-2.5 h-8 bg-secondary hover:bg-muted text-muted-foreground hover:text-foreground border border-border/80 rounded-lg font-bold text-xs transition-colors cursor-pointer active:scale-95 disabled:opacity-50 shadow-xs"
+              title="Kayıtları Yenile"
+            >
+              <RotateCcw
+                size={13}
+                className={isLoading ? "animate-spin text-rose-500" : ""}
+              />
+              <span>Yenile</span>
+            </button>
+
             {/* Yeni Hurda Kaydı Butonu */}
             <button
               onClick={() => handleOpenModal()}
@@ -711,6 +516,258 @@ export default function HurdaTakibi() {
               <span>Yeni Kayıt</span>
             </button>
           </div>
+        }
+        filterContent={
+          (isFilterOpen || activeFilterCount > 0) ? (
+            <div className="space-y-2">
+              {/* AÇILIR KAPANIR FİLTRE PANELİ */}
+              {isFilterOpen && (
+                <div className="p-2.5 sm:p-3 rounded-xl bg-secondary/40 border border-border/80 flex flex-wrap items-center gap-2">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground mr-1">
+                    <ListFilter size={13} className="text-rose-500" />
+                    <span>Filtrele:</span>
+                  </div>
+
+                  {/* Tarih Filtresi */}
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <div className="relative">
+                      <select
+                        value={datePreset}
+                        onChange={(e) => {
+                          setDatePreset(e.target.value);
+                          setPage(1);
+                        }}
+                        className="h-8 pl-2.5 pr-7 bg-background/80 border border-border/80 rounded-lg text-xs font-bold text-foreground outline-none cursor-pointer appearance-none hover:border-border transition-colors"
+                        title="Tarih Filtresi"
+                      >
+                        <option value="ALL">Tüm Tarihler</option>
+                        <option value="TODAY">Bugün</option>
+                        <option value="YESTERDAY">Dün</option>
+                        <option value="THIS_WEEK">Bu Hafta</option>
+                        <option value="THIS_MONTH">Bu Ay</option>
+                        <option value="CUSTOM">Özel Aralık...</option>
+                      </select>
+                      <Calendar
+                        size={12}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
+                      />
+                    </div>
+
+                    {datePreset === "CUSTOM" && (
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="date"
+                          value={customStartDate}
+                          onChange={(e) => {
+                            setCustomStartDate(e.target.value);
+                            setPage(1);
+                          }}
+                          className="h-8 px-2 bg-background/80 border border-border/80 rounded-lg text-[11px] font-bold text-foreground outline-none cursor-pointer"
+                          title="Başlangıç Tarihi"
+                        />
+                        <span className="text-xs text-muted-foreground">-</span>
+                        <input
+                          type="date"
+                          value={customEndDate}
+                          onChange={(e) => {
+                            setCustomEndDate(e.target.value);
+                            setPage(1);
+                          }}
+                          className="h-8 px-2 bg-background/80 border border-border/80 rounded-lg text-[11px] font-bold text-foreground outline-none cursor-pointer"
+                          title="Bitiş Tarihi"
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Hurda Nedeni Filtresi */}
+                  <select
+                    value={selectedReason}
+                    onChange={(e) => {
+                      setSelectedReason(e.target.value);
+                      setPage(1);
+                    }}
+                    className="h-8 px-2.5 bg-background/80 border border-border/80 rounded-lg text-xs font-bold text-foreground outline-none cursor-pointer max-w-44 truncate hover:border-border transition-colors"
+                    title="Hurda Nedeni Filtresi"
+                  >
+                    <option value="ALL">Tüm Nedenler</option>
+                    {DEFAULT_SCRAP_REASONS.map((r) => (
+                      <option key={r} value={r}>
+                        {r}
+                      </option>
+                    ))}
+                  </select>
+
+                  {/* Ayar Filtresi */}
+                  <select
+                    value={selectedKarat}
+                    onChange={(e) => {
+                      setSelectedKarat(e.target.value);
+                      setPage(1);
+                    }}
+                    className="h-8 px-2.5 bg-background/80 border border-border/80 rounded-lg text-xs font-bold text-foreground outline-none cursor-pointer hover:border-border transition-colors"
+                    title="Ayar Filtresi"
+                  >
+                    <option value="ALL">Tüm Ayarlar</option>
+                    {KARAT_OPTIONS.map((k) => (
+                      <option key={k} value={k}>
+                        {k} Ayar
+                      </option>
+                    ))}
+                  </select>
+
+                  {/* Durum Filtresi */}
+                  <select
+                    value={selectedStatus}
+                    onChange={(e) => {
+                      setSelectedStatus(e.target.value);
+                      setPage(1);
+                    }}
+                    className="h-8 px-2.5 bg-background/80 border border-border/80 rounded-lg text-xs font-bold text-foreground outline-none cursor-pointer hover:border-border transition-colors"
+                    title="Durum Filtresi"
+                  >
+                    <option value="ALL">Tüm Durumlar</option>
+                    <option value="SCRAP">Hurda</option>
+                    <option value="PENDING">Takipte</option>
+                  </select>
+
+                  {/* İstasyon Filtresi */}
+                  <select
+                    value={selectedLocation}
+                    onChange={(e) => {
+                      setSelectedLocation(e.target.value);
+                      setPage(1);
+                    }}
+                    className="h-8 px-2.5 bg-background/80 border border-border/80 rounded-lg text-xs font-bold text-foreground outline-none cursor-pointer max-w-36 truncate hover:border-border transition-colors"
+                    title="İstasyon / Bölüm Filtresi"
+                  >
+                    <option value="ALL">Tüm İstasyonlar</option>
+                    {DEFAULT_LOCATIONS.map((loc) => (
+                      <option key={loc} value={loc}>
+                        {loc}
+                      </option>
+                    ))}
+                  </select>
+
+                  {/* Sıfırla Butonu (Aktif filtre varsa panel içinde) */}
+                  {activeFilterCount > 0 && (
+                    <button
+                      onClick={handleResetFilters}
+                      className="flex items-center gap-1 px-2.5 h-8 text-xs font-bold text-rose-500 hover:text-rose-600 hover:bg-rose-500/10 rounded-lg transition-colors ml-auto cursor-pointer"
+                      title="Tüm filtreleri sıfırla"
+                    >
+                      <RotateCcw size={12} />
+                      <span>Filtreleri Sıfırla</span>
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* AKTİF FİLTRE ROZETLERİ (CHIPS) - Panel kapalıyken seçili filtreleri gösterir */}
+              {activeFilterCount > 0 && !isFilterOpen && (
+                <div className="flex items-center gap-1.5 flex-wrap px-1 text-xs">
+                  <span className="text-[11px] font-bold text-muted-foreground mr-0.5">
+                    Aktif Filtreler:
+                  </span>
+
+                  {datePreset !== "ALL" && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-secondary text-foreground border border-border text-[11px] font-bold">
+                      <span>
+                        Tarih:{" "}
+                        {datePreset === "TODAY"
+                          ? "Bugün"
+                          : datePreset === "YESTERDAY"
+                          ? "Dün"
+                          : datePreset === "THIS_WEEK"
+                          ? "Bu Hafta"
+                          : datePreset === "THIS_MONTH"
+                          ? "Bu Ay"
+                          : "Özel"}
+                      </span>
+                      <button
+                        onClick={() => {
+                          setDatePreset("ALL");
+                          setPage(1);
+                        }}
+                        className="hover:text-rose-500 cursor-pointer ml-0.5"
+                      >
+                        <X size={11} />
+                      </button>
+                    </span>
+                  )}
+
+                  {selectedReason !== "ALL" && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-secondary text-foreground border border-border text-[11px] font-bold">
+                      <span>Neden: {selectedReason}</span>
+                      <button
+                        onClick={() => {
+                          setSelectedReason("ALL");
+                          setPage(1);
+                        }}
+                        className="hover:text-rose-500 cursor-pointer ml-0.5"
+                      >
+                        <X size={11} />
+                      </button>
+                    </span>
+                  )}
+
+                  {selectedKarat !== "ALL" && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-secondary text-foreground border border-border text-[11px] font-bold">
+                      <span>{selectedKarat} Ayar</span>
+                      <button
+                        onClick={() => {
+                          setSelectedKarat("ALL");
+                          setPage(1);
+                        }}
+                        className="hover:text-rose-500 cursor-pointer ml-0.5"
+                      >
+                        <X size={11} />
+                      </button>
+                    </span>
+                  )}
+
+                  {selectedStatus !== "ALL" && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-secondary text-foreground border border-border text-[11px] font-bold">
+                      <span>
+                        Durum: {selectedStatus === "SCRAP" ? "Hurda" : "Takipte"}
+                      </span>
+                      <button
+                        onClick={() => {
+                          setSelectedStatus("ALL");
+                          setPage(1);
+                        }}
+                        className="hover:text-rose-500 cursor-pointer ml-0.5"
+                      >
+                        <X size={11} />
+                      </button>
+                    </span>
+                  )}
+
+                  {selectedLocation !== "ALL" && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-secondary text-foreground border border-border text-[11px] font-bold">
+                      <span>Bölüm: {selectedLocation}</span>
+                      <button
+                        onClick={() => {
+                          setSelectedLocation("ALL");
+                          setPage(1);
+                        }}
+                        className="hover:text-rose-500 cursor-pointer ml-0.5"
+                      >
+                        <X size={11} />
+                      </button>
+                    </span>
+                  )}
+
+                  <button
+                    onClick={handleResetFilters}
+                    className="text-[11px] font-bold text-rose-500 hover:text-rose-600 hover:underline ml-1 cursor-pointer"
+                  >
+                    Temizle
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : null
         }
         emptyTitle="Henüz Kayıt Bulunamadı"
         emptyDescription="Arama kriterlerinize uygun hurda kaydı bulunamadı veya henüz hiçbir kayıt girilmemiş."
@@ -866,316 +923,12 @@ export default function HurdaTakibi() {
       />
 
       {/* YENİ KAYIT / DÜZENLEME MODALI */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/60 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="bg-card border border-border w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
-            {/* Modal Header */}
-            <div className="p-5 border-b border-border flex items-center justify-between bg-muted/20">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-rose-500/10 text-rose-500 flex items-center justify-center">
-                  <AlertTriangle size={20} />
-                </div>
-                <div>
-                  <h3 className="font-black text-sm uppercase tracking-tight text-foreground">
-                    {editingRecord ? "Hurda Kaydını Düzenle" : "Yeni Hurda / Hata Kaydı"}
-                  </h3>
-                  <p className="text-[11px] text-muted-foreground">
-                    Üretim esnasında ayrılan parça veya hatalı yarı mamul bilgileri
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={handleCloseModal}
-                className="p-2 hover:bg-muted rounded-xl text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            {/* Modal Form */}
-            <form onSubmit={handleSubmit} className="p-6 overflow-y-auto custom-scrollbar space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Sipariş No */}
-                <div className="space-y-1.5">
-                  <label className="text-[11px] font-black uppercase tracking-wider text-foreground">
-                    Sipariş No <span className="text-rose-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      required
-                      value={formOrderNo}
-                      onChange={(e) => setFormOrderNo(e.target.value)}
-                      onBlur={() => handleFetchSapOrder(formOrderNo)}
-                      placeholder="Örn: 2111588 veya 4060992"
-                      className="w-full h-11 px-3.5 bg-muted/30 border border-border rounded-xl text-xs font-bold text-foreground outline-none focus:border-rose-500 transition-all font-mono"
-                    />
-                    {isFetchingSap && (
-                      <Loader2
-                        size={16}
-                        className="animate-spin absolute right-3 top-1/2 -translate-y-1/2 text-rose-500"
-                      />
-                    )}
-                  </div>
-                  <span className="text-[10px] text-muted-foreground block">
-                    Yazıp alandan çıktığınızda SAP'den ayar/renk/açıklama otomatik gelir.
-                  </span>
-                </div>
-
-                {/* Ayar */}
-                <div className="space-y-1.5">
-                  <label className="text-[11px] font-black uppercase tracking-wider text-foreground">
-                    Ayar (Karat)
-                  </label>
-                  <select
-                    value={formKarat}
-                    onChange={(e) => setFormKarat(e.target.value)}
-                    className="w-full h-11 px-3.5 bg-muted/30 border border-border rounded-xl text-xs font-bold text-foreground outline-none focus:border-rose-500 transition-all cursor-pointer"
-                  >
-                    <option value="">Ayar Seçiniz (veya SAP'den gelir)</option>
-                    {KARAT_OPTIONS.map((k) => (
-                      <option key={k} value={k}>
-                        {k} Ayar
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Renk */}
-                <div className="space-y-1.5">
-                  <label className="text-[11px] font-black uppercase tracking-wider text-foreground">
-                    Renk
-                  </label>
-                  <select
-                    value={formColor}
-                    onChange={(e) => setFormColor(e.target.value)}
-                    className="w-full h-11 px-3.5 bg-muted/30 border border-border rounded-xl text-xs font-bold text-foreground outline-none focus:border-rose-500 transition-all cursor-pointer"
-                  >
-                    {COLOR_OPTIONS.map((c) => (
-                      <option key={c.code} value={c.code}>
-                        {c.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Tel Kodu */}
-                <div className="space-y-1.5">
-                  <label className="text-[11px] font-black uppercase tracking-wider text-foreground">
-                    Tel Kodu
-                  </label>
-                  <input
-                    type="text"
-                    value={formWireCode}
-                    onChange={(e) => setFormWireCode(e.target.value)}
-                    placeholder="Örn: YT003135 veya YT001025"
-                    className="w-full h-11 px-3.5 bg-muted/30 border border-border rounded-xl text-xs font-mono font-bold text-foreground outline-none focus:border-rose-500 transition-all"
-                  />
-                </div>
-              </div>
-
-              {/* Açıklama / Model Adı */}
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-black uppercase tracking-wider text-foreground">
-                  Açıklama (Model / Zincir Adı)
-                </label>
-                <input
-                  type="text"
-                  value={formDescription}
-                  onChange={(e) => setFormDescription(e.target.value)}
-                  placeholder="Örn: IB EZME TONDO 50 TR"
-                  className="w-full h-11 px-3.5 bg-muted/30 border border-border rounded-xl text-xs font-bold text-foreground outline-none focus:border-rose-500 transition-all"
-                />
-              </div>
-
-              {/* Hata Sebebi / Not */}
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-black uppercase tracking-wider text-foreground">
-                  Hata Detayı / Not
-                </label>
-                <textarea
-                  rows={2}
-                  value={formDefectNote}
-                  onChange={(e) => setFormDefectNote(e.target.value)}
-                  placeholder="Örn: Halka ağzından güverse yapmış, astar geri çekiliyor..."
-                  className="w-full p-3 bg-muted/30 border border-border rounded-xl text-xs font-medium text-foreground outline-none focus:border-rose-500 transition-all resize-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Hurda Nedeni */}
-                <div className="space-y-1.5">
-                  <label className="text-[11px] font-black uppercase tracking-wider text-foreground">
-                    Hurda Nedeni <span className="text-rose-500">*</span>
-                  </label>
-                  <select
-                    value={formScrapReason}
-                    onChange={(e) => setFormScrapReason(e.target.value)}
-                    className="w-full h-11 px-3.5 bg-muted/30 border border-border rounded-xl text-xs font-bold text-foreground outline-none focus:border-rose-500 transition-all cursor-pointer"
-                  >
-                    {DEFAULT_SCRAP_REASONS.map((reason) => (
-                      <option key={reason} value={reason}>
-                        {reason}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Hurda Yeri (İstasyon) */}
-                <div className="space-y-1.5">
-                  <label className="text-[11px] font-black uppercase tracking-wider text-foreground">
-                    Hurda Yeri (İstasyon)
-                  </label>
-                  <select
-                    value={formScrapLocation}
-                    onChange={(e) => setFormScrapLocation(e.target.value)}
-                    className="w-full h-11 px-3.5 bg-muted/30 border border-border rounded-xl text-xs font-bold text-foreground outline-none focus:border-rose-500 transition-all cursor-pointer"
-                  >
-                    {DEFAULT_LOCATIONS.map((loc) => (
-                      <option key={loc} value={loc}>
-                        {loc}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* Eğer Diğer seçildiyse özel metin kutusu */}
-              {formScrapReason === "Diğer" && (
-                <div className="space-y-1.5">
-                  <label className="text-[11px] font-black uppercase tracking-wider text-foreground">
-                    Özel Hurda Nedeni Belirtiniz
-                  </label>
-                  <input
-                    type="text"
-                    value={formCustomReason}
-                    onChange={(e) => setFormCustomReason(e.target.value)}
-                    placeholder="Örn: Özel kalıp patlaması, hatalı kaplama vb."
-                    className="w-full h-11 px-3.5 bg-muted/30 border border-border rounded-xl text-xs font-bold text-foreground outline-none focus:border-rose-500 transition-all"
-                  />
-                </div>
-              )}
-
-              {/* Hurda Mı? Checkbox */}
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-black uppercase tracking-wider text-foreground block">
-                  Hurda Durumu
-                </label>
-                <label className="flex items-center gap-3 h-11 px-4 bg-muted/30 border border-border rounded-xl cursor-pointer hover:bg-muted/50 transition-colors">
-                  <input
-                    type="checkbox"
-                    checked={formIsScrap}
-                    onChange={(e) => setFormIsScrap(e.target.checked)}
-                    className="w-4 h-4 rounded text-rose-600 focus:ring-rose-500 cursor-pointer accent-rose-600"
-                  />
-                  <span className="text-xs font-black uppercase tracking-wide text-foreground">
-                    {formIsScrap ? "Kesinleşen Hurda" : "İncelemede / Takip Edilecek"}
-                  </span>
-                </label>
-              </div>
-
-              {/* Görsel Yükleme (MVP: Standart Stok Görsel Önizleme) */}
-              <div className="space-y-2 pt-2">
-                <label className="text-[11px] font-black uppercase tracking-wider text-foreground flex items-center justify-between">
-                  <span>Hurda Görseli</span>
-                </label>
-
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  onChange={handleFileChange}
-                  accept="image/jpeg,image/png,image/webp,image/jpg"
-                  className="hidden"
-                />
-
-                {filePreviewUrl ? (
-                  <div className="relative p-3 bg-muted/30 border border-border rounded-2xl flex items-center gap-4">
-                    <div className="w-20 h-20 rounded-xl overflow-hidden border border-border bg-black/5 shrink-0 shadow-xs">
-                      <img src={filePreviewUrl} alt="Önizleme" className="w-full h-full object-cover" />
-                    </div>
-                    <div className="flex-1 space-y-1">
-                      <span className="text-xs font-bold text-foreground block">
-                        {selectedFile ? selectedFile.name : "Özel Yüklenen Görsel"}
-                      </span>
-                      <span className="text-[10px] text-muted-foreground block">
-                        Özel görsel başarıyla seçildi
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        className="text-[11px] font-bold text-rose-500 hover:underline cursor-pointer block"
-                      >
-                        Görseli Değiştir
-                      </button>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedFile(null);
-                        setFilePreviewUrl(null);
-                      }}
-                      className="p-2 hover:bg-muted text-muted-foreground hover:text-rose-500 rounded-lg cursor-pointer"
-                      title="Görseli Kaldır (Stok Görsele Dön)"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                ) : (
-                  <div className="p-3.5 bg-muted/30 border border-border rounded-2xl flex items-center gap-4">
-                    <div className="w-20 h-20 rounded-xl overflow-hidden border border-border bg-black/10 shrink-0 shadow-xs relative">
-                      <img
-                        src={DEFAULT_SCRAP_IMAGE}
-                        alt="Standart Stok Görsel"
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                    <div className="flex-1 space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-foreground block">
-                          Standart Stok Görsel
-                        </span>
-                        <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
-                          MVP
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-muted-foreground leading-relaxed">
-                        Her kayıtta otomatik olarak mikroskop kalite kontrol hata görseli kullanılır.
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        className="inline-flex items-center gap-1.5 text-[11px] font-bold text-rose-500 hover:text-rose-600 hover:underline cursor-pointer pt-1"
-                      >
-                        <Upload size={13} />
-                        <span>Farklı Fotoğraf Yükle (İsteğe Bağlı)</span>
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Modal Buttons */}
-              <div className="pt-4 border-t border-border flex items-center justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={handleCloseModal}
-                  className="px-5 py-2.5 bg-secondary hover:bg-muted text-muted-foreground hover:text-foreground rounded-xl font-bold text-xs uppercase tracking-wider transition-all cursor-pointer"
-                >
-                  İptal
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="px-6 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-black text-xs uppercase tracking-wider shadow-lg shadow-rose-600/20 transition-all cursor-pointer flex items-center gap-2 disabled:opacity-50"
-                >
-                  {isSubmitting && <Loader2 size={16} className="animate-spin" />}
-                  <span>{editingRecord ? "Güncelle" : "Kaydet"}</span>
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <ScrapFormModal
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        onSuccess={fetchRecords}
+        initialRecord={editingRecord}
+      />
 
       {/* GÖRSELİ BÜYÜTÜP İNCELEME LIGHTBOX MODALI */}
       {previewImage && (
