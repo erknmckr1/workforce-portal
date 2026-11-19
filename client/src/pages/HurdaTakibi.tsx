@@ -383,21 +383,33 @@ export default function HurdaTakibi() {
       {/* REUSABLE DATA TABLE (BAŞLIK, İSTATİSTİKLER, ARAMA, FİLTRELER VE BUTONLAR TEK BİRLEŞİK HEADER'DA) */}
       <DataTable
         title={
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-black text-sm uppercase tracking-tight text-foreground">
-              Hurda & Kalite Takibi
-            </span>
-            <div className="flex items-center gap-1.5 ml-1">
-              <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-secondary text-foreground border border-border">
-                Toplam: <strong className="font-black">{stats.total}</strong>
+          <div className="flex items-center justify-between w-full gap-2">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2.5 min-w-0">
+              <span className="font-black text-xs sm:text-sm uppercase tracking-tight text-foreground whitespace-nowrap">
+                Hurda & Kalite Takibi
               </span>
-              <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-rose-500/10 text-rose-500 border border-rose-500/20">
-                Hurda: <strong className="font-black">{stats.scrapCount}</strong>
-              </span>
-              <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-500 border border-amber-500/20">
-                Takipte: <strong className="font-black">{stats.pendingCount}</strong>
-              </span>
+              <div className="flex items-center gap-1 sm:gap-1.5 flex-wrap">
+                <span className="text-[10px] sm:text-[11px] font-bold px-1.5 sm:px-2 py-0.5 rounded-md bg-secondary text-foreground border border-border whitespace-nowrap">
+                  Toplam: <strong className="font-black">{stats.total}</strong>
+                </span>
+                <span className="text-[10px] sm:text-[11px] font-bold px-1.5 sm:px-2 py-0.5 rounded-md bg-rose-500/10 text-rose-500 border border-rose-500/20 whitespace-nowrap">
+                  Hurda: <strong className="font-black">{stats.scrapCount}</strong>
+                </span>
+                <span className="text-[10px] sm:text-[11px] font-bold px-1.5 sm:px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-500 border border-amber-500/20 whitespace-nowrap">
+                  Takipte: <strong className="font-black">{stats.pendingCount}</strong>
+                </span>
+              </div>
             </div>
+
+            {/* Mobilde Başlığın Yanında Şık Konumlanan Yeni Kayıt Butonu */}
+            <button
+              onClick={() => handleOpenModal()}
+              className="sm:hidden flex items-center gap-1 px-2.5 h-8 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-black text-xs uppercase tracking-wider shadow-sm shadow-rose-600/20 transition-all cursor-pointer active:scale-95 whitespace-nowrap shrink-0"
+              title="Yeni Hurda / Takip Kaydı Aç"
+            >
+              <Plus size={14} />
+              <span>Yeni Kayıt</span>
+            </button>
           </div>
         }
         icon={<AlertTriangle size={16} />}
@@ -418,11 +430,11 @@ export default function HurdaTakibi() {
         isLoading={isLoading}
         heightClassName="h-full min-h-[500px]"
         headerActions={
-          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-            {/* Arama Alanı (Debounced Search) */}
-            <div className="relative w-36 sm:w-44 lg:w-52">
+          <div className="flex items-center gap-1.5 sm:gap-2 w-full sm:w-auto">
+            {/* Arama Alanı (Debounced Search) - Mobilde flex-1 tam genişlik kaplar */}
+            <div className="relative flex-1 sm:w-44 lg:w-52 min-w-0">
               <Search
-                className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground"
+                className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
                 size={14}
               />
               <input
@@ -435,7 +447,7 @@ export default function HurdaTakibi() {
                 placeholder="Sipariş no, model..."
                 className="w-full h-8 pl-8 pr-7 bg-muted/40 border border-border/80 rounded-lg text-xs font-bold placeholder:text-muted-foreground/60 outline-none focus:border-rose-500 transition-all text-foreground"
               />
-              <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center">
+              <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center">
                 {searchTerm !== debouncedSearch ? (
                   <span title="Yazmayı bıraktığınızda aranacak (Debounce)">
                     <Loader2 size={12} className="animate-spin text-muted-foreground" />
@@ -460,7 +472,7 @@ export default function HurdaTakibi() {
               type="button"
               onClick={() => setIsFilterOpen((prev) => !prev)}
               className={cn(
-                "flex items-center gap-1.5 px-2.5 sm:px-3 h-8 rounded-lg font-bold text-xs transition-all cursor-pointer active:scale-95 border",
+                "flex items-center gap-1.5 px-2.5 sm:px-3 h-8 rounded-lg font-bold text-xs transition-all cursor-pointer active:scale-95 border shrink-0",
                 isFilterOpen || activeFilterCount > 0
                   ? "bg-rose-500/10 text-rose-500 border-rose-500/30"
                   : "bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground border-border/80"
@@ -468,14 +480,14 @@ export default function HurdaTakibi() {
               title="Filtreleme seçeneklerini göster / gizle"
             >
               <ListFilter size={13} />
-              <span className="hidden xs:inline sm:inline">Filtreler</span>
+              <span className="hidden sm:inline">Filtreler</span>
               {activeFilterCount > 0 && (
                 <span className="min-w-4 h-4 px-1 rounded-full bg-rose-500 text-white flex items-center justify-center text-[10px] font-black">
                   {activeFilterCount}
                 </span>
               )}
               <ChevronDown
-                size={13}
+                size={12}
                 className={cn(
                   "transition-transform duration-200",
                   isFilterOpen && "rotate-180"
@@ -486,18 +498,18 @@ export default function HurdaTakibi() {
             {/* Excel Dışa Aktar Butonu */}
             <button
               onClick={exportToExcel}
-              className="flex items-center gap-1.5 px-2.5 h-8 bg-emerald-600/10 hover:bg-emerald-600/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 rounded-lg font-bold text-xs uppercase tracking-wider transition-all cursor-pointer active:scale-95 shadow-xs"
+              className="flex items-center gap-1.5 px-2.5 h-8 bg-emerald-600/10 hover:bg-emerald-600/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 rounded-lg font-bold text-xs uppercase tracking-wider transition-all cursor-pointer active:scale-95 shadow-xs shrink-0"
               title="Excel Olarak İndir"
             >
               <FileSpreadsheet size={13} />
               <span className="hidden sm:inline">Excel</span>
             </button>
 
-            {/* Yenile Butonu (Masaüstünde Excel'in hemen yanında, mobilde gizli) */}
+            {/* Yenile Butonu (Masaüstünde) */}
             <button
               onClick={fetchRecords}
               disabled={isLoading}
-              className="hidden sm:flex items-center gap-1.5 px-2.5 h-8 bg-secondary hover:bg-muted text-muted-foreground hover:text-foreground border border-border/80 rounded-lg font-bold text-xs transition-colors cursor-pointer active:scale-95 disabled:opacity-50 shadow-xs"
+              className="hidden sm:flex items-center gap-1.5 px-2.5 h-8 bg-secondary hover:bg-muted text-muted-foreground hover:text-foreground border border-border/80 rounded-lg font-bold text-xs transition-colors cursor-pointer active:scale-95 disabled:opacity-50 shadow-xs shrink-0"
               title="Kayıtları Yenile"
             >
               <RotateCcw
@@ -507,10 +519,11 @@ export default function HurdaTakibi() {
               <span>Yenile</span>
             </button>
 
-            {/* Yeni Hurda Kaydı Butonu */}
+            {/* Yeni Hurda Kaydı Butonu (Masaüstünde) */}
             <button
               onClick={() => handleOpenModal()}
-              className="flex items-center gap-1.5 px-3 h-8 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-bold text-xs uppercase tracking-wider shadow-sm shadow-rose-600/20 transition-all cursor-pointer active:scale-95 whitespace-nowrap"
+              className="hidden sm:flex items-center gap-1.5 px-3 h-8 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-bold text-xs uppercase tracking-wider shadow-sm shadow-rose-600/20 transition-all cursor-pointer active:scale-95 whitespace-nowrap shrink-0"
+              title="Yeni Hurda / Takip Kaydı Aç"
             >
               <Plus size={14} />
               <span>Yeni Kayıt</span>

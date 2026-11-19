@@ -151,15 +151,40 @@ export const createScrapTracking = async (req: Request, res: Response) => {
     let finalKarat = karat;
     let finalColor = color;
     let finalDescription = description;
+    let finalWireCode = wire_code;
 
     // Eğer ayar, renk veya açıklama boşsa SapOrder'dan otomatik tamamla
-    if (!finalKarat || !finalColor || !finalDescription) {
+    if (!finalKarat || !finalColor || !finalDescription || !finalWireCode) {
       try {
-        const sapOrder = await SapOrder.findOne({ where: { ORDER_ID: String(order_no).trim() } });
+        const cleanNo = String(order_no).replace(/^#/, "").trim();
+        const sapOrder = await SapOrder.findOne({
+          where: {
+            [Op.or]: [
+              { ORDER_ID: cleanNo },
+              { ORDER_ID: `${cleanNo} ` },
+              { ORDER_ID: `${cleanNo}  ` },
+            ],
+          },
+        });
         if (sapOrder) {
-          if (!finalKarat) finalKarat = sapOrder.CARAT;
-          if (!finalColor) finalColor = sapOrder.COLOR;
-          if (!finalDescription) finalDescription = sapOrder.ITEM_DESCRIPTION || sapOrder.GENERAL_DESCRIPTION;
+          if (!finalKarat && sapOrder.CARAT) {
+            finalKarat = String(sapOrder.CARAT).replace(/[^0-9]/g, "").trim();
+          }
+          if (!finalColor && sapOrder.COLOR) {
+            const c = String(sapOrder.COLOR).trim().toUpperCase();
+            finalColor = c.startsWith("B") ? "B" : (c.startsWith("K") || c.startsWith("R")) ? "K" : "Y";
+          }
+          if (!finalDescription) {
+            finalDescription = (
+              sapOrder.ITEM_DESCRIPTION ||
+              sapOrder.GENERAL_DESCRIPTION ||
+              sapOrder.MATERIAL_DESCRIPTION ||
+              ""
+            ).trim();
+          }
+          if (!finalWireCode && sapOrder.MATERIAL_NO) {
+            finalWireCode = sapOrder.MATERIAL_NO.trim();
+          }
         }
       } catch (err) {
         console.warn("SapOrder otomatik tamamlama atlandı:", err);
@@ -178,7 +203,7 @@ export const createScrapTracking = async (req: Request, res: Response) => {
       karat: finalKarat ? String(finalKarat).trim() : null,
       color: finalColor ? String(finalColor).trim() : null,
       description: finalDescription ? String(finalDescription).trim() : null,
-      wire_code: wire_code ? String(wire_code).trim() : null,
+      wire_code: finalWireCode ? String(finalWireCode).trim() : null,
       defect_note: defect_note ? String(defect_note).trim() : null,
       is_scrap: is_scrap === "true" || is_scrap === true,
       scrap_location: scrap_location ? String(scrap_location).trim() : null,
@@ -278,22 +303,69 @@ export const deleteScrapTracking = async (req: Request, res: Response) => {
 export const getSapOrderInfo = async (req: Request, res: Response) => {
   try {
     const { orderNo } = req.params;
-    const cleanNo = String(orderNo).trim();
+    const cleanNo = String(orderNo).replace(/^#/, "").trim();
 
-    const sapOrder = await SapOrder.findOne({
-      where: { ORDER_ID: cleanNo },
-    });
-
-    if (!sapOrder) {
-      return res.status(404).json({ message: "Sipariş bulunamadı." });
+    if (!cleanNo) {
+      return res.status(400).json({ message: "Sipariş Numarası belirtilmedi." });
     }
 
+    // Arama varyasyonları:
+    // 1. Doğrudan cleanNo
+    // 2. Trailing spaces (SQL Server CHAR alanı)
+    // 3. Leading zero ile padStart (6 veya 7 hane)
+    const candidates = [cleanNo];
+    if (/^\d+$/.test(cleanNo)) {
+      if (cleanNo.length < 6) candidates.push(cleanNo.padStart(6, "0"));
+      if (cleanNo.length < 7) candidates.push(cleanNo.padStart(7, "0"));
+    }
+
+    let sapOrder: any = null;
+    for (const candidate of candidates) {
+      sapOrder = await SapOrder.findOne({
+        where: {
+          [Op.or]: [
+            { ORDER_ID: candidate },
+            { ORDER_ID: `${candidate} ` },
+            { ORDER_ID: `${candidate}  ` },
+          ],
+        },
+      });
+      if (sapOrder) break;
+    }
+
+    if (!sapOrder) {
+      return res.status(404).json({ message: "Sipariş veritabanında bulunamadı." });
+    }
+
+    // Karat temizleme (ör: "14", "14K", "14 ")
+    let karatClean = sapOrder.CARAT ? String(sapOrder.CARAT).replace(/[^0-9]/g, "").trim() : "";
+
+    // Renk eşleme (Y, K, B)
+    let colorClean = "Y";
+    if (sapOrder.COLOR) {
+      const c = String(sapOrder.COLOR).trim().toUpperCase();
+      if (c.startsWith("B")) colorClean = "B";
+      else if (c.startsWith("K") || c.startsWith("R")) colorClean = "K";
+      else colorClean = "Y";
+    }
+
+    const description = (
+      sapOrder.ITEM_DESCRIPTION ||
+      sapOrder.GENERAL_DESCRIPTION ||
+      sapOrder.MATERIAL_DESCRIPTION ||
+      ""
+    ).trim();
+
+    const wireCode = (sapOrder.MATERIAL_NO || "").trim();
+
     return res.status(200).json({
-      order_id: sapOrder.ORDER_ID,
-      karat: sapOrder.CARAT,
-      color: sapOrder.COLOR,
-      description: sapOrder.ITEM_DESCRIPTION || sapOrder.GENERAL_DESCRIPTION,
-      material_no: sapOrder.MATERIAL_NO,
+      order_id: sapOrder.ORDER_ID ? sapOrder.ORDER_ID.trim() : cleanNo,
+      karat: karatClean,
+      color: colorClean,
+      description: description,
+      wire_code: wireCode,
+      material_no: wireCode,
+      material_description: (sapOrder.MATERIAL_DESCRIPTION || "").trim(),
       production_amount: sapOrder.PRODUCTION_AMOUNT,
     });
   } catch (error) {

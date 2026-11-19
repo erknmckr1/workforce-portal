@@ -105,42 +105,44 @@ export default function DataTable<T>({
       {/* 1. ÜST BAR (BAŞLIK, SAYI ROZETİ VE AKSİYONLAR)            */}
       {/* ========================================================= */}
       {(title || onRefresh || headerActions) && (
-        <div className="flex flex-wrap items-center justify-between gap-2.5 pb-2.5 border-b border-border shrink-0">
-          <div className="flex items-center gap-2.5">
-            {icon && (
-              <div
-                className={cn(
-                  "w-8 h-8 rounded-lg flex items-center justify-center shrink-0 shadow-xs",
-                  iconClassName || "bg-secondary text-foreground border border-border"
-                )}
-              >
-                {icon}
-              </div>
-            )}
-            <div>
-              {title && (
-                <div className="text-sm sm:text-base font-black uppercase tracking-tight text-foreground flex items-center gap-2">
-                  {title}
-                  {!hideTotalBadge && typeof totalCount === "number" && (
-                    <span className="text-xs font-mono px-2 py-0.5 rounded-md bg-secondary text-foreground font-bold border border-border">
-                      {totalCount} Kayıt
-                    </span>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-2.5 border-b border-border shrink-0">
+          <div className="flex items-center justify-between gap-2.5 w-full sm:w-auto min-w-0">
+            <div className="flex items-center gap-2.5 min-w-0 flex-1 sm:flex-initial">
+              {icon && (
+                <div
+                  className={cn(
+                    "w-8 h-8 rounded-lg flex items-center justify-center shrink-0 shadow-xs",
+                    iconClassName || "bg-secondary text-foreground border border-border"
                   )}
+                >
+                  {icon}
                 </div>
               )}
-              {subtitle && (
-                <p className="text-[11px] text-muted-foreground font-medium">{subtitle}</p>
-              )}
+              <div className="min-w-0 flex-1">
+                {title && (
+                  <div className="text-sm sm:text-base font-black uppercase tracking-tight text-foreground flex items-center gap-2">
+                    {title}
+                    {!hideTotalBadge && typeof totalCount === "number" && (
+                      <span className="text-xs font-mono px-2 py-0.5 rounded-md bg-secondary text-foreground font-bold border border-border shrink-0">
+                        {totalCount} Kayıt
+                      </span>
+                    )}
+                  </div>
+                )}
+                {subtitle && (
+                  <p className="text-[11px] text-muted-foreground font-medium">{subtitle}</p>
+                )}
+              </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
             {headerActions}
             {onRefresh && (
               <button
                 onClick={onRefresh}
                 disabled={isRefreshing || isLoading}
-                className="px-3 py-1.5 bg-secondary hover:bg-muted text-muted-foreground hover:text-foreground rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                className="px-3 py-1.5 bg-secondary hover:bg-muted text-muted-foreground hover:text-foreground rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shrink-0"
                 title="Kayıtları Yenile"
               >
                 <RotateCcw

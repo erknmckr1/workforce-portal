@@ -9,11 +9,14 @@ import {
   SwitchCamera,
   RotateCcw,
   Check,
+  Barcode,
+  QrCode,
 } from "lucide-react";
 import Webcam from "react-webcam";
 import { useForm } from "react-hook-form";
 import apiClient from "@/lib/api";
 import { toast } from "sonner";
+import QrBarcodeScannerModal from "@/components/common/QrBarcodeScannerModal";
 import {
   type ScrapRecord,
   type ScrapFormData,
@@ -55,6 +58,7 @@ export default function ScrapFormModal({
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
   const [isFetchingSap, setIsFetchingSap] = useState(false);
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
 
   // Kamera State'leri
   const [isCameraOpen, setIsCameraOpen] = useState(false);
@@ -72,6 +76,7 @@ export default function ScrapFormModal({
     reset,
     setValue,
     watch,
+    getValues,
     formState: { isSubmitting },
   } = useForm<ScrapFormData>({
     defaultValues: INITIAL_SCRAP_FORM,
@@ -80,9 +85,47 @@ export default function ScrapFormModal({
   const scrapReason = watch("scrap_reason");
   const isScrap = watch("is_scrap");
 
+  // Kamera Video Track'lerini Kesin Olarak Durdur (Kamera Donanım Işığını Söndürür)
+  const stopWebcamTracks = useCallback(() => {
+    try {
+      const videoEl = webcamRef.current?.video;
+      if (videoEl && videoEl.srcObject) {
+        const stream = videoEl.srcObject as MediaStream;
+        stream.getTracks().forEach((track) => {
+          track.stop();
+          track.enabled = false;
+        });
+        videoEl.srcObject = null;
+      }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const stream = (webcamRef.current as any)?.stream as MediaStream | undefined;
+      if (stream) {
+        stream.getTracks().forEach((track) => {
+          track.stop();
+          track.enabled = false;
+        });
+      }
+    } catch (err) {
+      console.warn("Webcam stream stop error:", err);
+    }
+  }, []);
+
+  // Modal Kapatma (Tüm kameraları kapatır)
+  const handleModalClose = useCallback(() => {
+    stopWebcamTracks();
+    setIsCameraOpen(false);
+    setIsScannerOpen(false);
+    onClose();
+  }, [stopWebcamTracks, onClose]);
+
   // Modal her açıldığında veya initialRecord değiştiğinde formu doldur/sıfırla
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      stopWebcamTracks();
+      setIsCameraOpen(false);
+      setIsScannerOpen(false);
+      return;
+    }
 
     if (initialRecord) {
       const isKnownReason = DEFAULT_SCRAP_REASONS.includes(
@@ -121,24 +164,62 @@ export default function ScrapFormModal({
     setCameraError(null);
   }, [isOpen, initialRecord, reset]);
 
-  // SAP'den Sipariş Bilgisi Sorgula
+  // Üretim Veritabanından (DB / SAP) Sipariş Bilgisi Sorgula
   const handleFetchSapOrder = async (orderNo: string) => {
-    const clean = orderNo.trim();
+    const clean = String(orderNo || "").replace(/^#/, "").trim();
     if (!clean) return;
     setIsFetchingSap(true);
     try {
       const res = await apiClient.get(`/scrap-tracking/order/${clean}`);
       const data = res.data;
       if (data) {
+        setValue("order_no", data.order_id || clean);
         if (data.karat) setValue("karat", data.karat);
         if (data.color) setValue("color", data.color);
         if (data.description) setValue("description", data.description);
-        toast.success(`Sipariş bilgileri SAP'den getirildi (${clean})`);
+        if (data.wire_code || data.material_no) {
+          setValue("wire_code", data.wire_code || data.material_no);
+        }
+
+        const summaryParts = [
+          data.karat ? `${data.karat}K` : "",
+          data.color ? data.color : "",
+          data.description ? data.description : "",
+          (data.wire_code || data.material_no) ? `[Tel: ${data.wire_code || data.material_no}]` : "",
+        ].filter(Boolean);
+
+        toast.success(
+          `Sipariş veritabanından başarıyla getirildi: #${data.order_id || clean} ${
+            summaryParts.length > 0 ? `(${summaryParts.join(" ")})` : ""
+          }`
+        );
       }
     } catch {
-      // Bulunamadıysa sessizce devam et
+      toast.error(`Sipariş (#${clean}) veritabanında bulunamadı.`);
     } finally {
       setIsFetchingSap(false);
+    }
+  };
+
+  // QR / Barkod Kamerasından Kod Okunduğunda
+  const handleQrScan = (decodedText: string) => {
+    let clean = (decodedText || "").trim();
+    // Eğer QR içerik bir URL ise veya '=' içeriyorsa parametreyi ayıkla
+    if (clean.includes("=")) {
+      clean = clean.split("=").pop() || clean;
+    }
+    clean = clean.replace(/^#/, "").trim();
+    if (clean) {
+      setValue("order_no", clean);
+      handleFetchSapOrder(clean);
+    }
+  };
+
+  // Barkod Okutulduğunda (Enter Key)
+  const handleOrderKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault(); // Barkod okuyucu Enter bastığında formun erken submit olmasını önle!
+      handleFetchSapOrder(e.currentTarget.value);
     }
   };
 
@@ -165,8 +246,16 @@ export default function ScrapFormModal({
     }
   }, [webcamRef]);
 
+  // Unmount anında kamerayı durdur
+  useEffect(() => {
+    return () => {
+      stopWebcamTracks();
+    };
+  }, [stopWebcamTracks]);
+
   // Çekilen Fotoğrafı Onayla ve Forma Ata
   const handleConfirmPhoto = () => {
+    stopWebcamTracks();
     if (capturedImage) {
       const file = base64ToFile(
         capturedImage,
@@ -188,6 +277,7 @@ export default function ScrapFormModal({
 
   // Kamerayı Kapat
   const handleCloseCamera = () => {
+    stopWebcamTracks();
     setIsCameraOpen(false);
     setCapturedImage(null);
     setCameraError(null);
@@ -200,27 +290,39 @@ export default function ScrapFormModal({
 
   // Form Gönderimi (Submit)
   const onSubmit = async (data: ScrapFormData) => {
-    if (!data.order_no.trim()) {
+    const values = getValues();
+    const orderNo = (data.order_no || values.order_no || "").trim();
+    if (!orderNo) {
       toast.error("Lütfen Sipariş Numarasını giriniz.");
       return;
     }
 
+    const karat = (data.karat ?? values.karat ?? "").trim();
+    const color = (data.color ?? values.color ?? "Y").trim();
+    const description = (data.description ?? values.description ?? "").trim();
+    const wireCode = (data.wire_code ?? values.wire_code ?? "").trim();
+    const defectNote = (data.defect_note ?? values.defect_note ?? "").trim();
+    const isScrapVal = data.is_scrap !== undefined ? data.is_scrap : values.is_scrap;
+    const scrapLocation = (data.scrap_location ?? values.scrap_location ?? "ÖRME").trim();
+    const scrapReasonVal = (data.scrap_reason ?? values.scrap_reason ?? "").trim();
+    const customReasonVal = (data.custom_reason ?? values.custom_reason ?? "").trim();
+
     try {
       const formData = new FormData();
-      formData.append("order_no", data.order_no.trim());
-      formData.append("karat", data.karat.trim());
-      formData.append("color", data.color.trim());
-      formData.append("description", data.description.trim());
-      formData.append("wire_code", data.wire_code.trim());
-      formData.append("defect_note", data.defect_note.trim());
-      formData.append("is_scrap", String(data.is_scrap));
-      formData.append("scrap_location", data.scrap_location.trim());
+      formData.append("order_no", orderNo);
+      formData.append("karat", karat);
+      formData.append("color", color);
+      formData.append("description", description);
+      formData.append("wire_code", wireCode);
+      formData.append("defect_note", defectNote);
+      formData.append("is_scrap", String(isScrapVal));
+      formData.append("scrap_location", scrapLocation);
 
       const finalReason =
-        data.scrap_reason === "Diğer"
-          ? data.custom_reason.trim() || "Diğer"
-          : data.scrap_reason;
-      formData.append("scrap_reason", finalReason.trim());
+        scrapReasonVal === "Diğer"
+          ? customReasonVal || "Diğer"
+          : scrapReasonVal;
+      formData.append("scrap_reason", finalReason);
 
       if (selectedFile) {
         formData.append("image", selectedFile);
@@ -270,7 +372,7 @@ export default function ScrapFormModal({
             </div>
           </div>
           <button
-            onClick={onClose}
+            onClick={handleModalClose}
             className="p-2 hover:bg-muted rounded-xl text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
           >
             <X size={18} />
@@ -282,45 +384,75 @@ export default function ScrapFormModal({
           {/* Scroll Edilebilir Form İçeriği */}
           <div className="p-4 sm:p-6 overflow-y-auto custom-scrollbar space-y-4 flex-1">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Sipariş No */}
+              {/* Sipariş No / Barkod */}
               <div className="space-y-1.5">
-                <label className="text-[11px] font-black uppercase tracking-wider text-foreground">
-                  Sipariş No <span className="text-rose-500">*</span>
+                <label className="text-[11px] font-black uppercase tracking-wider text-foreground flex items-center justify-between">
+                  <span>
+                    Sipariş No / Barkod <span className="text-rose-500">*</span>
+                  </span>
                 </label>
                 <div className="relative">
+                  <Barcode
+                    className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
+                    size={16}
+                  />
                   <input
                     type="text"
                     required
                     {...orderNoRegister}
+                    onKeyDown={handleOrderKeyDown}
                     onBlur={(e) => {
                       orderNoRegister.onBlur(e);
                       handleFetchSapOrder(e.target.value);
                     }}
-                    placeholder="Örn: 2111588 veya 4060992"
-                    className="w-full h-11 px-3.5 bg-muted/30 border border-border rounded-xl text-xs font-bold text-foreground outline-none focus:border-rose-500 transition-all font-mono"
+                    placeholder="Siparis No"
+                    className="w-full h-11 pl-10 pr-28 sm:pr-32 bg-muted/30 border border-border rounded-xl text-xs font-bold text-foreground outline-none focus:border-rose-500 transition-all font-mono"
                   />
-                  {isFetchingSap && (
-                    <Loader2
-                      size={16}
-                      className="animate-spin absolute right-3 top-1/2 -translate-y-1/2 text-rose-500"
-                    />
-                  )}
+                  <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+                    {/* Kamera ile QR / Barkod Okutma Butonu */}
+                    <button
+                      type="button"
+                      onClick={() => setIsScannerOpen(true)}
+                      className="h-7 px-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 border border-rose-500/20 rounded-lg transition-all cursor-pointer flex items-center gap-1 active:scale-95"
+                      title="Kamera ile QR / Barkod Oku"
+                    >
+                      <QrCode size={13} />
+                      <span className="text-[10px] font-black uppercase tracking-wider">QR</span>
+                    </button>
+
+                    {isFetchingSap ? (
+                      <Loader2
+                        size={16}
+                        className="animate-spin text-rose-500 mr-2"
+                      />
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const val = watch("order_no");
+                          handleFetchSapOrder(val);
+                        }}
+                        className="h-7 px-2.5 text-[10px] font-black uppercase tracking-wider bg-secondary hover:bg-muted text-foreground border border-border rounded-lg transition-all cursor-pointer active:scale-95"
+                        title="Veritabanından Siparişi Getir"
+                      >
+                        Sorgula
+                      </button>
+                    )}
+                  </div>
                 </div>
-                <span className="text-[10px] text-muted-foreground block">
-                  Yazıp alandan çıktığınızda SAP'den ayar/renk/açıklama otomatik gelir.
-                </span>
               </div>
 
-              {/* Ayar */}
+              {/* Ayar (Disabled) */}
               <div className="space-y-1.5">
-                <label className="text-[11px] font-black uppercase tracking-wider text-foreground">
+                <label className="text-[11px] font-black uppercase tracking-wider text-muted-foreground">
                   Ayar (Karat)
                 </label>
                 <select
+                  disabled
                   {...register("karat")}
-                  className="w-full h-11 px-3.5 bg-muted/30 border border-border rounded-xl text-xs font-bold text-foreground outline-none focus:border-rose-500 transition-all cursor-pointer"
+                  className="w-full h-11 px-3.5 bg-muted/40 border border-border/80 rounded-xl text-xs font-bold text-foreground/80 outline-none cursor-not-allowed opacity-85 select-none"
                 >
-                  <option value="">Ayar Seçiniz (veya SAP'den gelir)</option>
+                  <option value="">Ayar Seçiniz</option>
                   {KARAT_OPTIONS.map((k) => (
                     <option key={k} value={k}>
                       {k} Ayar
@@ -329,14 +461,15 @@ export default function ScrapFormModal({
                 </select>
               </div>
 
-              {/* Renk */}
+              {/* Renk (Disabled) */}
               <div className="space-y-1.5">
-                <label className="text-[11px] font-black uppercase tracking-wider text-foreground">
+                <label className="text-[11px] font-black uppercase tracking-wider text-muted-foreground">
                   Renk
                 </label>
                 <select
+                  disabled
                   {...register("color")}
-                  className="w-full h-11 px-3.5 bg-muted/30 border border-border rounded-xl text-xs font-bold text-foreground outline-none focus:border-rose-500 transition-all cursor-pointer"
+                  className="w-full h-11 px-3.5 bg-muted/40 border border-border/80 rounded-xl text-xs font-bold text-foreground/80 outline-none cursor-not-allowed opacity-85 select-none"
                 >
                   {COLOR_OPTIONS.map((c) => (
                     <option key={c.code} value={c.code}>
@@ -346,30 +479,32 @@ export default function ScrapFormModal({
                 </select>
               </div>
 
-              {/* Tel Kodu */}
+              {/* Tel Kodu (Disabled) */}
               <div className="space-y-1.5">
-                <label className="text-[11px] font-black uppercase tracking-wider text-foreground">
+                <label className="text-[11px] font-black uppercase tracking-wider text-muted-foreground">
                   Tel Kodu
                 </label>
                 <input
                   type="text"
+                  disabled
                   {...register("wire_code")}
-                  placeholder="Örn: YT003135 veya YT001025"
-                  className="w-full h-11 px-3.5 bg-muted/30 border border-border rounded-xl text-xs font-mono font-bold text-foreground outline-none focus:border-rose-500 transition-all"
+                  placeholder="Örn: YT003135"
+                  className="w-full h-11 px-3.5 bg-muted/40 border border-border/80 rounded-xl text-xs font-mono font-bold text-foreground/80 outline-none cursor-not-allowed opacity-85 select-none"
                 />
               </div>
             </div>
 
-            {/* Açıklama / Model Adı */}
+            {/* Açıklama / Model Adı (Disabled) */}
             <div className="space-y-1.5">
-              <label className="text-[11px] font-black uppercase tracking-wider text-foreground">
+              <label className="text-[11px] font-black uppercase tracking-wider text-muted-foreground">
                 Açıklama (Model / Zincir Adı)
               </label>
               <input
                 type="text"
+                disabled
                 {...register("description")}
                 placeholder="Örn: IB EZME TONDO 50 TR"
-                className="w-full h-11 px-3.5 bg-muted/30 border border-border rounded-xl text-xs font-bold text-foreground outline-none focus:border-rose-500 transition-all"
+                className="w-full h-11 px-3.5 bg-muted/40 border border-border/80 rounded-xl text-xs font-bold text-foreground/80 outline-none cursor-not-allowed opacity-85 select-none"
               />
             </div>
 
@@ -572,7 +707,7 @@ export default function ScrapFormModal({
           <div className="p-3.5 sm:p-4 border-t border-border bg-card/95 backdrop-blur-xs flex items-center justify-end gap-2.5 sm:gap-3 shrink-0 shadow-xs">
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleModalClose}
               className="flex-1 sm:flex-initial px-5 py-2.5 bg-secondary hover:bg-muted text-muted-foreground hover:text-foreground rounded-xl font-bold text-xs uppercase tracking-wider transition-all cursor-pointer text-center"
             >
               İptal
@@ -639,14 +774,15 @@ export default function ScrapFormModal({
                     screenshotFormat="image/jpeg"
                     screenshotQuality={0.92}
                     videoConstraints={{
-                      facingMode,
-                      width: { ideal: 1920 },
-                      height: { ideal: 1080 },
+                      facingMode: { ideal: facingMode },
+                      width: { ideal: 1280 },
+                      height: { ideal: 720 },
                     }}
                     className="w-full h-full object-cover"
-                    onUserMediaError={() => {
+                    onUserMediaError={(err) => {
+                      console.error("Webcam media error:", err);
                       setCameraError(
-                        "Kameraya erişilemedi. Tarayıcı izinlerini kontrol edebilir veya 'Cihazdan Aç' seçeneğini kullanabilirsiniz."
+                        "Kameraya erişilemedi. Tarayıcı izinlerini kontrol edebilir veya 'Telefon Kamerasını Aç' seçeneğini kullanabilirsiniz."
                       );
                     }}
                   />
@@ -725,6 +861,13 @@ export default function ScrapFormModal({
           </div>
         </div>
       )}
+
+      {/* QR / Barkod Kamera Tarayıcı Modalı */}
+      <QrBarcodeScannerModal
+        isOpen={isScannerOpen}
+        onClose={() => setIsScannerOpen(false)}
+        onScan={handleQrScan}
+      />
     </div>
   );
 }
