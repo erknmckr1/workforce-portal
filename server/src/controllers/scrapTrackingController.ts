@@ -3,6 +3,7 @@ import { ScrapTracking, Operator, SapOrder } from "../models";
 import { Op } from "sequelize";
 import path from "path";
 import fs from "fs";
+import { writeAuditLog, extractAuditActor } from "../services/auditService";
 
 export const getScrapTrackings = async (req: Request, res: Response) => {
   try {
@@ -148,6 +149,11 @@ export const createScrapTracking = async (req: Request, res: Response) => {
       return res.status(400).json({ message: "Sipariş Numarası zorunludur." });
     }
 
+    // Aktif kullanıcıyı (aktörü) tespit et
+    const actor = await extractAuditActor(req);
+    const resolvedOperatorId =
+      actor.operatorId || (operator_id ? String(operator_id).trim() : null) || (req as any).user?.id_dec || null;
+
     let finalKarat = karat;
     let finalColor = color;
     let finalDescription = description;
@@ -209,10 +215,52 @@ export const createScrapTracking = async (req: Request, res: Response) => {
       scrap_location: scrap_location ? String(scrap_location).trim() : null,
       scrap_reason: scrap_reason ? String(scrap_reason).trim() : null,
       image_url: imageUrl,
-      operator_id: operator_id || (req as any).user?.id_dec || null,
+      operator_id: resolvedOperatorId,
     });
 
-    return res.status(201).json(newRecord);
+    // Merkezi Denetim Logu (SystemAuditLog) Kaydı
+    const actorStr = actor.operatorId
+      ? `${actor.operatorName} (${actor.operatorId})`
+      : (actor.operatorName || "Sistem");
+
+    await writeAuditLog({
+      req,
+      module: "SCRAP_TRACKING",
+      actionType: "CREATE_SCRAP",
+      description: `${actorStr}, '${newRecord.order_no}' siparişi için yeni ${
+        newRecord.is_scrap ? "Hurda" : "Takip"
+      } kaydı oluşturdu. (Ayar: ${newRecord.karat || "-"}, Tel: ${
+        newRecord.wire_code || "-"
+      }, Neden: ${newRecord.scrap_reason || "-"})`,
+      details: {
+        recordId: newRecord.id,
+        orderNo: newRecord.order_no,
+        wireCode: newRecord.wire_code,
+        karat: newRecord.karat,
+        color: newRecord.color,
+        description: newRecord.description,
+        isScrap: newRecord.is_scrap,
+        scrapLocation: newRecord.scrap_location,
+        scrapReason: newRecord.scrap_reason,
+        defectNote: newRecord.defect_note,
+        imageUrl: newRecord.image_url,
+        operatorId: resolvedOperatorId,
+      },
+    });
+
+    // İlişkili operatör bilgisiyle birlikte dön
+    const recordWithOperator = await ScrapTracking.findByPk(newRecord.id, {
+      include: [
+        {
+          model: Operator,
+          as: "Operator",
+          attributes: ["id_dec", "name", "surname"],
+          required: false,
+        },
+      ],
+    });
+
+    return res.status(201).json(recordWithOperator || newRecord);
   } catch (error) {
     console.error("createScrapTracking Error:", error);
     return res.status(500).json({ message: "Hurda kaydı oluşturulurken hata oluştu." });
@@ -237,6 +285,13 @@ export const updateScrapTracking = async (req: Request, res: Response) => {
       return res.status(404).json({ message: "Güncellenecek kayıt bulunamadı." });
     }
 
+    const actor = await extractAuditActor(req);
+    const actorStr = actor.operatorId
+      ? `${actor.operatorName} (${actor.operatorId})`
+      : (actor.operatorName || "Sistem");
+
+    const oldSnapshot = record.toJSON ? record.toJSON() : { ...record.get() };
+
     const {
       order_no,
       karat,
@@ -250,6 +305,8 @@ export const updateScrapTracking = async (req: Request, res: Response) => {
     } = req.body;
 
     let imageUrl = record.image_url;
+    let imageChanged = false;
+
     if (req.file) {
       // Yeni dosya yüklendiyse eskisini temizlemeye çalış (opsiyonel)
       if (record.image_url && record.image_url.startsWith("/uploads/scrap-images/")) {
@@ -264,22 +321,94 @@ export const updateScrapTracking = async (req: Request, res: Response) => {
         }
       }
       imageUrl = `/uploads/scrap-images/${req.file.filename}`;
+      imageChanged = true;
+    }
+
+    const nextOrderNo = order_no !== undefined ? String(order_no).trim() : record.order_no;
+    const nextKarat = karat !== undefined ? (karat ? String(karat).trim() : null) : record.karat;
+    const nextColor = color !== undefined ? (color ? String(color).trim() : null) : record.color;
+    const nextDescription = description !== undefined ? (description ? String(description).trim() : null) : record.description;
+    const nextWireCode = wire_code !== undefined ? (wire_code ? String(wire_code).trim() : null) : record.wire_code;
+    const nextDefectNote = defect_note !== undefined ? (defect_note ? String(defect_note).trim() : null) : record.defect_note;
+    const nextIsScrap = is_scrap !== undefined ? (is_scrap === "true" || is_scrap === true) : record.is_scrap;
+    const nextScrapLocation = scrap_location !== undefined ? (scrap_location ? String(scrap_location).trim() : null) : record.scrap_location;
+    const nextScrapReason = scrap_reason !== undefined ? (scrap_reason ? String(scrap_reason).trim() : null) : record.scrap_reason;
+
+    // Alan değişikliklerini (diff) ve insan tarafından okunabilir özeti oluştur
+    const changes: Record<string, { old: any; new: any; label: string }> = {};
+    const summaryItems: string[] = [];
+
+    const checkDiff = (key: string, label: string, oldVal: any, newVal: any) => {
+      const oStr = oldVal !== null && oldVal !== undefined ? String(oldVal).trim() : "";
+      const nStr = newVal !== null && newVal !== undefined ? String(newVal).trim() : "";
+      if (oStr !== nStr) {
+        changes[key] = { old: oldVal, new: newVal, label };
+        summaryItems.push(`${label} (${oStr || "Boş"} ➔ ${nStr || "Boş"})`);
+      }
+    };
+
+    checkDiff("order_no", "Sipariş No", oldSnapshot.order_no, nextOrderNo);
+    checkDiff("karat", "Ayar", oldSnapshot.karat, nextKarat);
+    checkDiff("color", "Renk", oldSnapshot.color, nextColor);
+    checkDiff("description", "Açıklama (Model)", oldSnapshot.description, nextDescription);
+    checkDiff("wire_code", "Tel Kodu", oldSnapshot.wire_code, nextWireCode);
+    checkDiff("defect_note", "Hata Notu", oldSnapshot.defect_note, nextDefectNote);
+    checkDiff("scrap_location", "Hurda Yeri", oldSnapshot.scrap_location, nextScrapLocation);
+    checkDiff("scrap_reason", "Hurda Nedeni", oldSnapshot.scrap_reason, nextScrapReason);
+
+    if (oldSnapshot.is_scrap !== nextIsScrap) {
+      const oldState = oldSnapshot.is_scrap ? "HURDA" : "TAKİPTE";
+      const newState = nextIsScrap ? "HURDA" : "TAKİPTE";
+      changes.is_scrap = { old: oldSnapshot.is_scrap, new: nextIsScrap, label: "Durum" };
+      summaryItems.push(`Durum (${oldState} ➔ ${newState})`);
+    }
+
+    if (imageChanged) {
+      changes.image_url = { old: oldSnapshot.image_url, new: imageUrl, label: "Görsel" };
+      summaryItems.push("Görsel Yenilendi");
     }
 
     await record.update({
-      order_no: order_no !== undefined ? String(order_no).trim() : record.order_no,
-      karat: karat !== undefined ? (karat ? String(karat).trim() : null) : record.karat,
-      color: color !== undefined ? (color ? String(color).trim() : null) : record.color,
-      description: description !== undefined ? (description ? String(description).trim() : null) : record.description,
-      wire_code: wire_code !== undefined ? (wire_code ? String(wire_code).trim() : null) : record.wire_code,
-      defect_note: defect_note !== undefined ? (defect_note ? String(defect_note).trim() : null) : record.defect_note,
-      is_scrap: is_scrap !== undefined ? (is_scrap === "true" || is_scrap === true) : record.is_scrap,
-      scrap_location: scrap_location !== undefined ? (scrap_location ? String(scrap_location).trim() : null) : record.scrap_location,
-      scrap_reason: scrap_reason !== undefined ? (scrap_reason ? String(scrap_reason).trim() : null) : record.scrap_reason,
+      order_no: nextOrderNo,
+      karat: nextKarat,
+      color: nextColor,
+      description: nextDescription,
+      wire_code: nextWireCode,
+      defect_note: nextDefectNote,
+      is_scrap: nextIsScrap,
+      scrap_location: nextScrapLocation,
+      scrap_reason: nextScrapReason,
       image_url: imageUrl,
     });
 
-    return res.status(200).json(record);
+    // Değişiklik varsa Merkezi Denetim Logu (SystemAuditLog) Kaydı oluştur
+    if (summaryItems.length > 0) {
+      await writeAuditLog({
+        req,
+        module: "SCRAP_TRACKING",
+        actionType: "UPDATE_SCRAP",
+        description: `${actorStr}, '${record.order_no}' (ID: ${record.id}) hurda kaydını güncelledi. Değişenler: ${summaryItems.join(", ")}.`,
+        details: {
+          recordId: record.id,
+          orderNo: record.order_no,
+          changes,
+        },
+      });
+    }
+
+    // İlişkili operatör bilgisiyle birlikte dön
+    const updatedRecord = await ScrapTracking.findByPk(record.id, {
+      include: [
+        {
+          model: Operator,
+          as: "Operator",
+          attributes: ["id_dec", "name", "surname"],
+          required: false,
+        },
+      ],
+    });
+
+    return res.status(200).json(updatedRecord || record);
   } catch (error) {
     console.error("updateScrapTracking Error:", error);
     return res.status(500).json({ message: "Hurda kaydı güncellenirken hata oluştu." });
@@ -290,12 +419,30 @@ export const deleteScrapTracking = async (req: Request, res: Response) => {
   try {
     const rawId = req.params.id;
     const id = Number(Array.isArray(rawId) ? rawId[0] : rawId);
-    const record = await ScrapTracking.findByPk(id);
+    const record = await ScrapTracking.findByPk(id, {
+      include: [
+        {
+          model: Operator,
+          as: "Operator",
+          attributes: ["id_dec", "name", "surname"],
+          required: false,
+        },
+      ],
+    });
 
     if (!record) {
       return res.status(404).json({ message: "Kayıt bulunamadı." });
     }
 
+    const actor = await extractAuditActor(req);
+    const actorStr = actor.operatorId
+      ? `${actor.operatorName} (${actor.operatorId})`
+      : (actor.operatorName || "Sistem");
+
+    // Silinen kaydın tam snapshot'ı (veri kaybını önlemek için)
+    const deletedSnapshot = record.toJSON ? record.toJSON() : { ...record.get() };
+
+    // Görsel dosyasını sil
     if (record.image_url && record.image_url.startsWith("/uploads/scrap-images/")) {
       const filename = record.image_url.replace("/uploads/scrap-images/", "");
       const filePath = path.join(getScrapUploadDir(), filename);
@@ -309,6 +456,20 @@ export const deleteScrapTracking = async (req: Request, res: Response) => {
     }
 
     await record.destroy();
+
+    // Merkezi Denetim Logu (SystemAuditLog) Kaydı
+    await writeAuditLog({
+      req,
+      module: "SCRAP_TRACKING",
+      actionType: "DELETE_SCRAP",
+      description: `${actorStr}, '${deletedSnapshot.order_no}' (ID: ${deletedSnapshot.id}) hurda kaydını sildi. (Neden: ${deletedSnapshot.scrap_reason || "-"}, Ayar: ${deletedSnapshot.karat || "-"})`,
+      details: {
+        recordId: deletedSnapshot.id,
+        orderNo: deletedSnapshot.order_no,
+        deletedRecord: deletedSnapshot,
+      },
+    });
+
     return res.status(200).json({ message: "Kayıt başarıyla silindi." });
   } catch (error) {
     console.error("deleteScrapTracking Error:", error);

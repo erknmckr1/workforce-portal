@@ -325,6 +325,7 @@ export default function HurdaTakibi() {
         "Hurda Nedeni",
         "Hurda Durumu",
         "Hata / Not",
+        "Kaydeden",
         "Görsel Linki",
         "Kayıt Tarihi",
       ];
@@ -339,6 +340,7 @@ export default function HurdaTakibi() {
         `"${r.scrap_reason || ""}"`,
         `"${r.is_scrap ? "HURDA" : "TAKİPTE"}"`,
         `"${(r.defect_note || "").replace(/"/g, '""')}"`,
+        `"${r.Operator ? `${r.Operator.name} ${r.Operator.surname} (${r.Operator.id_dec})` : (r.operator_id || "")}"`,
         `"${r.image_url ? getBackendFileUrl(r.image_url) : ""}"`,
         `"${format(new Date(r.created_at), "yyyy-MM-dd HH:mm")}"`,
       ]);
@@ -834,7 +836,15 @@ export default function HurdaTakibi() {
 
               {/* Tarih */}
               <td className="py-2.5 px-3 font-mono text-muted-foreground font-bold whitespace-nowrap">
-                {dateStr}
+                <div>{dateStr}</div>
+                {record.Operator && (
+                  <div
+                    className="text-[10px] text-muted-foreground/70 font-sans font-medium truncate max-w-25"
+                    title={`Kaydeden: ${record.Operator.name} ${record.Operator.surname} (${record.Operator.id_dec})`}
+                  >
+                    {record.Operator.name} {record.Operator.surname?.[0]}.
+                  </div>
+                )}
               </td>
 
               {/* Saat */}

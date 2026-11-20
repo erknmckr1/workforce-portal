@@ -17,6 +17,7 @@ import { useForm } from "react-hook-form";
 import apiClient from "@/lib/api";
 import { toast } from "sonner";
 import { getBackendFileUrl } from "@/lib/utils";
+import { useAuthStore } from "@/store/authStore";
 import QrBarcodeScannerModal from "@/components/common/QrBarcodeScannerModal";
 import {
   type ScrapRecord,
@@ -56,6 +57,7 @@ export default function ScrapFormModal({
   onSuccess,
   initialRecord,
 }: ScrapFormModalProps) {
+  const { user } = useAuthStore();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
   const [isFetchingSap, setIsFetchingSap] = useState(false);
@@ -326,6 +328,10 @@ export default function ScrapFormModal({
           ? customReasonVal || "Diğer"
           : scrapReasonVal;
       formData.append("scrap_reason", finalReason);
+
+      if (user?.id_dec) {
+        formData.append("operator_id", String(user.id_dec));
+      }
 
       if (selectedFile) {
         formData.append("image", selectedFile);
