@@ -12,8 +12,12 @@ import {
   getSapOrderInfo,
   getScrapReasons,
 } from "../controllers/scrapTrackingController";
+import { requireAuth } from "../middlewares/authMiddleware";
 
 const router = Router();
+
+// Tüm hurda takip işlemleri için oturum (token) zorunluluğu
+router.use(requireAuth);
 
 // Multer Storage Yapılandırması (Ağ Paylaşımı / Dosya Sunucusu Desteği)
 const storage = multer.diskStorage({

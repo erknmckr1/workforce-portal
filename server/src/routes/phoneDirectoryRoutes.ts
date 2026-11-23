@@ -5,12 +5,16 @@ import {
   updatePhoneEntry,
   deletePhoneEntry,
 } from "../controllers/phoneDirectoryController";
+import { requireAuth } from "../middlewares/authMiddleware";
 
 const router = Router();
 
+// Telefon rehberini okuma serbesttir
 router.get("/", getPhoneDirectory);
-router.post("/", createPhoneEntry);
-router.put("/:id", updatePhoneEntry);
-router.delete("/:id", deletePhoneEntry);
+
+// Ekleme, düzenleme ve silme işlemleri oturum zorunludur
+router.post("/", requireAuth, createPhoneEntry);
+router.put("/:id", requireAuth, updatePhoneEntry);
+router.delete("/:id", requireAuth, deletePhoneEntry);
 
 export default router;

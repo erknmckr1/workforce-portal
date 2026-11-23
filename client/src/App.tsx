@@ -144,7 +144,13 @@ function App() {
             </Route>
 
             {/* 2.7 Hurda Takibi ve Rapor Ekranı - Kendine Özgü Layout ile */}
-            <Route element={<HurdaTakibiLayout />}>
+            <Route
+              element={
+                <AuthLayoutWrapper>
+                  <HurdaTakibiLayout />
+                </AuthLayoutWrapper>
+              }
+            >
               <Route path="/hurda-takibi" element={<HurdaTakibi />} />
               <Route path="/hurda-raporu" element={<HurdaRaporuPage />} />
             </Route>

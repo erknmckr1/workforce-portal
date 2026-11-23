@@ -20,49 +20,50 @@ import {
     getSystemAuditLogs,
     getPersonnelById
 } from "../controllers/personnelController";
+import { requireAuth } from "../middlewares/authMiddleware";
+import { requireKioskOrAuth } from "../middlewares/kioskMiddleware";
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
-// Yardımcı verileri (roles, sections vs) getir
-router.get("/lookups", getPersonnelLookups);
+// Yardımcı verileri (roles, sections vs) getir (Kiosk veya Giriş Yapmış Kullanıcı)
+router.get("/lookups", requireKioskOrAuth, getPersonnelLookups);
 
-// Denetim (audit) loglarını listele
-router.get("/approval-audit-logs", getApprovalAuditLogs);
-router.get("/audit-logs", getSystemAuditLogs);
+// Denetim (audit) loglarını listele (Sadece Giriş Yapmış Yetkili)
+router.get("/approval-audit-logs", requireAuth, getApprovalAuditLogs);
+router.get("/audit-logs", requireAuth, getSystemAuditLogs);
 
-// Tüm personelleri listele
-router.get("/", getAllPersonnel);
+// Tüm personelleri listele (Kiosk veya Giriş Yapmış Kullanıcı)
+router.get("/", requireKioskOrAuth, getAllPersonnel);
 
-// Yeni personel kaydet
-router.post("/", createPersonnel);
+// Yeni personel kaydet (Sadece Giriş Yapmış Yetkili)
+router.post("/", requireAuth, createPersonnel);
 
-// Excel'den İzin Bakiyesi Senkronizasyonu
-router.post("/sync-leaves", upload.single("file"), syncLeaveBalances);
-router.post("/sync-leaves-local", syncLeaveBalancesLocal);
+// Excel'den İzin Bakiyesi Senkronizasyonu (Sadece Giriş Yapmış Yetkili)
+router.post("/sync-leaves", requireAuth, upload.single("file"), syncLeaveBalances);
+router.post("/sync-leaves-local", requireAuth, syncLeaveBalancesLocal);
 
-// Hiyerarşi (Approvals) işlemleri
-router.post("/sync-approvals", syncAllApprovals);
-router.put("/section-manager/:id", updateSectionManager);
-router.put("/department-supervisor/:id", updateDepartmentSupervisor);
-router.put("/department-ustabasi/:id", updateDepartmentUstabasi);
+// Hiyerarşi (Approvals) işlemleri (Sadece Giriş Yapmış Yetkili)
+router.post("/sync-approvals", requireAuth, syncAllApprovals);
+router.put("/section-manager/:id", requireAuth, updateSectionManager);
+router.put("/department-supervisor/:id", requireAuth, updateDepartmentSupervisor);
+router.put("/department-ustabasi/:id", requireAuth, updateDepartmentUstabasi);
 
-// Bölüm & Birim Ekleme / Güncelleme
-router.post("/sections", createSection);
-router.put("/sections/:id", updateSection);
-router.post("/departments", createDepartment);
-router.put("/departments/:id", updateDepartment);
+// Bölüm & Birim Ekleme / Güncelleme (Sadece Giriş Yapmış Yetkili)
+router.post("/sections", requireAuth, createSection);
+router.put("/sections/:id", requireAuth, updateSection);
+router.post("/departments", requireAuth, createDepartment);
+router.put("/departments/:id", requireAuth, updateDepartment);
 
-// Personel bilgilerini güncelle
-router.put("/:id_dec", updatePersonnel);
+// Personel bilgilerini güncelle (Sadece Giriş Yapmış Yetkili)
+router.put("/:id_dec", requireAuth, updatePersonnel);
 
-// Personel sil (Soft Delete)
-router.delete("/:id_dec", deletePersonnel);
+// Personel sil (Soft Delete) (Sadece Giriş Yapmış Yetkili)
+router.delete("/:id_dec", requireAuth, deletePersonnel);
 
-
-// Tekil personel getir (Kiosk / Barkod okutma)
-router.get("/by-id/:id", getPersonnelById);
-router.get("/:id", getPersonnelById);
+// Tekil personel getir (Kiosk / Barkod okutma veya Giriş Yapmış Kullanıcı)
+router.get("/by-id/:id", requireKioskOrAuth, getPersonnelById);
+router.get("/:id", requireKioskOrAuth, getPersonnelById);
 
 export default router;
 
