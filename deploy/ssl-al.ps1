@@ -1,4 +1,4 @@
-<#
+﻿<#
   mes.midas.com.tr icin ucretsiz Let's Encrypt sertifikasi (DNS dogrulamasi)
   - win-acme yoksa GitHub'dan indirir (C:\win-acme)
   - Sertifikayi LocalMachine\My deposuna alir (IIS'e henuz baglamaz)
