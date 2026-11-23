@@ -46,6 +46,29 @@ export const INITIAL_SCRAP_FORM: ScrapFormData = {
   custom_reason: "",
 };
 
+export function parseImageUrls(raw: string | null | undefined): string[] {
+  if (!raw) return [];
+  const trimmed = String(raw).trim();
+  if (!trimmed || trimmed === "/images/sample-scrap.svg") return [];
+  if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) {
+        return parsed
+          .filter(Boolean)
+          .map((s) => String(s).trim())
+          .filter((s) => s.length > 0 && s !== "/images/sample-scrap.svg");
+      }
+    } catch {
+      // ignore
+    }
+  }
+  return trimmed
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0 && s !== "/images/sample-scrap.svg");
+}
+
 export const DEFAULT_LOCATIONS = [
   "ÖRME",
   "DÖKÜM",

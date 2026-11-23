@@ -5,7 +5,6 @@ import {
   X,
   Loader2,
   Upload,
-  Trash2,
   Camera,
   SwitchCamera,
   RotateCcw,
@@ -13,6 +12,7 @@ import {
   Barcode,
   QrCode,
   Image as ImageIcon,
+  Plus,
 } from "lucide-react";
 import Webcam from "react-webcam";
 import { useForm } from "react-hook-form";
@@ -30,6 +30,7 @@ import {
   KARAT_OPTIONS,
   COLOR_OPTIONS,
   DEFAULT_SCRAP_REASONS,
+  parseImageUrls,
 } from "@/types/scrap";
 
 export interface ScrapFormModalProps {
@@ -53,6 +54,13 @@ function base64ToFile(dataurl: string, filename: string): File {
   return new File([u8arr], filename, { type: mime });
 }
 
+export interface PhotoItem {
+  id: string;
+  url: string;
+  file?: File;
+  isExisting?: boolean;
+}
+
 export default function ScrapFormModal({
   isOpen,
   onClose,
@@ -61,8 +69,7 @@ export default function ScrapFormModal({
 }: ScrapFormModalProps) {
   const { user } = useAuthStore();
   const { confirm } = useConfirm();
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
+  const [photos, setPhotos] = useState<PhotoItem[]>([]);
   const [isFetchingSap, setIsFetchingSap] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
 
@@ -199,17 +206,16 @@ export default function ScrapFormModal({
         scrap_reasons: resolvedReasons,
         custom_reason: customReasonInitial,
       });
-      setSelectedFile(null);
-      const hasRealImage =
-        initialRecord.image_url &&
-        initialRecord.image_url !== "/images/sample-scrap.svg";
-      setFilePreviewUrl(
-        hasRealImage ? getBackendFileUrl(initialRecord.image_url!) : null
-      );
+      const rawUrls = parseImageUrls(initialRecord.image_url);
+      const initialPhotos: PhotoItem[] = rawUrls.map((url, idx) => ({
+        id: `existing-${idx}-${url}`,
+        url: getBackendFileUrl(url),
+        isExisting: true,
+      }));
+      setPhotos(initialPhotos);
     } else {
       reset(INITIAL_SCRAP_FORM);
-      setSelectedFile(null);
-      setFilePreviewUrl(null);
+      setPhotos([]);
     }
 
     // Kamera durumunu sıfırla
@@ -277,14 +283,19 @@ export default function ScrapFormModal({
     }
   };
 
-  // Dosya Seçildiğinde (Galeri veya Native Kamera)
+  // Dosya(lar) Seçildiğinde (Galeri veya Native Kamera)
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      setSelectedFile(file);
-      setFilePreviewUrl(URL.createObjectURL(file));
+    if (e.target.files && e.target.files.length > 0) {
+      const newItems: PhotoItem[] = Array.from(e.target.files).map((file, idx) => ({
+        id: `file-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 7)}`,
+        url: URL.createObjectURL(file),
+        file,
+      }));
+      setPhotos((prev) => [...prev, ...newItems]);
       setIsCameraOpen(false);
       setCapturedImage(null);
+      toast.success(`${newItems.length} görsel eklendi.`);
+      e.target.value = "";
     }
   };
 
@@ -307,21 +318,33 @@ export default function ScrapFormModal({
     };
   }, [stopWebcamTracks]);
 
-  // Çekilen Fotoğrafı Onayla ve Forma Ata
-  const handleConfirmPhoto = () => {
-    stopWebcamTracks();
+  // Çekilen Fotoğrafı Onayla ve Listeye Ekle
+  const handleConfirmPhoto = (keepCameraOpen = false) => {
     if (capturedImage) {
       const file = base64ToFile(
         capturedImage,
         `hurda_kamera_${Date.now()}.jpg`
       );
-      setSelectedFile(file);
-      setFilePreviewUrl(capturedImage);
+      const newPhoto: PhotoItem = {
+        id: `camera-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        url: capturedImage,
+        file,
+      };
+      setPhotos((prev) => [...prev, newPhoto]);
       setCapturedImage(null);
-      setIsCameraOpen(false);
-      setCameraError(null);
-      toast.success("Kamera fotoğrafı başarıyla eklendi.");
+      toast.success("Fotoğraf eklendi.");
+
+      if (!keepCameraOpen) {
+        stopWebcamTracks();
+        setIsCameraOpen(false);
+        setCameraError(null);
+      }
     }
+  };
+
+  // Fotoğraf Kaldır
+  const handleRemovePhoto = (id: string) => {
+    setPhotos((prev) => prev.filter((p) => p.id !== id));
   };
 
   // Yeniden Çek
@@ -392,9 +415,21 @@ export default function ScrapFormModal({
         formData.append("operator_id", String(user.id_dec));
       }
 
-      if (selectedFile) {
-        formData.append("image", selectedFile);
-      } else if (!filePreviewUrl && initialRecord?.image_url) {
+      // Yeni eklenen görsel dosyaları
+      const newFiles = photos
+        .filter((p) => p.file && p.file instanceof File)
+        .map((p) => p.file!);
+      for (const file of newFiles) {
+        formData.append("images", file);
+      }
+
+      // Korunan mevcut görseller (backend URL'ini temizleyip göreceli yol olarak yolla)
+      const keptExisting = photos
+        .filter((p) => p.isExisting)
+        .map((p) => p.url.replace(/^https?:\/\/[^/]+/, ""));
+      formData.append("existing_images", JSON.stringify(keptExisting));
+
+      if (photos.length === 0 && initialRecord?.image_url) {
         formData.append("remove_image", "true");
       }
 
@@ -726,74 +761,93 @@ export default function ScrapFormModal({
               </label>
             </div>
 
-            {/* Görsel Yükleme & Fotoğraf Çekme */}
+            {/* Görsel Yükleme & Fotoğraf Çekme (Çoklu Görsel) */}
             <div className="space-y-2 pt-2">
-              <label className="text-[11px] font-black uppercase tracking-wider text-foreground flex items-center justify-between">
-                <span>Hurda Görseli</span>
-              </label>
+              <div className="flex items-center justify-between">
+                <label className="text-[11px] font-black uppercase tracking-wider text-foreground flex items-center gap-2">
+                  <span>Hurda Görselleri</span>
+                  <span className="text-[10px] font-medium text-muted-foreground lowercase">
+                    (birden fazla eklenebilir)
+                  </span>
+                </label>
+                {photos.length > 0 && (
+                  <span className="text-[10px] font-bold text-rose-500 bg-rose-500/10 px-2.5 py-0.5 rounded-full">
+                    {photos.length} görsel eklendi
+                  </span>
+                )}
+              </div>
 
-              {/* Gizli Dosya Seçici */}
+              {/* Gizli Dosya Seçici (multiple) */}
               <input
                 ref={fileInputRef}
                 type="file"
+                multiple
                 onChange={handleFileChange}
                 accept="image/jpeg,image/png,image/webp,image/jpg"
                 className="hidden"
               />
 
-              {/* Gizli Native Kamera Seçici (Cihaz kamerası doğrudan açılır) */}
+              {/* Gizli Native Kamera Seçici */}
               <input
                 ref={nativeCameraInputRef}
                 type="file"
+                multiple
                 accept="image/*"
                 capture="environment"
                 onChange={handleFileChange}
                 className="hidden"
               />
 
-              {filePreviewUrl ? (
-                <div className="relative p-3 bg-muted/30 border border-border rounded-2xl flex items-center gap-4">
-                  <div className="w-20 h-20 rounded-xl overflow-hidden border border-border bg-black/5 shrink-0 shadow-xs">
-                    <img src={filePreviewUrl} alt="Önizleme" className="w-full h-full object-cover" />
-                  </div>
-                  <div className="flex-1 space-y-1 min-w-0">
-                    <span className="text-xs font-bold text-foreground block truncate">
-                      {selectedFile ? selectedFile.name : "Yüklenen Görsel"}
-                    </span>
-                    <span className="text-[10px] text-muted-foreground block">
-                      Görsel başarıyla belirlendi
-                    </span>
-                    <div className="flex items-center gap-2 pt-1 flex-wrap">
+              {photos.length > 0 ? (
+                <div className="space-y-2.5">
+                  {/* Fotoğraf Galerisi Izgarası */}
+                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2.5 p-3 bg-muted/20 border border-border/80 rounded-2xl">
+                    {photos.map((photo, idx) => (
+                      <div
+                        key={photo.id}
+                        className="group/photo relative aspect-square rounded-xl overflow-hidden border border-border bg-black/10 shadow-xs hover:border-rose-500/50 transition-all"
+                      >
+                        <img
+                          src={photo.url}
+                          alt={`Hurda Görseli ${idx + 1}`}
+                          className="w-full h-full object-cover"
+                        />
+                        <span className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded bg-black/70 text-white text-[9px] font-bold pointer-events-none">
+                          #{idx + 1}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemovePhoto(photo.id)}
+                          className="absolute top-1 right-1 w-6 h-6 rounded-lg bg-black/70 hover:bg-rose-600 text-white flex items-center justify-center transition-colors cursor-pointer shadow-xs"
+                          title="Görseli Kaldır"
+                        >
+                          <X size={13} />
+                        </button>
+                      </div>
+                    ))}
+
+                    {/* Fotoğraf Ekleme Kutusu */}
+                    <div className="flex flex-col gap-1.5 aspect-square rounded-xl border-2 border-dashed border-border/80 hover:border-rose-500/50 p-1.5 items-center justify-center bg-muted/10 transition-colors">
                       <button
                         type="button"
                         onClick={() => setIsCameraOpen(true)}
-                        className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-500 hover:text-rose-600 hover:underline cursor-pointer"
+                        className="w-full flex-1 rounded-lg bg-rose-600/10 hover:bg-rose-600 text-rose-600 hover:text-white flex flex-col items-center justify-center text-[10px] font-bold transition-all cursor-pointer gap-0.5"
+                        title="Fotoğraf Çek"
                       >
-                        <Camera size={12} />
-                        <span>Fotoğraf Çek</span>
+                        <Camera size={13} />
+                        <span>Kamera</span>
                       </button>
-                      <span className="text-muted-foreground/40 text-[10px]">•</span>
                       <button
                         type="button"
                         onClick={() => fileInputRef.current?.click()}
-                        className="inline-flex items-center gap-1 text-[11px] font-bold text-muted-foreground hover:text-foreground hover:underline cursor-pointer"
+                        className="w-full flex-1 rounded-lg bg-muted hover:bg-muted/80 text-foreground flex flex-col items-center justify-center text-[10px] font-bold transition-all cursor-pointer gap-0.5 border border-border/50"
+                        title="Dosya Seç"
                       >
-                        <Upload size={12} />
-                        <span>Dosya Değiştir</span>
+                        <Upload size={13} />
+                        <span>Dosya</span>
                       </button>
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedFile(null);
-                      setFilePreviewUrl(null);
-                    }}
-                    className="p-2 hover:bg-rose-500/10 text-muted-foreground hover:text-rose-500 rounded-lg cursor-pointer shrink-0 transition-colors"
-                    title="Görseli Kaldır"
-                  >
-                    <Trash2 size={16} />
-                  </button>
                 </div>
               ) : (
                 <div className="p-4 bg-muted/20 border-2 border-dashed border-border rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -803,10 +857,10 @@ export default function ScrapFormModal({
                     </div>
                     <div>
                       <span className="text-xs font-bold text-foreground block">
-                        Görsel Ekleyin (İsteğe Bağlı)
+                        Görsel Ekleyin (Birden fazla seçilebilir)
                       </span>
                       <p className="text-[11px] text-muted-foreground leading-snug">
-                        Kamerayla fotoğraf çekebilir veya dosya yükleyebilirsiniz.
+                        Kamerayla arka arkaya fotoğraflar çekebilir veya galeriden birden çok görsel seçebilirsiniz.
                       </p>
                     </div>
                   </div>
@@ -938,22 +992,31 @@ export default function ScrapFormModal({
             {/* Kamera Alt Kontrolleri */}
             <div className="p-4 border-t border-border bg-card/95 flex items-center justify-between gap-3">
               {capturedImage ? (
-                <div className="w-full flex items-center gap-2.5">
+                <div className="w-full flex items-center gap-2">
                   <button
                     type="button"
                     onClick={handleRetakePhoto}
-                    className="flex-1 py-2.5 px-4 bg-secondary hover:bg-muted text-foreground rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer"
+                    className="flex-1 py-2.5 px-3 bg-secondary hover:bg-muted text-foreground rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
                   >
                     <RotateCcw size={14} />
                     <span>Yeniden Çek</span>
                   </button>
                   <button
                     type="button"
-                    onClick={handleConfirmPhoto}
-                    className="flex-1 py-2.5 px-4 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-md shadow-rose-600/20 cursor-pointer"
+                    onClick={() => handleConfirmPhoto(true)}
+                    className="flex-1 py-2.5 px-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-md shadow-indigo-600/20 cursor-pointer"
+                    title="Bu fotoğrafı ekle ve kamerayı açık tutarak yenisini çek"
+                  >
+                    <Plus size={14} />
+                    <span>Ekle & Yeni Çek</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleConfirmPhoto(false)}
+                    className="flex-1 py-2.5 px-3 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all shadow-md shadow-rose-600/20 cursor-pointer"
                   >
                     <Check size={14} />
-                    <span>Fotoğrafı Kullan</span>
+                    <span>Ekle & Kapat</span>
                   </button>
                 </div>
               ) : (

@@ -62,7 +62,7 @@ ScrapTracking.init(
       allowNull: true,
     },
     image_url: {
-      type: DataTypes.STRING(1000),
+      type: DataTypes.TEXT,
       allowNull: true,
     },
     operator_id: {

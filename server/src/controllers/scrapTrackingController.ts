@@ -197,12 +197,19 @@ export const createScrapTracking = async (req: Request, res: Response) => {
       }
     }
 
-    let imageUrl: string | null = null;
-    if (req.file) {
-      imageUrl = `/uploads/scrap-images/${req.file.filename}`;
-    } else if (req.body.image_url && req.body.image_url.trim() !== "") {
-      imageUrl = req.body.image_url.trim();
+    // Çoklu görsel dosyaları ve mevcut görselleri toplama
+    const uploadedFiles = (req.files as Express.Multer.File[]) || (req.file ? [req.file] : []);
+    const newImageUrls = uploadedFiles.map((f) => `/uploads/scrap-images/${f.filename}`);
+
+    let bodyImages: string[] = [];
+    if (req.body.existing_images) {
+      bodyImages = parseImageUrls(req.body.existing_images);
+    } else if (req.body.image_url) {
+      bodyImages = parseImageUrls(req.body.image_url);
     }
+
+    const allImages = Array.from(new Set([...bodyImages, ...newImageUrls]));
+    const finalImageUrl = allImages.length > 0 ? JSON.stringify(allImages) : null;
 
     const newRecord = await ScrapTracking.create({
       order_no: String(order_no).trim(),
@@ -214,7 +221,7 @@ export const createScrapTracking = async (req: Request, res: Response) => {
       is_scrap: is_scrap === "true" || is_scrap === true,
       scrap_location: scrap_location ? String(scrap_location).trim() : null,
       scrap_reason: normalizeScrapReasons(scrap_reason),
-      image_url: imageUrl,
+      image_url: finalImageUrl,
       operator_id: resolvedOperatorId,
     });
 
@@ -300,6 +307,34 @@ export const normalizeScrapReasons = (val: any): string | null => {
   return unique.length > 0 ? unique.join(", ") : null;
 };
 
+// Birden fazla görsel URL'ini ayıklama ve diziye dönüştürme yardımcısı
+export const parseImageUrls = (val: any): string[] => {
+  if (!val) return [];
+  if (Array.isArray(val)) {
+    return val
+      .map((s) => String(s).trim())
+      .filter((s) => s.length > 0 && s !== "/images/sample-scrap.svg");
+  }
+  const str = String(val).trim();
+  if (!str || str === "/images/sample-scrap.svg") return [];
+  if (str.startsWith("[") && str.endsWith("]")) {
+    try {
+      const parsed = JSON.parse(str);
+      if (Array.isArray(parsed)) {
+        return parsed
+          .map((s) => String(s).trim())
+          .filter((s) => s.length > 0 && s !== "/images/sample-scrap.svg");
+      }
+    } catch {
+      // ignore
+    }
+  }
+  return str
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0 && s !== "/images/sample-scrap.svg");
+};
+
 export const updateScrapTracking = async (req: Request, res: Response) => {
   try {
     const rawId = req.params.id;
@@ -329,39 +364,42 @@ export const updateScrapTracking = async (req: Request, res: Response) => {
       scrap_reason,
     } = req.body;
 
-    let imageUrl = record.image_url;
-    let imageChanged = false;
+    // Çoklu görsel yönetimi
+    const previousImages = parseImageUrls(record.image_url);
 
-    if (req.file) {
-      // Yeni dosya yüklendiyse eskisini temizlemeye çalış (opsiyonel)
-      if (record.image_url && record.image_url.startsWith("/uploads/scrap-images/")) {
-        const oldFilename = record.image_url.replace("/uploads/scrap-images/", "");
-        const oldPath = path.join(getScrapUploadDir(), oldFilename);
-        if (fs.existsSync(oldPath)) {
-          try {
-            fs.unlinkSync(oldPath);
-          } catch (e) {
-            console.warn("Eski görsel silinemedi:", e);
-          }
-        }
-      }
-      imageUrl = `/uploads/scrap-images/${req.file.filename}`;
-      imageChanged = true;
-    } else if (req.body.remove_image === "true" || req.body.image_url === "") {
-      if (record.image_url && record.image_url.startsWith("/uploads/scrap-images/")) {
-        const oldFilename = record.image_url.replace("/uploads/scrap-images/", "");
-        const oldPath = path.join(getScrapUploadDir(), oldFilename);
-        if (fs.existsSync(oldPath)) {
-          try {
-            fs.unlinkSync(oldPath);
-          } catch (e) {
-            console.warn("Eski görsel silinemedi:", e);
-          }
-        }
-      }
-      imageUrl = null;
-      imageChanged = true;
+    let keptImages: string[] = [];
+    if (req.body.existing_images !== undefined) {
+      keptImages = parseImageUrls(req.body.existing_images);
+    } else if (req.body.image_url !== undefined && req.body.image_url !== "") {
+      keptImages = parseImageUrls(req.body.image_url);
+    } else if (req.body.remove_image !== "true") {
+      keptImages = previousImages;
     }
+
+    // Kullanıcının sildiği eski görselleri diskten temizle
+    const removedImages = previousImages.filter((oldImg) => !keptImages.includes(oldImg));
+    for (const imgPath of removedImages) {
+      if (imgPath.startsWith("/uploads/scrap-images/")) {
+        const oldFilename = imgPath.replace("/uploads/scrap-images/", "");
+        const oldPath = path.join(getScrapUploadDir(), oldFilename);
+        if (fs.existsSync(oldPath)) {
+          try {
+            fs.unlinkSync(oldPath);
+          } catch (e) {
+            console.warn("Eski görsel silinemedi:", e);
+          }
+        }
+      }
+    }
+
+    // Yeni yüklenen dosyalar
+    const uploadedFiles = (req.files as Express.Multer.File[]) || (req.file ? [req.file] : []);
+    const newImageUrls = uploadedFiles.map((f) => `/uploads/scrap-images/${f.filename}`);
+
+    const allImages = Array.from(new Set([...keptImages, ...newImageUrls]));
+    const nextImageUrl = allImages.length > 0 ? JSON.stringify(allImages) : null;
+    const imageChanged = JSON.stringify(previousImages) !== JSON.stringify(allImages);
+    const imageUrl = nextImageUrl;
 
     const nextOrderNo = order_no !== undefined ? String(order_no).trim() : record.order_no;
     const nextKarat = karat !== undefined ? (karat ? String(karat).trim() : null) : record.karat;
@@ -481,15 +519,18 @@ export const deleteScrapTracking = async (req: Request, res: Response) => {
     // Silinen kaydın tam snapshot'ı (veri kaybını önlemek için)
     const deletedSnapshot = record.toJSON ? record.toJSON() : { ...record.get() };
 
-    // Görsel dosyasını sil
-    if (record.image_url && record.image_url.startsWith("/uploads/scrap-images/")) {
-      const filename = record.image_url.replace("/uploads/scrap-images/", "");
-      const filePath = path.join(getScrapUploadDir(), filename);
-      if (fs.existsSync(filePath)) {
-        try {
-          fs.unlinkSync(filePath);
-        } catch (e) {
-          console.warn("Görsel silinemedi:", e);
+    // Görsel dosyalarını sil
+    const imagesToDelete = parseImageUrls(record.image_url);
+    for (const imgPath of imagesToDelete) {
+      if (imgPath.startsWith("/uploads/scrap-images/")) {
+        const filename = imgPath.replace("/uploads/scrap-images/", "");
+        const filePath = path.join(getScrapUploadDir(), filename);
+        if (fs.existsSync(filePath)) {
+          try {
+            fs.unlinkSync(filePath);
+          } catch (e) {
+            console.warn("Görsel silinemedi:", e);
+          }
         }
       }
     }

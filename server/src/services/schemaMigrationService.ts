@@ -181,6 +181,13 @@ export const ensureApplicationSchema = async () => {
         allowNull: true,
       });
     }
+
+    if (scrapTrackCols["image_url"]) {
+      await queryInterface.changeColumn("scrap_trackings", "image_url", {
+        type: DataTypes.TEXT,
+        allowNull: true,
+      });
+    }
   } catch (err) {
     console.log("scrap_trackings table check / expandColumn:", err);
   }

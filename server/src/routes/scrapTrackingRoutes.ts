@@ -52,10 +52,11 @@ const storage = multer.diskStorage({
       ext = ".jpg";
     }
 
-    // 5. Standart İsimlendirme: order_id-material_no_YYYYMMDD-HHmmss.jpg
+    // 5. Standart İsimlendirme: order_id-material_no_YYYYMMDD-HHmmss_rand.jpg
+    const rand = Math.random().toString(36).substring(2, 7);
     const finalFilename = cleanWire
-      ? `${cleanOrder}-${cleanWire}_${timestamp}${ext}`
-      : `${cleanOrder}_${timestamp}${ext}`;
+      ? `${cleanOrder}-${cleanWire}_${timestamp}_${rand}${ext}`
+      : `${cleanOrder}_${timestamp}_${rand}${ext}`;
 
     cb(null, finalFilename);
   },
@@ -84,7 +85,7 @@ const upload = multer({
 });
 
 const handleMulterUpload = (req: any, res: any, next: any) => {
-  upload.single("image")(req, res, (err: any) => {
+  upload.any()(req, res, (err: any) => {
     if (err) {
       return res.status(400).json({ message: err.message });
     }

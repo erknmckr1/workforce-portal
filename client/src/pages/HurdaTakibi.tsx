@@ -17,6 +17,8 @@ import {
   RotateCcw,
   ExternalLink,
   Image as ImageIcon,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import apiClient from "@/lib/api";
 import { toast } from "sonner";
@@ -31,6 +33,7 @@ import {
   DEFAULT_LOCATIONS,
   KARAT_OPTIONS,
   DEFAULT_SCRAP_REASONS,
+  parseImageUrls,
 } from "@/types/scrap";
 
 const SCRAP_COLUMNS: DataTableColumn<ScrapRecord>[] = [
@@ -135,7 +138,11 @@ export default function HurdaTakibi() {
   // Modal Durumları
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<ScrapRecord | null>(null);
-  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [galleryPreview, setGalleryPreview] = useState<{
+    images: string[];
+    currentIndex: number;
+    orderNo?: string;
+  } | null>(null);
   const [isDeleting, setIsDeleting] = useState<number | null>(null);
 
   // MES repair_reason_table'dan dinamik hurda nedenlerini çek
@@ -835,31 +842,52 @@ export default function HurdaTakibi() {
             >
               {/* Görsel Thumbnail */}
               <td className="py-2.5 px-3 text-center">
-                {record.image_url && record.image_url !== "/images/sample-scrap.svg" ? (
-                  <button
-                    onClick={() =>
-                      setPreviewImage(getBackendFileUrl(record.image_url!))
-                    }
-                    className="w-10 h-10 rounded-lg overflow-hidden border border-border/80 bg-black/5 hover:border-rose-500 hover:scale-105 transition-all cursor-pointer relative group/img shadow-2xs mx-auto block"
-                    title="Görseli İncele (Büyüt)"
-                  >
-                    <img
-                      src={getBackendFileUrl(record.image_url)}
-                      alt={record.order_no}
-                      className="w-full h-full object-cover"
-                    />
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 flex items-center justify-center transition-opacity text-white">
-                      <Eye size={13} />
-                    </div>
-                  </button>
-                ) : (
-                  <div
-                    className="w-9 h-9 rounded-lg border border-dashed border-border/70 bg-muted/20 flex items-center justify-center text-muted-foreground/40 mx-auto"
-                    title="Görsel Yok"
-                  >
-                    <ImageIcon size={15} />
-                  </div>
-                )}
+                {(() => {
+                  const images = parseImageUrls(record.image_url);
+                  if (images.length === 0) {
+                    return (
+                      <div
+                        className="w-9 h-9 rounded-lg border border-dashed border-border/70 bg-muted/20 flex items-center justify-center text-muted-foreground/40 mx-auto"
+                        title="Görsel Yok"
+                      >
+                        <ImageIcon size={15} />
+                      </div>
+                    );
+                  }
+
+                  const firstImageUrl = getBackendFileUrl(images[0]);
+                  return (
+                    <button
+                      onClick={() =>
+                        setGalleryPreview({
+                          images: images.map(getBackendFileUrl),
+                          currentIndex: 0,
+                          orderNo: record.order_no,
+                        })
+                      }
+                      className="w-10 h-10 rounded-lg overflow-hidden border border-border/80 bg-black/5 hover:border-rose-500 hover:scale-105 transition-all cursor-pointer relative group/img shadow-2xs mx-auto block"
+                      title={
+                        images.length > 1
+                          ? `${images.length} Görseli İncele`
+                          : "Görseli İncele (Büyüt)"
+                      }
+                    >
+                      <img
+                        src={firstImageUrl}
+                        alt={record.order_no}
+                        className="w-full h-full object-cover"
+                      />
+                      {images.length > 1 && (
+                        <span className="absolute bottom-0 right-0 px-1 py-0.2 bg-black/80 text-white text-[9px] font-black rounded-tl-md shadow-xs">
+                          +{images.length}
+                        </span>
+                      )}
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 flex items-center justify-center transition-opacity text-white">
+                        <Eye size={13} />
+                      </div>
+                    </button>
+                  );
+                })()}
               </td>
 
               {/* Tarih */}
@@ -997,25 +1025,32 @@ export default function HurdaTakibi() {
         initialRecord={editingRecord}
       />
 
-      {/* GÖRSELİ BÜYÜTÜP İNCELEME LIGHTBOX MODALI */}
-      {previewImage && (
+      {/* GÖRSELİ BÜYÜTÜP İNCELEME & GALERİ LIGHTBOX MODALI */}
+      {galleryPreview && (
         <div
-          onClick={() => setPreviewImage(null)}
-          className="fixed inset-0 z-60 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 cursor-zoom-out animate-in fade-in duration-200"
+          onClick={() => setGalleryPreview(null)}
+          className="fixed inset-0 z-60 bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 cursor-zoom-out animate-in fade-in duration-200"
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="relative max-w-4xl max-h-[85vh] bg-card border border-border rounded-3xl overflow-hidden shadow-2xl flex flex-col"
+            className="relative w-full max-w-4xl max-h-[92vh] bg-card border border-border rounded-3xl overflow-hidden shadow-2xl flex flex-col cursor-default"
           >
-            <div className="p-3.5 border-b border-border bg-card/80 flex items-center justify-between">
+            <div className="p-3.5 border-b border-border bg-card/90 flex items-center justify-between">
               <span className="text-xs font-black uppercase tracking-wider text-foreground flex items-center gap-2">
                 <AlertTriangle size={15} className="text-rose-500" />
-                Hurda / Mikroskop Hata Görseli
+                <span>
+                  Hurda Detay Görseli {galleryPreview.orderNo ? `(#${galleryPreview.orderNo})` : ""}
+                </span>
+                {galleryPreview.images.length > 1 && (
+                  <span className="text-[10px] font-bold text-muted-foreground bg-muted px-2.5 py-0.5 rounded-full">
+                    {galleryPreview.currentIndex + 1} / {galleryPreview.images.length}
+                  </span>
+                )}
               </span>
               <div className="flex items-center gap-1.5">
-                {previewImage && !previewImage.startsWith("data:") && (
+                {galleryPreview.images[galleryPreview.currentIndex] && (
                   <a
-                    href={previewImage}
+                    href={galleryPreview.images[galleryPreview.currentIndex]}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors"
@@ -1027,20 +1062,96 @@ export default function HurdaTakibi() {
                   </a>
                 )}
                 <button
-                  onClick={() => setPreviewImage(null)}
+                  onClick={() => setGalleryPreview(null)}
                   className="p-1.5 hover:bg-muted rounded-xl text-muted-foreground hover:text-foreground cursor-pointer"
                 >
                   <X size={18} />
                 </button>
               </div>
             </div>
-            <div className="p-4 flex items-center justify-center bg-black/30">
+
+            {/* Büyük Resim Alanı & Önceki / Sonraki Butonları */}
+            <div className="relative p-3 flex items-center justify-center bg-black/40 min-h-[300px] max-h-[68vh]">
+              {galleryPreview.images.length > 1 && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setGalleryPreview((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            currentIndex:
+                              (prev.currentIndex - 1 + prev.images.length) %
+                              prev.images.length,
+                          }
+                        : null
+                    );
+                  }}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-black/60 hover:bg-black/90 text-white flex items-center justify-center transition-all cursor-pointer shadow-lg"
+                  title="Önceki Görsel"
+                >
+                  <ChevronLeft size={22} />
+                </button>
+              )}
+
               <img
-                src={previewImage}
-                alt="Hurda Detay"
-                className="max-w-full max-h-[72vh] object-contain rounded-xl shadow-lg"
+                src={galleryPreview.images[galleryPreview.currentIndex]}
+                alt={`Hurda Detay ${galleryPreview.currentIndex + 1}`}
+                className="max-w-full max-h-[64vh] object-contain rounded-xl shadow-lg"
               />
+
+              {galleryPreview.images.length > 1 && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setGalleryPreview((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            currentIndex:
+                              (prev.currentIndex + 1) % prev.images.length,
+                          }
+                        : null
+                    );
+                  }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-black/60 hover:bg-black/90 text-white flex items-center justify-center transition-all cursor-pointer shadow-lg"
+                  title="Sonraki Görsel"
+                >
+                  <ChevronRight size={22} />
+                </button>
+              )}
             </div>
+
+            {/* Küçük Resimler (Thumbnails) Şeridi */}
+            {galleryPreview.images.length > 1 && (
+              <div className="p-2.5 border-t border-border bg-card/90 flex items-center justify-center gap-2 overflow-x-auto">
+                {galleryPreview.images.map((imgUrl, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() =>
+                      setGalleryPreview((prev) =>
+                        prev ? { ...prev, currentIndex: idx } : null
+                      )
+                    }
+                    className={cn(
+                      "w-12 h-12 rounded-xl overflow-hidden border-2 transition-all cursor-pointer shrink-0",
+                      galleryPreview.currentIndex === idx
+                        ? "border-rose-500 scale-105 shadow-sm"
+                        : "border-border/60 opacity-60 hover:opacity-100"
+                    )}
+                  >
+                    <img
+                      src={imgUrl}
+                      alt={`Thumbnail ${idx + 1}`}
+                      className="w-full h-full object-cover"
+                    />
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
