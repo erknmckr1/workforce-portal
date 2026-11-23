@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   AlertTriangle,
   X,
@@ -11,6 +12,7 @@ import {
   Check,
   Barcode,
   QrCode,
+  Image as ImageIcon,
 } from "lucide-react";
 import Webcam from "react-webcam";
 import { useForm } from "react-hook-form";
@@ -26,7 +28,6 @@ import {
   DEFAULT_LOCATIONS,
   KARAT_OPTIONS,
   COLOR_OPTIONS,
-  DEFAULT_SCRAP_IMAGE,
   DEFAULT_SCRAP_REASONS,
 } from "@/types/scrap";
 
@@ -63,6 +64,16 @@ export default function ScrapFormModal({
   const [isFetchingSap, setIsFetchingSap] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
 
+  // MES repair_reason_table'dan dinamik hurda nedenlerini çek
+  const { data: scrapReasons = DEFAULT_SCRAP_REASONS } = useQuery<string[]>({
+    queryKey: ["scrapReasons"],
+    queryFn: async () => {
+      const res = await apiClient.get<string[]>("/scrap-tracking/reasons");
+      return res.data;
+    },
+    staleTime: 10 * 60 * 1000,
+  });
+
   // Kamera State'leri
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [facingMode, setFacingMode] = useState<"user" | "environment">("environment");
@@ -85,8 +96,26 @@ export default function ScrapFormModal({
     defaultValues: INITIAL_SCRAP_FORM,
   });
 
-  const scrapReason = watch("scrap_reason");
+  const selectedReasons = watch("scrap_reasons") || [];
   const isScrap = watch("is_scrap");
+
+  const handleAddReason = (reasonToAdd: string) => {
+    if (!reasonToAdd) return;
+    if (!selectedReasons.includes(reasonToAdd)) {
+      setValue("scrap_reasons", [...selectedReasons, reasonToAdd], {
+        shouldValidate: true,
+        shouldDirty: true,
+      });
+    }
+  };
+
+  const handleRemoveReason = (reasonToRemove: string) => {
+    const updated = selectedReasons.filter((r) => r !== reasonToRemove);
+    setValue("scrap_reasons", updated, {
+      shouldValidate: true,
+      shouldDirty: true,
+    });
+  };
 
   // Kamera Video Track'lerini Kesin Olarak Durdur (Kamera Donanım Işığını Söndürür)
   const stopWebcamTracks = useCallback(() => {
@@ -131,9 +160,31 @@ export default function ScrapFormModal({
     }
 
     if (initialRecord) {
-      const isKnownReason = DEFAULT_SCRAP_REASONS.includes(
-        initialRecord.scrap_reason || ""
-      );
+      const rawReasons = (initialRecord.scrap_reason || "")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+
+      let customReasonInitial = "";
+      const resolvedReasons: string[] = [];
+
+      for (const r of rawReasons) {
+        if (scrapReasons.includes(r)) {
+          resolvedReasons.push(r);
+        } else {
+          if (!resolvedReasons.includes("Diğer")) {
+            resolvedReasons.push("Diğer");
+          }
+          customReasonInitial = customReasonInitial
+            ? `${customReasonInitial}, ${r}`
+            : r;
+        }
+      }
+
+      if (resolvedReasons.length === 0) {
+        resolvedReasons.push(scrapReasons[0] || "ÇAPAK PROBLEMI");
+      }
+
       reset({
         order_no: initialRecord.order_no || "",
         karat: initialRecord.karat || "",
@@ -143,19 +194,15 @@ export default function ScrapFormModal({
         defect_note: initialRecord.defect_note || "",
         is_scrap: initialRecord.is_scrap,
         scrap_location: initialRecord.scrap_location || "ÖRME",
-        scrap_reason: initialRecord.scrap_reason
-          ? isKnownReason
-            ? initialRecord.scrap_reason
-            : "Diğer"
-          : "Döküm Boşluğu / Porozite",
-        custom_reason:
-          initialRecord.scrap_reason && !isKnownReason
-            ? initialRecord.scrap_reason
-            : "",
+        scrap_reasons: resolvedReasons,
+        custom_reason: customReasonInitial,
       });
       setSelectedFile(null);
+      const hasRealImage =
+        initialRecord.image_url &&
+        initialRecord.image_url !== "/images/sample-scrap.svg";
       setFilePreviewUrl(
-        initialRecord.image_url ? getBackendFileUrl(initialRecord.image_url) : null
+        hasRealImage ? getBackendFileUrl(initialRecord.image_url!) : null
       );
     } else {
       reset(INITIAL_SCRAP_FORM);
@@ -309,8 +356,23 @@ export default function ScrapFormModal({
     const defectNote = (data.defect_note ?? values.defect_note ?? "").trim();
     const isScrapVal = data.is_scrap !== undefined ? data.is_scrap : values.is_scrap;
     const scrapLocation = (data.scrap_location ?? values.scrap_location ?? "ÖRME").trim();
-    const scrapReasonVal = (data.scrap_reason ?? values.scrap_reason ?? "").trim();
+    const rawReasons = data.scrap_reasons || values.scrap_reasons || [];
     const customReasonVal = (data.custom_reason ?? values.custom_reason ?? "").trim();
+
+    if (!rawReasons || rawReasons.length === 0) {
+      toast.error("Lütfen en az bir hurda / kusur nedeni seçiniz.");
+      return;
+    }
+
+    // "Diğer" seçilmişse ve customReason girilmişse yerine yerleştir
+    const processedReasons = rawReasons.map((r) => {
+      if (r === "Diğer") {
+        return customReasonVal || "Diğer";
+      }
+      return r;
+    });
+
+    const finalReason = processedReasons.join(", ");
 
     try {
       const formData = new FormData();
@@ -322,11 +384,6 @@ export default function ScrapFormModal({
       formData.append("defect_note", defectNote);
       formData.append("is_scrap", String(isScrapVal));
       formData.append("scrap_location", scrapLocation);
-
-      const finalReason =
-        scrapReasonVal === "Diğer"
-          ? customReasonVal || "Diğer"
-          : scrapReasonVal;
       formData.append("scrap_reason", finalReason);
 
       if (user?.id_dec) {
@@ -335,6 +392,8 @@ export default function ScrapFormModal({
 
       if (selectedFile) {
         formData.append("image", selectedFile);
+      } else if (!filePreviewUrl && initialRecord?.image_url) {
+        formData.append("remove_image", "true");
       }
 
       if (initialRecord) {
@@ -530,53 +589,111 @@ export default function ScrapFormModal({
               />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Hurda Nedeni */}
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-black uppercase tracking-wider text-foreground">
-                  Hurda Nedeni <span className="text-rose-500">*</span>
+            {/* Hurda / Kusur Nedenleri (Çoklu Seçim) */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-[11px] font-black uppercase tracking-wider text-foreground flex items-center gap-1.5">
+                  Hurda / Kusur Nedenleri <span className="text-rose-500">*</span>
+                  <span className="text-[10px] font-medium text-muted-foreground lowercase">
+                    (birden fazla seçilebilir)
+                  </span>
                 </label>
-                <select
-                  {...register("scrap_reason")}
-                  className="w-full h-11 px-3.5 bg-muted/30 border border-border rounded-xl text-xs font-bold text-foreground outline-none focus:border-rose-500 transition-all cursor-pointer"
-                >
-                  {DEFAULT_SCRAP_REASONS.map((reason) => (
-                    <option key={reason} value={reason}>
-                      {reason}
-                    </option>
-                  ))}
-                </select>
+                {selectedReasons.length > 0 && (
+                  <span className="text-[10px] font-bold text-rose-500 bg-rose-500/10 px-2 py-0.5 rounded-full">
+                    {selectedReasons.length} kusur seçildi
+                  </span>
+                )}
               </div>
 
-              {/* Hurda Yeri (İstasyon) */}
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-black uppercase tracking-wider text-foreground">
-                  Hurda Yeri (İstasyon)
-                </label>
-                <select
-                  {...register("scrap_location")}
-                  className="w-full h-11 px-3.5 bg-muted/30 border border-border rounded-xl text-xs font-bold text-foreground outline-none focus:border-rose-500 transition-all cursor-pointer"
-                >
-                  {DEFAULT_LOCATIONS.map((loc) => (
-                    <option key={loc} value={loc}>
-                      {loc}
+              {/* Seçilen Nedenlerin Rozetleri (Badges) */}
+              <div className="flex flex-wrap gap-1.5 min-h-[42px] p-2 bg-muted/20 border border-border/80 rounded-xl">
+                {selectedReasons.length === 0 ? (
+                  <span className="text-xs text-muted-foreground/70 italic flex items-center px-1">
+                    Henüz kusur nedeni eklenmedi. Aşağıdaki listeden seçiniz.
+                  </span>
+                ) : (
+                  selectedReasons.map((reason) => (
+                    <span
+                      key={reason}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 text-xs font-bold animate-in fade-in zoom-in-95 duration-150"
+                    >
+                      {reason}
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveReason(reason)}
+                        className="p-0.5 hover:bg-rose-500/20 rounded-md transition-colors text-rose-500"
+                        title={`${reason} nedenini kaldır`}
+                      >
+                        <X size={13} />
+                      </button>
+                    </span>
+                  ))
+                )}
+              </div>
+
+              {/* Hızlı Ekleme Açılır Menüsü ve Hurda Yeri */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase">
+                    Listeden Kusur / Neden Ekle:
+                  </span>
+                  <select
+                    value=""
+                    onChange={(e) => {
+                      if (e.target.value) {
+                        handleAddReason(e.target.value);
+                      }
+                    }}
+                    className="w-full h-11 px-3 bg-muted/30 border border-border rounded-xl text-xs font-bold text-foreground outline-none focus:border-rose-500 transition-all cursor-pointer"
+                  >
+                    <option value="" disabled>
+                      + Kusur nedeni seçin ve ekleyin...
                     </option>
-                  ))}
-                </select>
+                    {scrapReasons.map((reason) => {
+                      const isAlreadySelected = selectedReasons.includes(reason);
+                      return (
+                        <option
+                          key={reason}
+                          value={reason}
+                          disabled={isAlreadySelected}
+                        >
+                          {isAlreadySelected ? `✓ ${reason} (Eklendi)` : reason}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+
+                {/* Hurda Yeri (İstasyon) */}
+                <div className="space-y-1">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase">
+                    Hurda Yeri (İstasyon):
+                  </span>
+                  <select
+                    {...register("scrap_location")}
+                    className="w-full h-11 px-3.5 bg-muted/30 border border-border rounded-xl text-xs font-bold text-foreground outline-none focus:border-rose-500 transition-all cursor-pointer"
+                  >
+                    {DEFAULT_LOCATIONS.map((loc) => (
+                      <option key={loc} value={loc}>
+                        {loc}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
 
             {/* Eğer Diğer seçildiyse özel metin kutusu */}
-            {scrapReason === "Diğer" && (
-              <div className="space-y-1.5">
+            {selectedReasons.includes("Diğer") && (
+              <div className="space-y-1.5 p-3 rounded-xl bg-amber-500/5 border border-amber-500/20 animate-in fade-in duration-200">
                 <label className="text-[11px] font-black uppercase tracking-wider text-foreground">
-                  Özel Hurda Nedeni Belirtiniz
+                  Özel Hurda / Kusur Nedeni Belirtiniz
                 </label>
                 <input
                   type="text"
                   {...register("custom_reason")}
                   placeholder="Örn: Özel kalıp patlaması, hatalı kaplama vb."
-                  className="w-full h-11 px-3.5 bg-muted/30 border border-border rounded-xl text-xs font-bold text-foreground outline-none focus:border-rose-500 transition-all"
+                  className="w-full h-11 px-3.5 bg-background border border-border rounded-xl text-xs font-bold text-foreground outline-none focus:border-rose-500 transition-all"
                 />
               </div>
             )}
@@ -630,7 +747,7 @@ export default function ScrapFormModal({
                   </div>
                   <div className="flex-1 space-y-1 min-w-0">
                     <span className="text-xs font-bold text-foreground block truncate">
-                      {selectedFile ? selectedFile.name : "Özel Yüklenen Görsel"}
+                      {selectedFile ? selectedFile.name : "Yüklenen Görsel"}
                     </span>
                     <span className="text-[10px] text-muted-foreground block">
                       Görsel başarıyla belirlendi
@@ -661,51 +778,44 @@ export default function ScrapFormModal({
                       setSelectedFile(null);
                       setFilePreviewUrl(null);
                     }}
-                    className="p-2 hover:bg-muted text-muted-foreground hover:text-rose-500 rounded-lg cursor-pointer shrink-0"
-                    title="Görseli Kaldır (Stok Görsele Dön)"
+                    className="p-2 hover:bg-rose-500/10 text-muted-foreground hover:text-rose-500 rounded-lg cursor-pointer shrink-0 transition-colors"
+                    title="Görseli Kaldır"
                   >
                     <Trash2 size={16} />
                   </button>
                 </div>
               ) : (
-                <div className="p-3.5 bg-muted/30 border border-border rounded-2xl flex items-center gap-4">
-                  <div className="w-20 h-20 rounded-xl overflow-hidden border border-border bg-black/10 shrink-0 shadow-xs relative">
-                    <img
-                      src={DEFAULT_SCRAP_IMAGE}
-                      alt="Standart Stok Görsel"
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <div className="flex-1 space-y-1 min-w-0">
-                    <div className="flex items-center gap-2">
+                <div className="p-4 bg-muted/20 border-2 border-dashed border-border rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div className="flex items-center gap-3.5">
+                    <div className="w-12 h-12 rounded-xl bg-muted/60 border border-border flex items-center justify-center text-muted-foreground shrink-0">
+                      <ImageIcon size={22} className="opacity-70" />
+                    </div>
+                    <div>
                       <span className="text-xs font-bold text-foreground block">
-                        Standart Stok Görsel
+                        Görsel Ekleyin (İsteğe Bağlı)
                       </span>
-                      <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
-                        Varsayılan
-                      </span>
+                      <p className="text-[11px] text-muted-foreground leading-snug">
+                        Kamerayla fotoğraf çekebilir veya dosya yükleyebilirsiniz.
+                      </p>
                     </div>
-                    <p className="text-[11px] text-muted-foreground leading-relaxed">
-                      Varsayılan görsel kullanılır veya cihaz kamerasıyla anında fotoğraf çekebilirsiniz.
-                    </p>
-                    <div className="flex items-center gap-2 pt-1 flex-wrap">
-                      <button
-                        type="button"
-                        onClick={() => setIsCameraOpen(true)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-all cursor-pointer shadow-xs shadow-rose-600/20"
-                      >
-                        <Camera size={13} />
-                        <span>Fotoğraf Çek</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-secondary hover:bg-muted text-foreground text-xs font-bold transition-all cursor-pointer border border-border"
-                      >
-                        <Upload size={13} />
-                        <span>Dosyadan Yükle</span>
-                      </button>
-                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setIsCameraOpen(true)}
+                      className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-all cursor-pointer shadow-xs shadow-rose-600/20"
+                    >
+                      <Camera size={13} />
+                      <span>Fotoğraf Çek</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-secondary hover:bg-muted text-foreground text-xs font-bold transition-all cursor-pointer border border-border"
+                    >
+                      <Upload size={13} />
+                      <span>Dosya Seç</span>
+                    </button>
                   </div>
                 </div>
               )}

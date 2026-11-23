@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
-import { ScrapTracking, Operator, SapOrder } from "../models";
-import { Op } from "sequelize";
+import { ScrapTracking, Operator, SapOrder, MesRepairReason } from "../models";
+import { Op, Sequelize } from "sequelize";
 import path from "path";
 import fs from "fs";
 import { writeAuditLog, extractAuditActor } from "../services/auditService";
@@ -34,7 +34,7 @@ export const getScrapTrackings = async (req: Request, res: Response) => {
     }
 
     if (scrap_reason && scrap_reason !== "ALL") {
-      where.scrap_reason = String(scrap_reason);
+      where.scrap_reason = { [Op.like]: `%${String(scrap_reason).trim()}%` };
     }
 
     // Tarih aralığı filtresi
@@ -197,7 +197,7 @@ export const createScrapTracking = async (req: Request, res: Response) => {
       }
     }
 
-    let imageUrl: string = "/images/sample-scrap.svg";
+    let imageUrl: string | null = null;
     if (req.file) {
       imageUrl = `/uploads/scrap-images/${req.file.filename}`;
     } else if (req.body.image_url && req.body.image_url.trim() !== "") {
@@ -213,7 +213,7 @@ export const createScrapTracking = async (req: Request, res: Response) => {
       defect_note: defect_note ? String(defect_note).trim() : null,
       is_scrap: is_scrap === "true" || is_scrap === true,
       scrap_location: scrap_location ? String(scrap_location).trim() : null,
-      scrap_reason: scrap_reason ? String(scrap_reason).trim() : null,
+      scrap_reason: normalizeScrapReasons(scrap_reason),
       image_url: imageUrl,
       operator_id: resolvedOperatorId,
     });
@@ -275,6 +275,31 @@ const getScrapUploadDir = () => {
   );
 };
 
+// Birden fazla hurda nedenini temizleme ve tekilleştirme yardımcısı
+export const normalizeScrapReasons = (val: any): string | null => {
+  if (!val) return null;
+  let arr: string[] = [];
+  if (Array.isArray(val)) {
+    arr = val;
+  } else if (typeof val === "string") {
+    const trimmed = val.trim();
+    if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+      try {
+        arr = JSON.parse(trimmed);
+      } catch {
+        arr = trimmed.split(",");
+      }
+    } else {
+      arr = trimmed.split(",");
+    }
+  }
+  const cleaned = arr
+    .map((s) => (typeof s === "string" ? s.trim() : String(s).trim()))
+    .filter((s) => s.length > 0);
+  const unique = Array.from(new Set(cleaned));
+  return unique.length > 0 ? unique.join(", ") : null;
+};
+
 export const updateScrapTracking = async (req: Request, res: Response) => {
   try {
     const rawId = req.params.id;
@@ -322,6 +347,20 @@ export const updateScrapTracking = async (req: Request, res: Response) => {
       }
       imageUrl = `/uploads/scrap-images/${req.file.filename}`;
       imageChanged = true;
+    } else if (req.body.remove_image === "true" || req.body.image_url === "") {
+      if (record.image_url && record.image_url.startsWith("/uploads/scrap-images/")) {
+        const oldFilename = record.image_url.replace("/uploads/scrap-images/", "");
+        const oldPath = path.join(getScrapUploadDir(), oldFilename);
+        if (fs.existsSync(oldPath)) {
+          try {
+            fs.unlinkSync(oldPath);
+          } catch (e) {
+            console.warn("Eski görsel silinemedi:", e);
+          }
+        }
+      }
+      imageUrl = null;
+      imageChanged = true;
     }
 
     const nextOrderNo = order_no !== undefined ? String(order_no).trim() : record.order_no;
@@ -332,7 +371,7 @@ export const updateScrapTracking = async (req: Request, res: Response) => {
     const nextDefectNote = defect_note !== undefined ? (defect_note ? String(defect_note).trim() : null) : record.defect_note;
     const nextIsScrap = is_scrap !== undefined ? (is_scrap === "true" || is_scrap === true) : record.is_scrap;
     const nextScrapLocation = scrap_location !== undefined ? (scrap_location ? String(scrap_location).trim() : null) : record.scrap_location;
-    const nextScrapReason = scrap_reason !== undefined ? (scrap_reason ? String(scrap_reason).trim() : null) : record.scrap_reason;
+    const nextScrapReason = scrap_reason !== undefined ? normalizeScrapReasons(scrap_reason) : record.scrap_reason;
 
     // Alan değişikliklerini (diff) ve insan tarafından okunabilir özeti oluştur
     const changes: Record<string, { old: any; new: any; label: string }> = {};
@@ -606,8 +645,17 @@ export const getScrapReport = async (req: Request, res: Response) => {
       if (r.is_scrap) locationMap[loc].scrap++;
       else locationMap[loc].pending++;
 
-      const reason = r.scrap_reason || "Belirtilmedi";
-      reasonMap[reason] = (reasonMap[reason] || 0) + 1;
+      if (r.scrap_reason) {
+        const subReasons = r.scrap_reason
+          .split(",")
+          .map((s: string) => s.trim())
+          .filter(Boolean);
+        for (const sub of subReasons) {
+          reasonMap[sub] = (reasonMap[sub] || 0) + 1;
+        }
+      } else {
+        reasonMap["Belirtilmedi"] = (reasonMap["Belirtilmedi"] || 0) + 1;
+      }
 
       const karat = r.karat ? `${r.karat}K` : "Belirtilmedi";
       karatMap[karat] = (karatMap[karat] || 0) + 1;
@@ -653,5 +701,109 @@ export const getScrapReport = async (req: Request, res: Response) => {
   } catch (error) {
     console.error("getScrapReport Error:", error);
     return res.status(500).json({ message: "Hurda raporu verileri alınırken hata oluştu." });
+  }
+};
+
+const FALLBACK_SCRAP_REASONS = [
+  "BAG - MAKARA HATASI",
+  "BOY HATASI",
+  "BOZUK DAMGA",
+  "BOZUK HALKA",
+  "BOZUK KILIT",
+  "BOZUK KULAKCIK",
+  "BOZUK MINE",
+  "BOZUK PAPYON",
+  "BOZUK PUL",
+  "BOZUK SILIKON",
+  "BOZUK ZINCIR",
+  "ÇAPAK PROBLEMI",
+  "ÇIZIK ÜRÜN",
+  "DAMGASIZ",
+  "DÜGÜMLÜ ZINCIR",
+  "EKSIK BAR",
+  "EKSIK BITIS HALKASI",
+  "EKSIK DESEN",
+  "EKSIK HALKA",
+  "EKSIK KILIT",
+  "EKSIK MINE",
+  "EKSIK PAPYON",
+  "EKSIK PUL",
+  "EKSIK TAS",
+  "EKSIK TOP",
+  "ERIMIS DAMGA",
+  "ERIMIS PAPYON",
+  "ERIMIS PUL",
+  "EZIK DAMGA",
+  "EZIK FERMUAR",
+  "EZIK HALKA",
+  "EZIK KILIT",
+  "EZIK MENGEÇ",
+  "EZIK PAPYON",
+  "EZIK PLAKA",
+  "EZIK PUL",
+  "EZIK SILIKONLU TOP",
+  "EZIK TOP",
+  "EZIK ZINCIR",
+  "FIKS ZINCIR",
+  "GÖRÜNTÜ PROBLEMI",
+  "ISLEM GÖRMEMIS PAPYON",
+  "KAYNAKSIZ URUN",
+  "KILITTE TAKILMA",
+  "KIRIK PAPYON",
+  "KIRIK ZINCIR",
+  "KOPUK",
+  "LOGOSUZ KILIT",
+  "MIKNATISLANMA",
+  "ORTALAMA GRAM HATASI",
+  "PIM AYAR YAPILMAMIS",
+  "RENK PROBLEMI",
+  "SILIK DAMGA",
+  "TAMAMLANMAMIS ÜRÜN",
+  "TIRASSIZ ÜRÜN",
+  "ÜRÜNDE ÇIZIK",
+  "ÜRÜNDE MATLIK",
+  "UZAMIS ZINCIR",
+  "YALDIZSIZ ZINCIR",
+  "YAMUK KILIT",
+  "YAMUK PIM",
+  "YANLIS DAMGA",
+  "YANLIS HALKA",
+  "YANLIS KAYNAK",
+  "YANLIS KILIT",
+  "YANLIS MONTAJ",
+  "YANLIS ZINCIR",
+  "Diğer",
+];
+
+// Distinct ile tekrar eden kayıtlar elenir. [Op.ne] SQL'de "not equal" anlamına gelir, yani boş olmayan kayıtlar alınır.
+export const getScrapReasons = async (_req: Request, res: Response) => {
+  try {
+    const records = await MesRepairReason.findAll({
+      attributes: [
+        [Sequelize.fn("DISTINCT", Sequelize.col("repair_reason")), "repair_reason"],
+      ],
+      where: {
+        repair_reason: {
+          [Op.ne]: "",
+        },
+      },
+      order: [["repair_reason", "ASC"]], // ASC sıralama
+      raw: true, // Ham veri döndürülür, model örneği değil
+    });
+
+    const reasons = records
+      .map((r: any) => (r.repair_reason || "").trim())
+      .filter((name: string) => name.length > 0);
+
+    // new set ile tekrar eden kayıtlar elenir ve "Diğer" eklenir
+    const uniqueReasons = Array.from(new Set(reasons));
+    if (!uniqueReasons.includes("Diğer")) {
+      uniqueReasons.push("Diğer");
+    }
+
+    return res.status(200).json(uniqueReasons.length > 1 ? uniqueReasons : FALLBACK_SCRAP_REASONS);
+  } catch (error) {
+    console.warn("MesRepairReason sorgusu yapılamadı, varsayılanlar dönülüyor:", error);
+    return res.status(200).json(FALLBACK_SCRAP_REASONS);
   }
 };

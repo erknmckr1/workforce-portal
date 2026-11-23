@@ -166,18 +166,23 @@ export const ensureApplicationSchema = async () => {
     console.error("mes_label_print_logs sync error:", err);
   }
 
-  // Migration for scrap_trackings table: add scrap_reason
+  // Migration for scrap_trackings table: add/expand scrap_reason
   try {
     const scrapTrackCols = await queryInterface.describeTable("scrap_trackings");
     if (!scrapTrackCols["scrap_reason"]) {
       await queryInterface.addColumn("scrap_trackings", "scrap_reason", {
-        type: DataTypes.STRING(150),
+        type: DataTypes.STRING(1000),
         allowNull: true,
       });
-      console.log("Schema updated: scrap_trackings.scrap_reason");
+      console.log("Schema updated: scrap_trackings.scrap_reason added");
+    } else {
+      await queryInterface.changeColumn("scrap_trackings", "scrap_reason", {
+        type: DataTypes.STRING(1000),
+        allowNull: true,
+      });
     }
   } catch (err) {
-    console.log("scrap_trackings table check / addColumn:", err);
+    console.log("scrap_trackings table check / expandColumn:", err);
   }
 
   // Visitors table sync & migration

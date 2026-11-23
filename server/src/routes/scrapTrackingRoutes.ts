@@ -10,6 +10,7 @@ import {
   updateScrapTracking,
   deleteScrapTracking,
   getSapOrderInfo,
+  getScrapReasons,
 } from "../controllers/scrapTrackingController";
 
 const router = Router();
@@ -93,6 +94,7 @@ const handleMulterUpload = (req: any, res: any, next: any) => {
 
 router.get("/", getScrapTrackings);
 router.get("/report", getScrapReport);
+router.get("/reasons", getScrapReasons);
 router.get("/order/:orderNo", getSapOrderInfo);
 router.get("/:id", getScrapTrackingById);
 router.post("/", handleMulterUpload, createScrapTracking);

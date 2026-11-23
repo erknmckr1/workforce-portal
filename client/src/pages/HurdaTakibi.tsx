@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   AlertTriangle,
   Search,
@@ -15,6 +16,7 @@ import {
   ChevronDown,
   RotateCcw,
   ExternalLink,
+  Image as ImageIcon,
 } from "lucide-react";
 import apiClient from "@/lib/api";
 import { toast } from "sonner";
@@ -28,7 +30,6 @@ import {
   DEFAULT_LOCATIONS,
   KARAT_OPTIONS,
   DEFAULT_SCRAP_REASONS,
-  DEFAULT_SCRAP_IMAGE,
 } from "@/types/scrap";
 
 const SCRAP_COLUMNS: DataTableColumn<ScrapRecord>[] = [
@@ -40,7 +41,7 @@ const SCRAP_COLUMNS: DataTableColumn<ScrapRecord>[] = [
   { header: "Açıklama (Model)" },
   { header: "Tel Kodu", width: "105px" },
   { header: "Hurda Yeri", width: "110px" },
-  { header: "Hurda Nedeni", width: "140px" },
+  { header: "Hurda Nedeni", width: "170px" },
   { header: "Durum", width: "100px" },
   { header: "Hata / Not" },
   { header: "İşlemler", align: "center", width: "80px" },
@@ -134,6 +135,16 @@ export default function HurdaTakibi() {
   const [editingRecord, setEditingRecord] = useState<ScrapRecord | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState<number | null>(null);
+
+  // MES repair_reason_table'dan dinamik hurda nedenlerini çek
+  const { data: scrapReasons = DEFAULT_SCRAP_REASONS } = useQuery<string[]>({
+    queryKey: ["scrapReasons"],
+    queryFn: async () => {
+      const res = await apiClient.get<string[]>("/scrap-tracking/reasons");
+      return res.data;
+    },
+    staleTime: 10 * 60 * 1000,
+  });
 
   // Backend'den Verileri Çekme (Debounced Search, Tarih ve Neden Filtreleri Entegre)
   const fetchRecords = useCallback(async () => {
@@ -607,7 +618,7 @@ export default function HurdaTakibi() {
                     title="Hurda Nedeni Filtresi"
                   >
                     <option value="ALL">Tüm Nedenler</option>
-                    {DEFAULT_SCRAP_REASONS.map((r) => (
+                    {scrapReasons.map((r) => (
                       <option key={r} value={r}>
                         {r}
                       </option>
@@ -814,24 +825,31 @@ export default function HurdaTakibi() {
             >
               {/* Görsel Thumbnail */}
               <td className="py-2.5 px-3 text-center">
-                <button
-                  onClick={() =>
-                    setPreviewImage(
-                      record.image_url ? getBackendFileUrl(record.image_url) : DEFAULT_SCRAP_IMAGE
-                    )
-                  }
-                  className="w-10 h-10 rounded-lg overflow-hidden border border-border/80 bg-black/5 hover:border-rose-500 hover:scale-105 transition-all cursor-pointer relative group/img shadow-2xs mx-auto block"
-                  title="Görseli İncele (Büyüt)"
-                >
-                  <img
-                    src={record.image_url ? getBackendFileUrl(record.image_url) : DEFAULT_SCRAP_IMAGE}
-                    alt={record.order_no}
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 flex items-center justify-center transition-opacity text-white">
-                    <Eye size={13} />
+                {record.image_url && record.image_url !== "/images/sample-scrap.svg" ? (
+                  <button
+                    onClick={() =>
+                      setPreviewImage(getBackendFileUrl(record.image_url!))
+                    }
+                    className="w-10 h-10 rounded-lg overflow-hidden border border-border/80 bg-black/5 hover:border-rose-500 hover:scale-105 transition-all cursor-pointer relative group/img shadow-2xs mx-auto block"
+                    title="Görseli İncele (Büyüt)"
+                  >
+                    <img
+                      src={getBackendFileUrl(record.image_url)}
+                      alt={record.order_no}
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 flex items-center justify-center transition-opacity text-white">
+                      <Eye size={13} />
+                    </div>
+                  </button>
+                ) : (
+                  <div
+                    className="w-9 h-9 rounded-lg border border-dashed border-border/70 bg-muted/20 flex items-center justify-center text-muted-foreground/40 mx-auto"
+                    title="Görsel Yok"
+                  >
+                    <ImageIcon size={15} />
                   </div>
-                </button>
+                )}
               </td>
 
               {/* Tarih */}
@@ -891,11 +909,22 @@ export default function HurdaTakibi() {
               </td>
 
               {/* Hurda Nedeni */}
-              <td className="py-2.5 px-3 whitespace-nowrap">
+              <td className="py-2.5 px-3">
                 {record.scrap_reason ? (
-                  <span className="px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 text-[11px] font-bold">
-                    {record.scrap_reason}
-                  </span>
+                  <div className="flex flex-wrap gap-1 max-w-[260px]">
+                    {record.scrap_reason
+                      .split(",")
+                      .map((r) => r.trim())
+                      .filter(Boolean)
+                      .map((reason, idx) => (
+                        <span
+                          key={idx}
+                          className="px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 text-[11px] font-bold whitespace-nowrap"
+                        >
+                          {reason}
+                        </span>
+                      ))}
+                  </div>
                 ) : (
                   <span className="text-muted-foreground/60 text-xs font-medium">-</span>
                 )}

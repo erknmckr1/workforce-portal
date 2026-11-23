@@ -58,7 +58,7 @@ ScrapTracking.init(
       allowNull: true,
     },
     scrap_reason: {
-      type: DataTypes.STRING(150),
+      type: DataTypes.STRING(1000),
       allowNull: true,
     },
     image_url: {
