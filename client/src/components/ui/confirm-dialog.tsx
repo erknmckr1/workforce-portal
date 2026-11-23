@@ -5,8 +5,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { AlertTriangle, Info, CheckCircle } from "lucide-react";
+import { AlertTriangle, Info, CheckCircle, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface ConfirmDialogProps {
@@ -34,49 +33,65 @@ export function ConfirmDialog({
 }: ConfirmDialogProps) {
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !isLoading && !open && onClose()}>
-      <DialogContent className="sm:max-w-md rounded-[2rem] p-6 sm:p-8 border border-border/20 shadow-none bg-card z-100">
-        <DialogHeader className="flex flex-col items-center text-center sm:text-center space-y-4 pt-2">
-          <div className={cn(
-            "w-20 h-20 rounded-[1.75rem] flex items-center justify-center shadow-inner",
-            variant === "destructive" ? "bg-destructive/10 text-destructive border border-destructive/20" : 
-            variant === "success" ? "bg-success/10 text-success border border-success/20" :
-            "bg-primary/10 text-primary border border-primary/20"
-          )}>
-            {variant === "destructive" ? <AlertTriangle size={40} /> : 
-             variant === "success" ? <CheckCircle size={40} /> : 
-             <Info size={40} />}
+      <DialogContent className="sm:max-w-md rounded-[2rem] p-6 sm:p-8 border border-border shadow-2xl bg-card z-100">
+        <DialogHeader className="flex flex-col items-center text-center space-y-4 pt-2">
+          <div
+            className={cn(
+              "w-20 h-20 rounded-[1.75rem] flex items-center justify-center shadow-inner",
+              variant === "destructive"
+                ? "bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20"
+                : variant === "success"
+                ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                : "bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20"
+            )}
+          >
+            {variant === "destructive" ? (
+              <AlertTriangle size={38} className="text-rose-600 dark:text-rose-400" />
+            ) : variant === "success" ? (
+              <CheckCircle size={38} className="text-emerald-600 dark:text-emerald-400" />
+            ) : (
+              <Info size={38} className="text-blue-600 dark:text-blue-400" />
+            )}
           </div>
-          <DialogTitle className="text-2xl font-black tracking-tighter">{title}</DialogTitle>
-          <DialogDescription className="text-base text-muted-foreground font-bold mt-2">
+          <DialogTitle className="text-2xl font-black tracking-tight text-foreground">
+            {title}
+          </DialogTitle>
+          <DialogDescription className="text-sm sm:text-base text-muted-foreground font-semibold mt-2 leading-relaxed">
             {description}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex gap-4 w-full mt-8">
-          <Button
+        <div className="flex gap-3 sm:gap-4 w-full mt-6 sm:mt-8">
+          <button
             type="button"
-            variant="ghost"
             onClick={onClose}
             disabled={isLoading}
-            className="flex-1 h-14 rounded-[1.25rem] font-black text-lg bg-muted/50 hover:bg-muted text-muted-foreground transition-all active:scale-95"
+            className="flex-1 h-12 sm:h-13 rounded-2xl font-bold text-sm sm:text-base bg-secondary hover:bg-muted text-foreground/80 hover:text-foreground border border-border/80 transition-all active:scale-95 cursor-pointer disabled:opacity-50"
           >
             {cancelText}
-          </Button>
-          <Button
+          </button>
+          <button
             type="button"
             onClick={onConfirm}
             disabled={isLoading}
             className={cn(
-              "flex-1 h-14 rounded-[1.25rem] font-black text-lg text-white shadow-xl transition-all active:scale-95",
+              "flex-1 h-12 sm:h-13 rounded-2xl font-bold text-sm sm:text-base text-white transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-2 shadow-lg disabled:opacity-50",
               variant === "destructive"
-                ? "bg-destructive hover:bg-destructive/90 shadow-destructive/20"
+                ? "bg-rose-600 hover:bg-rose-700 shadow-rose-600/25 border border-rose-500/30"
                 : variant === "success"
-                ? "bg-success hover:bg-success/90 shadow-success/20 text-white"
-                : "bg-primary hover:bg-primary/90 shadow-primary/20"
+                ? "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/25 border border-emerald-500/30"
+                : "bg-blue-600 hover:bg-blue-700 shadow-blue-600/25 border border-blue-500/30"
             )}
           >
-            {isLoading ? "İşleniyor..." : confirmText}
-          </Button>
+            {isLoading ? (
+              <>
+                <Loader2 size={16} className="animate-spin" />
+                <span>İşleniyor...</span>
+              </>
+            ) : (
+              confirmText
+            )}
+          </button>
         </div>
       </DialogContent>
     </Dialog>

@@ -18,8 +18,9 @@ import Webcam from "react-webcam";
 import { useForm } from "react-hook-form";
 import apiClient from "@/lib/api";
 import { toast } from "sonner";
-import { getBackendFileUrl } from "@/lib/utils";
+import { cn, getBackendFileUrl } from "@/lib/utils";
 import { useAuthStore } from "@/store/authStore";
+import { useConfirm } from "@/providers/ConfirmProvider";
 import QrBarcodeScannerModal from "@/components/common/QrBarcodeScannerModal";
 import {
   type ScrapRecord,
@@ -59,6 +60,7 @@ export default function ScrapFormModal({
   initialRecord,
 }: ScrapFormModalProps) {
   const { user } = useAuthStore();
+  const { confirm } = useConfirm();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
   const [isFetchingSap, setIsFetchingSap] = useState(false);
@@ -397,6 +399,15 @@ export default function ScrapFormModal({
       }
 
       if (initialRecord) {
+        const isConfirmed = await confirm({
+          title: "Hurda Kaydını Güncelle",
+          description: "Hurda kaydında yapılan değişiklikleri kaydetmek istediğinize emin misiniz?",
+          confirmText: "Evet, Güncelle",
+          cancelText: "Vazgeç",
+          variant: "default",
+        });
+        if (!isConfirmed) return;
+
         await apiClient.put(`/scrap-tracking/${initialRecord.id}`, formData, {
           headers: { "Content-Type": "multipart/form-data" },
         });
@@ -827,14 +838,19 @@ export default function ScrapFormModal({
             <button
               type="button"
               onClick={handleModalClose}
-              className="flex-1 sm:flex-initial px-5 py-2.5 bg-secondary hover:bg-muted text-muted-foreground hover:text-foreground rounded-xl font-bold text-xs uppercase tracking-wider transition-all cursor-pointer text-center"
+              className="flex-1 sm:flex-initial px-5 py-2.5 bg-secondary hover:bg-muted text-foreground/80 hover:text-foreground border border-border/80 rounded-xl font-bold text-xs uppercase tracking-wider transition-all cursor-pointer text-center"
             >
               İptal
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="flex-1 sm:flex-initial px-6 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-black text-xs uppercase tracking-wider shadow-lg shadow-rose-600/20 transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
+              className={cn(
+                "flex-1 sm:flex-initial px-6 py-2.5 text-white rounded-xl font-black text-xs uppercase tracking-wider shadow-lg transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50",
+                initialRecord
+                  ? "bg-blue-600 hover:bg-blue-700 shadow-blue-600/25 border border-blue-500/30"
+                  : "bg-rose-600 hover:bg-rose-700 shadow-rose-600/25 border border-rose-500/30"
+              )}
             >
               {isSubmitting && <Loader2 size={16} className="animate-spin" />}
               <span>{initialRecord ? "Güncelle" : "Kaydet"}</span>

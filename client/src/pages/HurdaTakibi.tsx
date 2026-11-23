@@ -25,6 +25,7 @@ import { useDebounce } from "@/hooks/useDebounce";
 import { cn, getBackendFileUrl } from "@/lib/utils";
 import DataTable, { type DataTableColumn } from "@/components/common/DataTable";
 import ScrapFormModal from "@/components/scrap/ScrapFormModal";
+import { useConfirm } from "@/providers/ConfirmProvider";
 import {
   type ScrapRecord,
   DEFAULT_LOCATIONS,
@@ -48,6 +49,7 @@ const SCRAP_COLUMNS: DataTableColumn<ScrapRecord>[] = [
 ];
 
 export default function HurdaTakibi() {
+  const { confirm } = useConfirm();
   // Veri ve Yüklenme Durumları
   const [records, setRecords] = useState<ScrapRecord[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -245,9 +247,17 @@ export default function HurdaTakibi() {
     setEditingRecord(null);
   };
 
-  // Kayıt Sil
+  // Kayıt Sil / İptal Et
   const handleDelete = async (id: number) => {
-    if (!window.confirm("Bu hurda kaydını silmek istediğinize emin misiniz?")) return;
+    const isConfirmed = await confirm({
+      title: "Hurda Kaydını Sil / İptal Et",
+      description: "Bu hurda kaydını silmek / iptal etmek istediğinize emin misiniz? Bu işlem geri alınamaz.",
+      confirmText: "Evet, İptal Et",
+      cancelText: "Vazgeç",
+      variant: "destructive",
+    });
+    if (!isConfirmed) return;
+
     setIsDeleting(id);
     try {
       await apiClient.delete(`/scrap-tracking/${id}`);
