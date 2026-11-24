@@ -99,13 +99,12 @@ const LazyLookupSelect = memo(
     hasError?: boolean;
     disabled?: boolean;
   }) => {
-    const [open, setOpen] = useState(false);
     const selectedItem = value
       ? items?.find((i) => String(i.id) === value)
       : null;
 
     return (
-      <Select value={value} onValueChange={onChange} onOpenChange={setOpen} disabled={disabled}>
+      <Select value={value} onValueChange={onChange} disabled={disabled}>
         <SelectTrigger
           className={cn(
             "w-full h-14 px-6 rounded-2xl bg-muted/40 border-none text-sm font-bold shadow-none p-0 flex items-center [&>span]:w-full [&>span]:text-left pl-6 focus:ring-0",
@@ -117,17 +116,16 @@ const LazyLookupSelect = memo(
             {selectedItem ? selectedItem.name : null}
           </SelectValue>
         </SelectTrigger>
-        <SelectContent className="rounded-2xl border-none shadow-xl max-h-75">
-          {open &&
-            items.map((item) => (
-              <SelectItem
-                key={item.id}
-                value={String(item.id)}
-                className="font-bold py-3 cursor-pointer"
-              >
-                {item.name}
-              </SelectItem>
-            ))}
+        <SelectContent className="rounded-2xl border-none shadow-xl max-h-75 z-[200]">
+          {(items || []).map((item) => (
+            <SelectItem
+              key={item.id}
+              value={String(item.id)}
+              className="font-bold py-3 cursor-pointer"
+            >
+              {item.name}
+            </SelectItem>
+          ))}
         </SelectContent>
       </Select>
     );
@@ -631,7 +629,7 @@ export function PersonnelFormModal({
                         <SelectTrigger className="w-full h-14 px-6 rounded-2xl bg-muted/40 border-none text-sm font-bold shadow-none p-0 flex items-center [&>span]:w-full [&>span]:text-left pl-6 focus:ring-0">
                           <SelectValue placeholder="Seçiniz..." />
                         </SelectTrigger>
-                        <SelectContent className="rounded-2xl border-none shadow-xl">
+                        <SelectContent className="rounded-2xl border-none shadow-xl z-[200]">
                           <SelectItem
                             value="Erkek"
                             className="font-bold py-3 cursor-pointer"
