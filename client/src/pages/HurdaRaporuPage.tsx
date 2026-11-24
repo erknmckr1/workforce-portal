@@ -8,7 +8,6 @@ import {
   RotateCcw,
   BarChart3,
   PieChart as PieChartIcon,
-  CheckCircle2,
   Palette,
   Boxes,
   Grid,
@@ -394,14 +393,14 @@ export default function HurdaRaporuPage() {
           `%${c.percentage}`,
         ]),
         [],
-        ["ISTASYON PERFORMANS TABLOSU"],
-        ["Istasyon", "Toplam Kayit", "Hurda", "Takipte", "Hurda Orani (%)", "Agirlikli Hata"],
+        ["ISTASYON FIRE DAGILIMI"],
+        ["Istasyon", "Toplam Kayit", "Hurda", "Takipte", "Genel Pay (%)", "Agirlikli Hata"],
         ...reportData.byLocation.map((l: LocationReportItem) => [
           l.name,
           l.total,
           l.scrap,
           l.pending,
-          `%${l.total > 0 ? Math.round((l.scrap / l.total) * 100) : 0}`,
+          `%${reportData.summary.totalCount > 0 ? ((l.total / reportData.summary.totalCount) * 100).toFixed(1) : 0}`,
           l.primaryDefect,
         ]),
         [],
@@ -414,13 +413,12 @@ export default function HurdaRaporuPage() {
         ]),
         [],
         ["AYAR BAZINDA KIRILIM"],
-        ["Ayar", "Toplam Kayit", "Hurda", "Takipte", "Hurda Orani (%)"],
+        ["Ayar", "Toplam Kayit", "Hurda", "Takipte"],
         ...reportData.byKarat.map((k: KaratReportItem) => [
           k.name,
           k.count,
           k.scrap ?? 0,
           k.pending ?? 0,
-          `%${k.scrapRate ?? (k.count > 0 ? Math.round(((k.scrap ?? 0) / k.count) * 100) : 0)}`,
         ]),
         [],
         ["ALTIN RENGI (ALASIM) DAGILIMI"],
@@ -1284,10 +1282,10 @@ export default function HurdaRaporuPage() {
             </div>
             <div>
               <h2 className="text-xs sm:text-sm font-black uppercase tracking-wider text-foreground">
-                İstasyon Bazlı Hurda & Performans Kırılımı
+                İstasyon Bazlı Fire Dağılımı
               </h2>
               <p className="text-[11px] text-muted-foreground">
-                Her üretim biriminin kesinleşen hurda payı ve en sık görülen hatası
+                Üretim birimlerinin toplam fire hacmi, kesinleşen hurda ve inceleme adetleri
               </p>
             </div>
           </div>
@@ -1304,16 +1302,15 @@ export default function HurdaRaporuPage() {
                 <th className="py-3 px-3 text-center">Toplam Kayıt</th>
                 <th className="py-3 px-3 text-center text-rose-500">Hurda</th>
                 <th className="py-3 px-3 text-center text-amber-500">Takipte</th>
-                <th className="py-3 px-3 text-center">Hurda Oranı</th>
+                <th className="py-3 px-3 text-center">Fire Hacim Payı</th>
                 <th className="py-3 px-4">Ağırlıklı Hata Nedeni</th>
-                <th className="py-3 px-3 text-center">Durum</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/60 font-medium">
               {reportData.byLocation.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={7}
+                    colSpan={6}
                     className="py-8 text-center text-muted-foreground text-xs font-bold"
                   >
                     Seçili filtrelere uygun istasyon verisi bulunamadı.
@@ -1321,13 +1318,10 @@ export default function HurdaRaporuPage() {
                 </tr>
               ) : (
                 reportData.byLocation.map((loc: LocationReportItem) => {
-                  const scrapRate =
-                    loc.scrapRate !== undefined
-                      ? loc.scrapRate
-                      : loc.total > 0
-                      ? Math.round((loc.scrap / loc.total) * 100)
+                  const share =
+                    reportData.summary.totalCount > 0
+                      ? Number(((loc.total / reportData.summary.totalCount) * 100).toFixed(1))
                       : 0;
-                  const isCritical = scrapRate >= 75;
 
                   return (
                     <tr key={loc.name} className="hover:bg-muted/30 transition-colors">
@@ -1341,34 +1335,23 @@ export default function HurdaRaporuPage() {
                       <td className="py-3 px-3 text-center font-mono font-bold text-amber-500">
                         {loc.pending}
                       </td>
-                      <td className="py-3 px-3 text-center font-mono font-black">
-                        <span
-                          className={`px-2 py-0.5 rounded-md border text-[11px] ${
-                            isCritical
-                              ? "bg-rose-500/10 text-rose-500 border-rose-500/20"
-                              : "bg-amber-500/10 text-amber-500 border-amber-500/20"
-                          }`}
-                        >
-                          %{scrapRate}
-                        </span>
+                      <td className="py-3 px-3 text-center">
+                        <div className="inline-flex items-center justify-center gap-2">
+                          <span className="font-mono font-black text-xs text-foreground">
+                            %{share}
+                          </span>
+                          <div className="w-16 h-1.5 rounded-full bg-secondary overflow-hidden hidden sm:block">
+                            <div
+                              className="h-full bg-rose-500 rounded-full transition-all"
+                              style={{ width: `${share}%` }}
+                            />
+                          </div>
+                        </div>
                       </td>
                       <td className="py-3 px-4 font-bold text-foreground/90">
                         <span className="px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 text-[11px]">
                           {loc.primaryDefect}
                         </span>
-                      </td>
-                      <td className="py-3 px-3 text-center">
-                        {isCritical ? (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase text-rose-500">
-                            <AlertTriangle size={12} />
-                            Yüksek Fire
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase text-emerald-500">
-                            <CheckCircle2 size={12} />
-                            Kontrol Altında
-                          </span>
-                        )}
                       </td>
                     </tr>
                   );
