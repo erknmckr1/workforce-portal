@@ -13,6 +13,7 @@ import {
   QrCode,
   Image as ImageIcon,
   Plus,
+  CheckCircle2,
 } from "lucide-react";
 import Webcam from "react-webcam";
 import { useForm } from "react-hook-form";
@@ -72,6 +73,8 @@ export default function ScrapFormModal({
   const [photos, setPhotos] = useState<PhotoItem[]>([]);
   const [isFetchingSap, setIsFetchingSap] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
+  // Siparişin DB'de doğrulanma durumu: null = henüz kontrol edilmedi, true = doğrulandı, false = bulunamadı
+  const [orderVerified, setOrderVerified] = useState<boolean | null>(initialRecord ? true : null);
 
   // MES repair_reason_table'dan dinamik hurda nedenlerini çek
   const { data: scrapReasons = DEFAULT_SCRAP_REASONS } = useQuery<string[]>({
@@ -213,9 +216,11 @@ export default function ScrapFormModal({
         isExisting: true,
       }));
       setPhotos(initialPhotos);
+      setOrderVerified(true);
     } else {
       reset(INITIAL_SCRAP_FORM);
       setPhotos([]);
+      setOrderVerified(null);
     }
 
     // Kamera durumunu sıfırla
@@ -225,14 +230,18 @@ export default function ScrapFormModal({
   }, [isOpen, initialRecord, reset]);
 
   // Üretim Veritabanından (DB / SAP) Sipariş Bilgisi Sorgula
-  const handleFetchSapOrder = async (orderNo: string) => {
+  const handleFetchSapOrder = async (orderNo: string): Promise<boolean> => {
     const clean = String(orderNo || "").replace(/^#/, "").trim();
-    if (!clean) return;
+    if (!clean) {
+      setOrderVerified(null);
+      return false;
+    }
     setIsFetchingSap(true);
     try {
       const res = await apiClient.get(`/scrap-tracking/order/${clean}`);
       const data = res.data;
-      if (data) {
+      if (data && data.order_id) {
+        setOrderVerified(true);
         setValue("order_no", data.order_id || clean);
         if (data.karat) setValue("karat", data.karat);
         if (data.color) setValue("color", data.color);
@@ -253,9 +262,26 @@ export default function ScrapFormModal({
             summaryParts.length > 0 ? `(${summaryParts.join(" ")})` : ""
           }`
         );
+        return true;
+      } else {
+        setOrderVerified(false);
+        setValue("karat", "");
+        setValue("color", "Y");
+        setValue("description", "");
+        setValue("wire_code", "");
+        toast.error(`Sipariş (#${clean}) veritabanında bulunamadı.`);
+        return false;
       }
-    } catch {
-      toast.error(`Sipariş (#${clean}) veritabanında bulunamadı.`);
+    } catch (err: unknown) {
+      setOrderVerified(false);
+      setValue("karat", "");
+      setValue("color", "Y");
+      setValue("description", "");
+      setValue("wire_code", "");
+      const axiosErr = err as { response?: { data?: { message?: string } } };
+      const msg = axiosErr.response?.data?.message || `Sipariş (#${clean}) veritabanında bulunamadı.`;
+      toast.error(msg);
+      return false;
     } finally {
       setIsFetchingSap(false);
     }
@@ -372,6 +398,20 @@ export default function ScrapFormModal({
     if (!orderNo) {
       toast.error("Lütfen Sipariş Numarasını giriniz.");
       return;
+    }
+
+    // Yeni kayıt oluşturulurken siparişin veritabanında doğrulanmış olması zorunludur
+    if (!initialRecord) {
+      let isVerified = orderVerified;
+      if (isVerified !== true) {
+        isVerified = await handleFetchSapOrder(orderNo);
+      }
+      if (!isVerified) {
+        toast.error(
+          "Girilen sipariş numarası üretim veritabanında bulunamadı. Hurda kaydı oluşturmak için geçerli bir sipariş numarası gereklidir."
+        );
+        return;
+      }
     }
 
     const karat = (data.karat ?? values.karat ?? "").trim();
@@ -514,32 +554,47 @@ export default function ScrapFormModal({
                     type="text"
                     required
                     {...orderNoRegister}
+                    onChange={(e) => {
+                      orderNoRegister.onChange(e);
+                      if (orderVerified !== null) setOrderVerified(null);
+                    }}
                     onKeyDown={handleOrderKeyDown}
                     onBlur={(e) => {
                       orderNoRegister.onBlur(e);
-                      handleFetchSapOrder(e.target.value);
+                      if (e.target.value.trim() && orderVerified === null) {
+                        handleFetchSapOrder(e.target.value);
+                      }
                     }}
-                    placeholder="Siparis No"
-                    className="w-full h-11 pl-10 pr-28 sm:pr-32 bg-muted/30 border border-border rounded-xl text-xs font-bold text-foreground outline-none focus:border-rose-500 transition-all font-mono"
+                    placeholder="Sipariş No (örn: 12345)"
+                    disabled={Boolean(initialRecord)}
+                    className={cn(
+                      "w-full h-11 pl-10 pr-28 sm:pr-32 border rounded-xl text-xs font-bold text-foreground outline-none transition-all font-mono",
+                      initialRecord && "bg-muted/40 cursor-not-allowed opacity-85 select-none border-border/80",
+                      !initialRecord && orderVerified === false && "border-rose-500 bg-rose-500/5 focus:border-rose-600 text-rose-500",
+                      !initialRecord && orderVerified === true && "border-emerald-500/50 bg-emerald-500/5 focus:border-emerald-500",
+                      !initialRecord && orderVerified === null && "bg-muted/30 border-border focus:border-rose-500"
+                    )}
                   />
                   <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
                     {/* Kamera ile QR / Barkod Okutma Butonu */}
-                    <button
-                      type="button"
-                      onClick={() => setIsScannerOpen(true)}
-                      className="h-7 px-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 border border-rose-500/20 rounded-lg transition-all cursor-pointer flex items-center gap-1 active:scale-95"
-                      title="Kamera ile QR / Barkod Oku"
-                    >
-                      <QrCode size={13} />
-                      <span className="text-[10px] font-black uppercase tracking-wider">QR</span>
-                    </button>
+                    {!initialRecord && (
+                      <button
+                        type="button"
+                        onClick={() => setIsScannerOpen(true)}
+                        className="h-7 px-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 border border-rose-500/20 rounded-lg transition-all cursor-pointer flex items-center gap-1 active:scale-95"
+                        title="Kamera ile QR / Barkod Oku"
+                      >
+                        <QrCode size={13} />
+                        <span className="text-[10px] font-black uppercase tracking-wider">QR</span>
+                      </button>
+                    )}
 
                     {isFetchingSap ? (
                       <Loader2
                         size={16}
                         className="animate-spin text-rose-500 mr-2"
                       />
-                    ) : (
+                    ) : !initialRecord ? (
                       <button
                         type="button"
                         onClick={() => {
@@ -551,9 +606,23 @@ export default function ScrapFormModal({
                       >
                         Sorgula
                       </button>
-                    )}
+                    ) : null}
                   </div>
                 </div>
+
+                {/* Doğrulama Durumu Bildirimi */}
+                {!initialRecord && orderVerified === false && (
+                  <div className="flex items-center gap-1.5 text-[11px] font-bold text-rose-500 animate-in fade-in duration-150">
+                    <AlertTriangle size={13} className="shrink-0" />
+                    <span>Bu sipariş üretim veritabanında bulunamadı. Lütfen geçerli bir sipariş giriniz.</span>
+                  </div>
+                )}
+                {!initialRecord && orderVerified === true && (
+                  <div className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 animate-in fade-in duration-150">
+                    <CheckCircle2 size={13} className="shrink-0" />
+                    <span>Sipariş üretim veritabanında doğrulandı.</span>
+                  </div>
+                )}
               </div>
 
               {/* Ayar (Disabled) */}
@@ -898,9 +967,12 @@ export default function ScrapFormModal({
             </button>
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || (!initialRecord && orderVerified === false)}
               className={cn(
-                "flex-1 sm:flex-initial px-6 py-2.5 text-white rounded-xl font-black text-xs uppercase tracking-wider shadow-lg transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50",
+                "flex-1 sm:flex-initial px-6 py-2.5 text-white rounded-xl font-black text-xs uppercase tracking-wider shadow-lg transition-all flex items-center justify-center gap-2",
+                (isSubmitting || (!initialRecord && orderVerified === false))
+                  ? "opacity-50 cursor-not-allowed"
+                  : "cursor-pointer active:scale-95",
                 initialRecord
                   ? "bg-blue-600 hover:bg-blue-700 shadow-blue-600/25 border border-blue-500/30"
                   : "bg-rose-600 hover:bg-rose-700 shadow-rose-600/25 border border-rose-500/30"

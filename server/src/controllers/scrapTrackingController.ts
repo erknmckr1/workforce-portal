@@ -159,43 +159,56 @@ export const createScrapTracking = async (req: Request, res: Response) => {
     let finalDescription = description;
     let finalWireCode = wire_code;
 
-    // Eğer ayar, renk veya açıklama boşsa SapOrder'dan otomatik tamamla
-    if (!finalKarat || !finalColor || !finalDescription || !finalWireCode) {
-      try {
-        const cleanNo = String(order_no).replace(/^#/, "").trim();
-        const sapOrder = await SapOrder.findOne({
-          where: {
-            [Op.or]: [
-              { ORDER_ID: cleanNo },
-              { ORDER_ID: `${cleanNo} ` },
-              { ORDER_ID: `${cleanNo}  ` },
-            ],
-          },
-        });
-        if (sapOrder) {
-          if (!finalKarat && sapOrder.CARAT) {
-            finalKarat = String(sapOrder.CARAT).replace(/[^0-9]/g, "").trim();
-          }
-          if (!finalColor && sapOrder.COLOR) {
-            const c = String(sapOrder.COLOR).trim().toUpperCase();
-            finalColor = c.startsWith("B") ? "B" : (c.startsWith("K") || c.startsWith("R")) ? "K" : "Y";
-          }
-          if (!finalDescription) {
-            finalDescription = (
-              sapOrder.ITEM_DESCRIPTION ||
-              sapOrder.GENERAL_DESCRIPTION ||
-              sapOrder.MATERIAL_DESCRIPTION ||
-              ""
-            ).trim();
-          }
-          if (!finalWireCode && sapOrder.MATERIAL_NO) {
-            finalWireCode = sapOrder.MATERIAL_NO.trim();
-          }
-        }
-      } catch (err) {
-        console.warn("SapOrder otomatik tamamlama atlandı:", err);
-      }
+    // Üretim Veritabanında (SapOrder) Sipariş Doğrulaması
+    const cleanNo = String(order_no).replace(/^#/, "").trim();
+    const candidates = [cleanNo];
+    if (/^\d+$/.test(cleanNo)) {
+      if (cleanNo.length < 6) candidates.push(cleanNo.padStart(6, "0"));
+      if (cleanNo.length < 7) candidates.push(cleanNo.padStart(7, "0"));
     }
+
+    let sapOrder: any = null;
+    for (const candidate of candidates) {
+      sapOrder = await SapOrder.findOne({
+        where: {
+          [Op.or]: [
+            { ORDER_ID: candidate },
+            { ORDER_ID: `${candidate} ` },
+            { ORDER_ID: `${candidate}  ` },
+          ],
+        },
+      });
+      if (sapOrder) break;
+    }
+
+    // Sipariş üretim veritabanında yoksa kesinlikle kaydetme!
+    if (!sapOrder) {
+      return res.status(400).json({
+        message: `"${cleanNo}" numaralı sipariş üretim veritabanında bulunamadı. Hurda kaydı oluşturmak için geçerli ve kayıtlı bir sipariş numarası gereklidir.`,
+      });
+    }
+
+    // Doğrulanan siparişten eksik bilgileri otomatik tamamla
+    if (!finalKarat && sapOrder.CARAT) {
+      finalKarat = String(sapOrder.CARAT).replace(/[^0-9]/g, "").trim();
+    }
+    if (!finalColor && sapOrder.COLOR) {
+      const c = String(sapOrder.COLOR).trim().toUpperCase();
+      finalColor = c.startsWith("B") ? "B" : (c.startsWith("K") || c.startsWith("R")) ? "K" : "Y";
+    }
+    if (!finalDescription) {
+      finalDescription = (
+        sapOrder.ITEM_DESCRIPTION ||
+        sapOrder.GENERAL_DESCRIPTION ||
+        sapOrder.MATERIAL_DESCRIPTION ||
+        ""
+      ).trim();
+    }
+    if (!finalWireCode && sapOrder.MATERIAL_NO) {
+      finalWireCode = sapOrder.MATERIAL_NO.trim();
+    }
+
+    const verifiedOrderNo = sapOrder.ORDER_ID ? sapOrder.ORDER_ID.trim() : cleanNo;
 
     // Çoklu görsel dosyaları ve mevcut görselleri toplama
     const uploadedFiles = (req.files as Express.Multer.File[]) || (req.file ? [req.file] : []);
@@ -212,7 +225,7 @@ export const createScrapTracking = async (req: Request, res: Response) => {
     const finalImageUrl = allImages.length > 0 ? JSON.stringify(allImages) : null;
 
     const newRecord = await ScrapTracking.create({
-      order_no: String(order_no).trim(),
+      order_no: verifiedOrderNo,
       karat: finalKarat ? String(finalKarat).trim() : null,
       color: finalColor ? String(finalColor).trim() : null,
       description: finalDescription ? String(finalDescription).trim() : null,
@@ -633,7 +646,7 @@ export const getSapOrderInfo = async (req: Request, res: Response) => {
 
 export const getScrapReport = async (req: Request, res: Response) => {
   try {
-    const { start_date, end_date } = req.query;
+    const { start_date, end_date, location, karat, color, is_scrap } = req.query;
     const where: any = {};
 
     if (start_date || end_date) {
@@ -650,6 +663,26 @@ export const getScrapReport = async (req: Request, res: Response) => {
       }
     }
 
+    if (location && String(location).trim() !== "ALL") {
+      where.scrap_location = String(location).trim();
+    }
+
+    if (karat && String(karat).trim() !== "ALL") {
+      const cleanKarat = String(karat).replace(/[^0-9]/g, "").trim();
+      if (cleanKarat) {
+        where.karat = cleanKarat;
+      }
+    }
+
+    if (color && String(color).trim() !== "ALL") {
+      where.color = String(color).trim();
+    }
+
+    if (is_scrap !== undefined && is_scrap !== "ALL" && is_scrap !== "") {
+      where.is_scrap = String(is_scrap) === "true";
+    }
+
+    // 1. Filtrelenmiş kayıtlar
     const records = await ScrapTracking.findAll({
       where,
       attributes: [
@@ -657,6 +690,8 @@ export const getScrapReport = async (req: Request, res: Response) => {
         "order_no",
         "karat",
         "color",
+        "description",
+        "wire_code",
         "is_scrap",
         "scrap_location",
         "scrap_reason",
@@ -665,27 +700,94 @@ export const getScrapReport = async (req: Request, res: Response) => {
       order: [["created_at", "ASC"]],
     });
 
+    // SapOrder eşleştirmesi (MATERIAL_NO ve MATERIAL_DESCRIPTION için)
+    const distinctOrders = Array.from(
+      new Set(records.map((r) => r.order_no.replace(/^#/, "").trim()))
+    );
+    const orderCandidates: string[] = [];
+    distinctOrders.forEach((o) => {
+      orderCandidates.push(o, `${o} `, `${o}  `);
+    });
+
+    const sapOrders =
+      orderCandidates.length > 0
+        ? await SapOrder.findAll({
+            where: { ORDER_ID: { [Op.in]: orderCandidates } },
+            attributes: [
+              "ORDER_ID",
+              "MATERIAL_NO",
+              "MATERIAL_DESCRIPTION",
+              "ITEM_DESCRIPTION",
+              "GENERAL_DESCRIPTION",
+            ],
+            raw: true,
+          })
+        : [];
+
+    const sapMap: Record<string, any> = {};
+    sapOrders.forEach((s: any) => {
+      sapMap[s.ORDER_ID.trim()] = s;
+    });
+
+    // 2. Dinamik Filtre Seçenekleri (Tüm veritabanından çekilir)
+    const allRecordsForFilters = await ScrapTracking.findAll({
+      attributes: ["scrap_location", "karat"],
+    });
+    const availableLocations = Array.from(
+      new Set(allRecordsForFilters.map((r) => r.scrap_location).filter(Boolean))
+    ).sort();
+    const availableKarats = Array.from(
+      new Set(allRecordsForFilters.map((r) => (r.karat ? `${r.karat}K` : null)).filter(Boolean))
+    ).sort((a: any, b: any) => parseInt(a) - parseInt(b));
+
     const totalCount = records.length;
     const scrapCount = records.filter((r) => r.is_scrap).length;
     const pendingCount = totalCount - scrapCount;
     const scrapRate = totalCount > 0 ? Number(((scrapCount / totalCount) * 100).toFixed(1)) : 0;
 
-    // İstasyon dağılımı
+    // İstasyon bazında dağılım ve istasyon hata haritası
     const locationMap: Record<string, { total: number; scrap: number; pending: number }> = {};
-    // Neden dağılımı
+    const locationDefectMap: Record<string, Record<string, number>> = {};
+
+    // Neden dağılımı (Pareto)
     const reasonMap: Record<string, number> = {};
-    // Ayar dağılımı
-    const karatMap: Record<string, number> = {};
+
+    // Ayar dağılımı (detaylı: count, scrap, pending)
+    const karatMap: Record<string, { total: number; scrap: number; pending: number }> = {};
+
+    // Renk dağılımı
+    const colorMap: Record<string, { total: number; scrap: number; pending: number }> = {};
+
+    // Tel Kodu / Malzeme dağılımı
+    const wireCodeMap: Record<string, { total: number; scrap: number; pending: number }> = {};
+
+    // Malzeme (MATERIAL_NO) bazlı detaylı dağılım
+    const materialMap: Record<
+      string,
+      {
+        material_no: string;
+        description: string;
+        count: number;
+        scrap: number;
+        pending: number;
+        orders: Set<string>;
+        reasons: Record<string, number>;
+        locations: Record<string, number>;
+      }
+    > = {};
+
     // Tarihsel trend (günlük)
     const dailyMap: Record<string, { date: string; scrap: number; pending: number; total: number }> = {};
 
     for (const r of records) {
       const loc = r.scrap_location || "BELİRTİLMEDİ";
       if (!locationMap[loc]) locationMap[loc] = { total: 0, scrap: 0, pending: 0 };
+      if (!locationDefectMap[loc]) locationDefectMap[loc] = {};
       locationMap[loc].total++;
       if (r.is_scrap) locationMap[loc].scrap++;
       else locationMap[loc].pending++;
 
+      // Nedenler (virgülle ayrılmış çoklu nedenler)
       if (r.scrap_reason) {
         const subReasons = r.scrap_reason
           .split(",")
@@ -693,14 +795,80 @@ export const getScrapReport = async (req: Request, res: Response) => {
           .filter(Boolean);
         for (const sub of subReasons) {
           reasonMap[sub] = (reasonMap[sub] || 0) + 1;
+          locationDefectMap[loc][sub] = (locationDefectMap[loc][sub] || 0) + 1;
         }
       } else {
         reasonMap["Belirtilmedi"] = (reasonMap["Belirtilmedi"] || 0) + 1;
+        locationDefectMap[loc]["Belirtilmedi"] = (locationDefectMap[loc]["Belirtilmedi"] || 0) + 1;
       }
 
-      const karat = r.karat ? `${r.karat}K` : "Belirtilmedi";
-      karatMap[karat] = (karatMap[karat] || 0) + 1;
+      // Ayar (Karat)
+      const karatKey = r.karat ? `${r.karat}K` : "Belirtilmedi";
+      if (!karatMap[karatKey]) karatMap[karatKey] = { total: 0, scrap: 0, pending: 0 };
+      karatMap[karatKey].total++;
+      if (r.is_scrap) karatMap[karatKey].scrap++;
+      else karatMap[karatKey].pending++;
 
+      // Renk
+      const colorRaw = (r.color || "Y").toUpperCase();
+      const colorKey = colorRaw.startsWith("B") ? "B" : (colorRaw.startsWith("K") || colorRaw.startsWith("R")) ? "K" : "Y";
+      if (!colorMap[colorKey]) colorMap[colorKey] = { total: 0, scrap: 0, pending: 0 };
+      colorMap[colorKey].total++;
+      if (r.is_scrap) colorMap[colorKey].scrap++;
+      else colorMap[colorKey].pending++;
+
+      // Tel Kodu
+      if (r.wire_code) {
+        const wireKey = String(r.wire_code).trim();
+        if (!wireCodeMap[wireKey]) wireCodeMap[wireKey] = { total: 0, scrap: 0, pending: 0 };
+        wireCodeMap[wireKey].total++;
+        if (r.is_scrap) wireCodeMap[wireKey].scrap++;
+        else wireCodeMap[wireKey].pending++;
+      }
+
+      // Malzeme Kodu (MATERIAL_NO öncelikli)
+      const oClean = r.order_no.replace(/^#/, "").trim();
+      const sap = sapMap[oClean];
+      const matNo = (
+        r.wire_code ||
+        (sap && sap.MATERIAL_NO ? sap.MATERIAL_NO.trim() : null) ||
+        "Belirtilmedi"
+      ).trim();
+
+      const matDesc =
+        (sap && sap.MATERIAL_DESCRIPTION ? sap.MATERIAL_DESCRIPTION.trim() : "") ||
+        r.description ||
+        "-";
+
+      if (!materialMap[matNo]) {
+        materialMap[matNo] = {
+          material_no: matNo,
+          description: matDesc,
+          count: 0,
+          scrap: 0,
+          pending: 0,
+          orders: new Set<string>(),
+          reasons: {},
+          locations: {},
+        };
+      }
+      const matEntry = materialMap[matNo];
+      matEntry.count++;
+      if (r.is_scrap) matEntry.scrap++;
+      else matEntry.pending++;
+      matEntry.orders.add(r.order_no);
+
+      if (r.scrap_reason) {
+        const subs = r.scrap_reason.split(",").map((s: string) => s.trim()).filter(Boolean);
+        subs.forEach((s: string) => {
+          matEntry.reasons[s] = (matEntry.reasons[s] || 0) + 1;
+        });
+      }
+      if (r.scrap_location) {
+        matEntry.locations[r.scrap_location] = (matEntry.locations[r.scrap_location] || 0) + 1;
+      }
+
+      // Günlük Trend
       const dayKey = new Date(r.created_at).toISOString().split("T")[0];
       if (!dailyMap[dayKey]) dailyMap[dayKey] = { date: dayKey, scrap: 0, pending: 0, total: 0 };
       dailyMap[dayKey].total++;
@@ -708,19 +876,190 @@ export const getScrapReport = async (req: Request, res: Response) => {
       else dailyMap[dayKey].pending++;
     }
 
+    // İstasyon listesi ve en sık görülen hatası (primaryDefect)
     const byLocation = Object.entries(locationMap)
-      .map(([name, data]) => ({ name, ...data }))
+      .map(([name, data]) => {
+        const defects = Object.entries(locationDefectMap[name] || {}).sort((a, b) => b[1] - a[1]);
+        const primaryDefect = defects[0] ? defects[0][0] : "Çeşitli Nedenler";
+        const rate = data.total > 0 ? Math.round((data.scrap / data.total) * 100) : 0;
+        return {
+          name,
+          ...data,
+          scrapRate: rate,
+          primaryDefect,
+        };
+      })
       .sort((a, b) => b.total - a.total);
 
+    // Hata nedenleri (Pareto)
+    const totalReasonsCount = Object.values(reasonMap).reduce((a, b) => a + b, 0);
     const byReason = Object.entries(reasonMap)
-      .map(([name, count]) => ({ name, count }))
+      .map(([name, count]) => ({
+        name,
+        count,
+        percentage: totalReasonsCount > 0 ? Number(((count / totalReasonsCount) * 100).toFixed(1)) : 0,
+      }))
       .sort((a, b) => b.count - a.count);
 
+    // Ayar kırılımı
     const byKarat = Object.entries(karatMap)
-      .map(([name, count]) => ({ name, count }))
+      .map(([name, data]) => ({
+        name,
+        count: data.total,
+        scrap: data.scrap,
+        pending: data.pending,
+        scrapRate: data.total > 0 ? Math.round((data.scrap / data.total) * 100) : 0,
+      }))
       .sort((a, b) => b.count - a.count);
 
-    const dailyTrend = Object.values(dailyMap);
+    // Renk kırılımı
+    const colorNames: Record<string, string> = {
+      Y: "Sarı Altın",
+      B: "Beyaz Altın",
+      K: "Kırmızı / Rose Altın",
+    };
+    const byColor = Object.entries(colorMap)
+      .map(([code, data]) => ({
+        code,
+        name: colorNames[code] || "Diğer",
+        count: data.total,
+        scrap: data.scrap,
+        pending: data.pending,
+      }))
+      .sort((a, b) => b.count - a.count);
+
+    // Malzeme Kırılımı (MATERIAL_NO Bazında)
+    const byMaterial = Object.values(materialMap)
+      .map((m) => {
+        const sortedReasons = Object.entries(m.reasons).sort((a, b) => b[1] - a[1]);
+        const sortedLocations = Object.entries(m.locations).sort((a, b) => b[1] - a[1]);
+        return {
+          material_no: m.material_no,
+          description: m.description,
+          count: m.count,
+          scrap: m.scrap,
+          pending: m.pending,
+          orderCount: m.orders.size,
+          primaryDefect: sortedReasons[0] ? sortedReasons[0][0] : "Belirtilmedi",
+          primaryLocation: sortedLocations[0] ? sortedLocations[0][0] : "Belirtilmedi",
+        };
+      })
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 8);
+
+    // Tel Kodu (Geriye uyumluluk için byMaterial'dan beslenir)
+    const byWireCode = byMaterial.map((m) => ({
+      wire_code: m.material_no,
+      count: m.count,
+      scrap: m.scrap,
+      pending: m.pending,
+    }));
+
+    // Madde 1: Taslak Kök Neden Sınıflandırması (Kullanıcı sonradan içini dolduracaktır)
+    const DRAFT_CATEGORIES = [
+      {
+        id: "METALLURGIC",
+        name: "Metalurjik / Döküm & Alaşım",
+        keywords: ["döküm", "porozite", "boşluk", "alaşım", "renk"],
+        color: "#f59e0b",
+      },
+      {
+        id: "MECHANICAL",
+        name: "Mekanik / Makine & Tel Çekme",
+        keywords: [
+          "tel",
+          "kop",
+          "ezil",
+          "çapak",
+          "deformasyon",
+          "ölçü",
+          "tolerans",
+          "makara",
+          "boy hatası",
+        ],
+        color: "#3b82f6",
+      },
+      {
+        id: "WORKMANSHIP",
+        name: "İşçilik, Yüzey & Montaj",
+        keywords: ["yüzey", "çizik", "kaynak", "lehim", "montaj", "taş", "çatlak", "kırık"],
+        color: "#a855f7",
+      },
+    ];
+
+    const categoryCounts: Record<string, { count: number; reasons: Record<string, number> }> = {
+      METALLURGIC: { count: 0, reasons: {} },
+      MECHANICAL: { count: 0, reasons: {} },
+      WORKMANSHIP: { count: 0, reasons: {} },
+      OTHER: { count: 0, reasons: {} },
+    };
+
+    let totalCategorized = 0;
+    for (const [reason, count] of Object.entries(reasonMap)) {
+      const lower = reason.toLowerCase();
+      let matchedCat = "OTHER";
+      for (const cat of DRAFT_CATEGORIES) {
+        if (cat.keywords.some((k) => lower.includes(k))) {
+          matchedCat = cat.id;
+          break;
+        }
+      }
+      categoryCounts[matchedCat].count += count;
+      categoryCounts[matchedCat].reasons[reason] = count;
+      totalCategorized += count;
+    }
+
+    const rootCauseDraft = [
+      ...DRAFT_CATEGORIES.map((cat) => ({
+        id: cat.id,
+        name: cat.name,
+        count: categoryCounts[cat.id].count,
+        percentage:
+          totalCategorized > 0
+            ? Number(((categoryCounts[cat.id].count / totalCategorized) * 100).toFixed(1))
+            : 0,
+        color: cat.color,
+        topReasons: Object.entries(categoryCounts[cat.id].reasons)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 3)
+          .map(([name, c]) => ({ name, count: c })),
+      })),
+      {
+        id: "OTHER",
+        name: "Sınıflandırılacak / Diğer",
+        count: categoryCounts.OTHER.count,
+        percentage:
+          totalCategorized > 0
+            ? Number(((categoryCounts.OTHER.count / totalCategorized) * 100).toFixed(1))
+            : 0,
+        color: "#64748b",
+        topReasons: Object.entries(categoryCounts.OTHER.reasons)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 3)
+          .map(([name, c]) => ({ name, count: c })),
+      },
+    ];
+
+    // Madde 3: İstasyon × Hata Çapraz Isı Haritası / Matrisi
+    const topReasonsList = byReason.slice(0, 6).map((r) => r.name);
+    const stationDefectMatrix = {
+      reasons: topReasonsList,
+      rows: byLocation.map((loc) => {
+        const counts: Record<string, number> = {};
+        topReasonsList.forEach((rName) => {
+          counts[rName] = locationDefectMap[loc.name]?.[rName] || 0;
+        });
+        return {
+          location: loc.name,
+          total: loc.total,
+          scrap: loc.scrap,
+          counts,
+        };
+      }),
+    };
+
+    // Günlük trend (tarihe göre sıralı)
+    const dailyTrend = Object.values(dailyMap).sort((a, b) => a.date.localeCompare(b.date));
 
     const topLocation = byLocation[0] ? `${byLocation[0].name} (${byLocation[0].total} kayıt)` : "-";
     const topReason = byReason[0] ? `${byReason[0].name} (${byReason[0].count} kayıt)` : "-";
@@ -737,7 +1076,16 @@ export const getScrapReport = async (req: Request, res: Response) => {
       byLocation,
       byReason,
       byKarat,
+      byColor,
+      byWireCode,
+      byMaterial,
+      rootCauseDraft,
+      stationDefectMatrix,
       dailyTrend,
+      availableFilters: {
+        locations: availableLocations,
+        karats: availableKarats,
+      },
     });
   } catch (error) {
     console.error("getScrapReport Error:", error);
