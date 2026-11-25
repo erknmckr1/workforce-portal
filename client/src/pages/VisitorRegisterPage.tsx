@@ -288,6 +288,7 @@ export default function VisitorRegisterPage() {
       vehiclePassengerCount: isVehicleTransport ? parseInt(vehiclePassengerCount, 10) : undefined,
       licensePlate: isVehicleTransport ? licensePlate.trim().toUpperCase() : undefined,
       source: "QR – Ziyaretçi Kaydı",
+      kvkkApproved: true,
       companions: isVehicleTransport && companions.length > 0
         ? companions.map((c) => ({
             fullName: c.fullName.trim(),

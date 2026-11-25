@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Midas Ziyaretçi Giriş Formu - Ana Mantık ve API Entegrasyonu
  * Tamamen Vanilla JavaScript (Çerçeve veya kütüphane bağımlılığı yoktur)
  */
@@ -535,6 +535,7 @@
       vehiclePassengerCount: isVehicle ? passengerCount : undefined,
       licensePlate: isVehicle ? licensePlate : undefined,
       source: "QR – Ziyaretçi Kaydı",
+      kvkkApproved: true,
       companions: isVehicle && companions && companions.length > 0 ? companions : undefined,
     };
 

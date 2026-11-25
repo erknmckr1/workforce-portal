@@ -1,4 +1,4 @@
-export type TransportMode = 
+﻿export type TransportMode = 
   | "Yaya"
   | "Toplu Taşıma"
   | "Otomobil"
@@ -68,5 +68,6 @@ export interface CreateVisitorDTO {
   licensePlate?: string;
   notes?: string;
   source?: RegistrationSource;
+  kvkkApproved?: boolean;
   companions?: CompanionDTO[];
 }

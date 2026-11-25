@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+﻿import { useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useAuthStore } from "./store/authStore";
 import apiClient from "./lib/api";
@@ -168,6 +168,7 @@ function App() {
             {/* 2.9 Dış Ziyaretçi QR Kayıt - Bağımsız Public Mobil Layout (Şifresiz) */}
             <Route element={<VisitorPublicLayout />}>
               <Route path="/ziyaretci-kayit" element={<VisitorRegisterPage />} />
+              <Route path="/midas-ziyaretci-form" element={<VisitorRegisterPage />} />
               <Route path="/qr" element={<VisitorRegisterPage />} />
             </Route>
 

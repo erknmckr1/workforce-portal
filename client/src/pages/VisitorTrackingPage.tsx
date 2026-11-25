@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+﻿import { useState, useMemo, useCallback } from "react";
 import { 
   UserCheck, 
   UserPlus, 
@@ -943,7 +943,7 @@ export default function VisitorTrackingPage() {
             {/* Beyaz zeminli QR Kartı */}
             <div className="p-4 bg-white rounded-2xl border border-border shadow-inner flex flex-col items-center">
               <QRCodeSVG
-                value={`${typeof window !== "undefined" ? window.location.origin : ""}/ziyaretci-kayit`}
+                value={`${typeof window !== "undefined" ? window.location.origin : ""}/midas-ziyaretci-form`}
                 size={200}
                 level="H"
                 includeMargin={false}
@@ -957,6 +957,11 @@ export default function VisitorTrackingPage() {
               <p className="text-[11px] text-muted-foreground font-medium">
                 Ziyaretçiler akıllı telefonlarının kamerasıyla bu kodu okutarak hızlı kayıt oluşturabilir.
               </p>
+              <div className="pt-1">
+                <span className="font-mono text-[11px] font-bold text-primary/80 bg-primary/10 px-2 py-0.5 rounded-md break-all select-all">
+                  {typeof window !== "undefined" ? `${window.location.origin}/midas-ziyaretci-form` : ""}
+                </span>
+              </div>
             </div>
 
             {/* Butonlar: Bağlantıyı Kopyala, Sekmede Aç */}
@@ -964,7 +969,7 @@ export default function VisitorTrackingPage() {
               <button
                 type="button"
                 onClick={() => {
-                  const url = `${window.location.origin}/ziyaretci-kayit`;
+                  const url = `${window.location.origin}/midas-ziyaretci-form`;
                   navigator.clipboard.writeText(url);
                   toast.success("Kayıt formu bağlantısı panoya kopyalandı.");
                 }}
@@ -977,7 +982,7 @@ export default function VisitorTrackingPage() {
               <button
                 type="button"
                 onClick={() => {
-                  window.open("/ziyaretci-kayit", "_blank");
+                  window.open("/midas-ziyaretci-form", "_blank");
                 }}
                 className="h-10 px-3 rounded-xl bg-muted/50 hover:bg-muted text-foreground border border-border/80 font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-95"
               >
@@ -992,7 +997,7 @@ export default function VisitorTrackingPage() {
               onClick={() => {
                 const printWindow = window.open("", "_blank");
                 if (printWindow) {
-                  const url = `${window.location.origin}/ziyaretci-kayit`;
+                  const url = `${window.location.origin}/midas-ziyaretci-form`;
                   printWindow.document.write(`
                     <!DOCTYPE html>
                     <html>

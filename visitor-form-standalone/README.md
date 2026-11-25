@@ -1,4 +1,4 @@
-# Midas Hediyelik Eşya - Ziyaretçi Giriş Formu (Bağımsız HTML / CSS / JS)
+﻿# Midas Hediyelik Eşya - Ziyaretçi Giriş Formu (Bağımsız HTML / CSS / JS)
 
 Bu paket, misafirlerin fabrika veya ofis girişinde QR kod okutarak kendi telefonlarından dolduracakları **mobil uyumlu Ziyaretçi Giriş Formu**dur. 
 
@@ -25,8 +25,8 @@ visitor-form-standalone/
 ## 🚀 1. Yerel Olarak Test Etme
 
 Portal sunucusu çalışırken (`server` port 3003):
-* Tarayıcınızda doğrudan: **`http://localhost:3003/qr`** adresine giderek formu anında test edebilirsiniz.
-* Aynı WiFi ağındaki bir cep telefonundan: **`http://<BILGISAYAR_IP>:3003/qr`** yazarak mobil deneyimi görebilirsiniz.
+* Tarayıcınızda doğrudan: **`http://localhost:3003/midas-ziyaretci-form`** adresine giderek formu anında test edebilirsiniz (ayrıca `/qr` kısa yolu da aktiftir).
+* Aynı WiFi ağındaki bir cep telefonundan: **`http://<BILGISAYAR_IP>:3003/midas-ziyaretci-form`** yazarak mobil deneyimi görebilirsiniz.
 * Veya VS Code Live Server vb. herhangi bir yerel sunucu ile açabilirsiniz.
 
 ---

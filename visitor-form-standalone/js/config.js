@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Midas Ziyaretçi Giriş Formu - Yapılandırma Dosyası
  * 
  * Bu form farklı bir domainde veya hostingde barındırılacağı zaman,
@@ -9,12 +9,16 @@
 window.VISITOR_CONFIG = {
   // Backend API Adresi (Ana sunucuya bağlanır)
   API_BASE_URL: (function() {
-    // Eğer aynı sunucu üzerinden /qr altında çalışıyorsa otomatik aynı origin'i kullan
-    if (window.location.port === "3003" || window.location.pathname.startsWith("/qr")) {
+    // Eğer aynı sunucu üzerinden /midas-ziyaretci-form veya /qr altında çalışıyorsa otomatik aynı origin'i kullan
+    if (
+      window.location.port === "3003" ||
+      window.location.pathname.startsWith("/midas-ziyaretci-form") ||
+      window.location.pathname.startsWith("/qr")
+    ) {
       return window.location.origin + "/api";
     }
     // Farklı bir domain/port üzerinden çalışıyorsa varsayılan API adresi
-    return "http://localhost:3003/api";
+    return window.location.origin ? window.location.origin + "/api" : "http://localhost:3003/api";
   })(),
 
   // Kurumsal Bilgiler

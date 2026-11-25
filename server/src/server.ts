@@ -1,4 +1,4 @@
-import "dotenv/config";
+﻿import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
@@ -55,6 +55,7 @@ app.use(cors(corsOptions));
 const standaloneDir = fs.existsSync(path.join(process.cwd(), "visitor-form-standalone"))
   ? path.join(process.cwd(), "visitor-form-standalone")
   : path.join(__dirname, "../../visitor-form-standalone");
+app.use("/midas-ziyaretci-form", express.static(standaloneDir));
 app.use("/qr", express.static(standaloneDir));
 
 
