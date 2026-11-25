@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from "react";
+﻿import React, { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import apiClient from "@/lib/api";
 import type { IVisitorContact } from "@/types/visitorContact";
@@ -18,6 +18,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { 
   User, 
   Building2, 
@@ -26,7 +34,8 @@ import {
   Star, 
   CheckCircle2, 
   Users,
-  ArrowRight
+  ArrowRight,
+  FileText
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -76,8 +85,9 @@ export default function VisitorRegisterPage() {
   const [licensePlate, setLicensePlate] = useState<string>("");
   const [companions, setCompanions] = useState<CompanionDTO[]>([]);
 
-  // KVKK Onay
+  // KVKK Onay & Modal
   const [kvkkAccepted, setKvkkAccepted] = useState(false);
+  const [isKvkkModalOpen, setIsKvkkModalOpen] = useState(false);
 
   // Gönderim & Başarı Durumu
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -262,6 +272,7 @@ export default function VisitorRegisterPage() {
 
     if (!kvkkAccepted) {
       toast.error("Lütfen KVKK Aydınlatma Metnini onaylayınız.");
+      setIsKvkkModalOpen(true);
       return;
     }
 
@@ -758,19 +769,38 @@ export default function VisitorRegisterPage() {
       )}
 
       {/* 8. KVKK Onay Kutusu */}
-      <div className="pt-1">
-        <label className="flex items-start gap-2.5 cursor-pointer text-xs text-muted-foreground select-none">
+      <div
+        className={cn(
+          "p-3.5 rounded-2xl border transition-all select-none",
+          kvkkAccepted
+            ? "bg-emerald-500/5 border-emerald-500/30 text-foreground"
+            : "bg-muted/30 border-border/80 hover:border-indigo-500/40 text-muted-foreground"
+        )}
+      >
+        <div className="flex items-start gap-3">
           <input
             type="checkbox"
+            id="kvkk-checkbox"
             checked={kvkkAccepted}
             onChange={(e) => setKvkkAccepted(e.target.checked)}
-            className="mt-0.5 rounded border-border text-primary focus:ring-primary h-4 w-4 shrink-0"
-            required
+            className="mt-0.5 h-4 w-4 rounded border-border text-indigo-600 focus:ring-indigo-500 shrink-0 cursor-pointer"
           />
-          <span className="leading-tight">
-            <strong>KVKK Aydınlatma Metni</strong>'ni okudum, anladım ve kabul ediyorum.
-          </span>
-        </label>
+          <label htmlFor="kvkk-checkbox" className="text-xs leading-relaxed cursor-pointer flex-1">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsKvkkModalOpen(true);
+              }}
+              className="font-bold underline text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 inline-flex items-center gap-1 cursor-pointer transition-colors"
+            >
+              <span>KVKK Aydınlatma Metni</span>
+              <FileText size={12} className="inline" />
+            </button>
+            <span>'ni okudum, kişisel verilerimin işlenmesini anladım ve kabul ediyorum.</span>
+          </label>
+        </div>
       </div>
 
       {/* Kayıt Butonu */}
@@ -781,6 +811,91 @@ export default function VisitorRegisterPage() {
       >
         {isSubmitting ? "Kaydediliyor..." : "Ziyaretçi Girişini Tamamla"}
       </Button>
+
+      {/* KVKK Aydınlatma Metni Modalı */}
+      <Dialog open={isKvkkModalOpen} onOpenChange={setIsKvkkModalOpen}>
+        <DialogContent className="w-[94vw] sm:max-w-lg p-0 gap-0 rounded-2xl border border-border bg-card shadow-2xl overflow-hidden">
+          <DialogHeader className="p-5 pb-4 border-b border-border/70 bg-muted/20">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 flex items-center justify-center shrink-0">
+                <ShieldCheck size={20} />
+              </div>
+              <div className="text-left">
+                <DialogTitle className="text-sm font-black uppercase tracking-wider text-foreground">
+                  Ziyaretçi KVKK Aydınlatma Metni
+                </DialogTitle>
+                <DialogDescription className="text-xs text-muted-foreground mt-0.5">
+                  6698 Sayılı Kişisel Verilerin Korunması Kanunu Kapsamında Bilgilendirme
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          {/* Okuma Alanı */}
+          <div className="p-5 space-y-3.5 max-h-[60vh] overflow-y-auto text-xs text-muted-foreground leading-relaxed custom-scrollbar">
+            <div className="text-center pb-2.5 border-b border-border/50">
+              <h3 className="font-bold text-sm text-foreground tracking-wide">
+                KİŞİSEL VERİ AYDINLATMA METNİ
+              </h3>
+              <p className="text-[11px] font-semibold text-primary mt-0.5">
+                MİDAS HEDİYELİK EŞYA SANAYİ VE TİCARET ANONİM ŞİRKETİ
+              </p>
+            </div>
+
+            <p>
+              Bu aydınlatma metni, 6698 sayılı Kişisel Verilerin Korunması Kanunu’nun (“KVKK”) 10. maddesi ile Aydınlatma Yükümlülüğünün Yerine Getirilmesinde Uyulacak Usul ve Esaslar Hakkında Tebliğ kapsamında veri sorumlusu sıfatıyla <strong>MİDAS HEDİYELİK EŞYA SANAYİ VE TİCARET ANONİM ŞİRKETİ</strong> (“MİDAS”) tarafından hazırlanmıştır.
+            </p>
+
+            <p>
+              MİDAS, tesislerinin güvenliğinin sağlanması ve daha kaliteli hizmet verilebilmesi amacıyla, güvenlik kamerasıyla izleme, kayıt, giriş kartı verme ve kimlik kaydı faaliyeti ile misafir giriş çıkışlarının ve internet ağının kullanımının takibine yönelik veri toplamaktadır. Bu bilgileri temin etmeniz ve/veya tesislerimize girmeniz ile toplanan kişisel verilerinizin şirketimiz tarafından işlenmesine izin vermektesiniz.
+            </p>
+
+            <p>
+              İşbu veriler KVKK gereğince, MİDAS’a sözlü olarak vermiş olduğunuz bilgiler, kamera görüntüleri, elektronik, dijital ve teknik kanallar ile otomatik ya da otomatik olmayan yollarla kanuna uygun olarak toplanmakta ve KVKK 5. maddesinde belirtilen kişisel veri işleme şartları ve kayıt oluşturma, giriş ve çıkışların tespit ve kontrolünün sağlanması, tesislerimizde gizlilik ve güvenliğin sağlanması ve yasal yükümlülüklerimizin yerine getirilmesi amaçları dahilinde işlenmektedir.
+            </p>
+
+            <p>
+              Tesislerimiz içerisindeki giriş kapıları, bina dış cephesi, ziyaretçi bekleme salonu, otopark, güvenlik kulübesi ve kat koridorları hizmet alanında bulunan güvenlik kameraları vasıtasıyla ve tesislerimizin, şirketin, müşterilerin ve diğer kişilerin güvenliğinin sağlanması amacıyla görüntü kaydı yapılmakta ve kayıt işlemi MİDAS’ın ilgili birimleri tarafından izlenmektedir.
+            </p>
+
+            <p>
+              Söz konusu kişisel veri, Kanunun 5. maddesinde yer alan <em>“veri sorumlusunun hukuki yükümlülüğünü yerine getirebilmesi için zorunlu olması”</em> ve <em>“ilgili kişinin temel hak ve özgürlüklerine zarar vermemek kaydıyla, veri sorumlusunun meşru menfaatleri için veri işlenmesinin zorunlu olması”</em> hukuki sebebine dayanarak otomatik yolla işlenmektedir.
+            </p>
+
+            <p>
+              Söz konusu kişisel veriler hukuki uyuşmazlıkların çözümü, yetkili kamu kurum ve kuruluşlarının taleplerinin karşılanması amacıyla adli makamlar veya ilgili yetkili kamu kurum ve kuruluşlarına aktarılabilecektir.
+            </p>
+
+            <div className="p-3 rounded-xl bg-muted/40 border border-border/60 text-xs">
+              <span className="font-semibold text-foreground">Hak Talepleri ve İletişim: </span>
+              KVKK’nın 11. maddesi kapsamında tanınan haklarınıza ilişkin taleplerinizi, Aydınlatma Yükümlülüğünün Yerine Getirilmesinde Uyulacak Usul ve Esaslar Hakkında Tebliğ’e göre <strong>MİDAS HEDİYELİK EŞYA SANAYİ VE TİCARET ANONİM ŞİRKETİ</strong>’nin Yalçın Koreş Cad. No:18 Bahçelievler / İstanbul adresine veya elektronik posta üzerinden <a href="mailto:info@midas.com.tr" className="text-primary underline font-medium">info@midas.com.tr</a> adresine iletebilirsiniz.
+            </div>
+          </div>
+
+          <DialogFooter className="p-4 border-t border-border/70 bg-muted/20 flex flex-row items-center justify-between sm:justify-between gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsKvkkModalOpen(false)}
+              className="text-xs h-9 px-4 rounded-xl cursor-pointer"
+            >
+              Kapat
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                setKvkkAccepted(true);
+                setIsKvkkModalOpen(false);
+                toast.success("KVKK Aydınlatma Metni onaylandı.");
+              }}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold h-9 px-4 rounded-xl gap-1.5 shadow-sm cursor-pointer"
+            >
+              <CheckCircle2 size={14} />
+              <span>Okudum, Onaylıyorum</span>
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </form>
   );
 }

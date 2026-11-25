@@ -14,12 +14,10 @@ import {
   Calendar,
   X,
   Users,
-  Settings,
   Copy,
   Printer,
   ExternalLink
 } from "lucide-react";
-import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
@@ -241,7 +239,10 @@ export default function VisitorTrackingPage() {
   const insideVisitors = useMemo(() => visitors.filter((v) => v.status === "inside"), [visitors]);
   const exitedVisitors = useMemo(() => visitors.filter((v) => v.status === "exited"), [visitors]);
   const todayVisitors = useMemo(() => visitors.filter((v) => v.entryDate === todayStr), [visitors, todayStr]);
-  const vehicleVisitors = useMemo(() => visitors.filter((v) => !!v.licensePlate), [visitors]);
+  const insideVehicleVisitors = useMemo(
+    () => insideVisitors.filter((v) => !!v.licensePlate && v.isGroupPrimary !== false),
+    [insideVisitors]
+  );
 
   // Tarih Filtresi Fonksiyonu
   const matchesDatePreset = useCallback(
@@ -444,7 +445,7 @@ export default function VisitorTrackingPage() {
                 Bugün Toplam: <strong className="font-black">{todayVisitors.length}</strong>
               </span>
               <span className="text-[11px] font-bold px-2 py-1 rounded-lg bg-amber-500/10 text-amber-500 border border-amber-500/20">
-                Araçlı: <strong className="font-black">{vehicleVisitors.length}</strong>
+                Araçlı: <strong className="font-black">{insideVehicleVisitors.length}</strong>
               </span>
             </div>
           </div>
@@ -561,16 +562,6 @@ export default function VisitorTrackingPage() {
               <QrCode size={13} />
               <span className="hidden md:inline">Giriş QR Kodu</span>
             </button>
-
-            {/* Ziyaretçi Görüşme Ayarları Butonu */}
-            <Link
-              to="/settings/visitor-contacts"
-              className="flex items-center gap-1.5 px-2.5 h-8 bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground border border-border/80 rounded-lg font-bold text-xs uppercase tracking-wider transition-all cursor-pointer active:scale-95 shadow-xs"
-              title="Ziyarete açık departman ve görüşülecek personelleri yönet"
-            >
-              <Settings size={13} />
-              <span className="hidden md:inline">Görüşme Ayarları</span>
-            </Link>
 
             {/* Excel Dışa Aktar Butonu */}
             <button

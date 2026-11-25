@@ -175,7 +175,7 @@ function App() {
             <Route
               element={
                 <AuthLayoutWrapper>
-                  <ProtectedRoute allowedRoles={["Admin", "Güvenlik", "Yönetici", "Müdür"]} />
+                  <ProtectedRoute allowedRoles={["Admin", "Güvenlik", "Yönetici", "Müdür", "Kalite Mühendisi"]} />
                 </AuthLayoutWrapper>
               }
             >
